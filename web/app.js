@@ -9,7 +9,7 @@ let reconnectTimeout = null
 let pingInterval = null
 let isConnected = false
 
-// Добавьте ЭТУ строку - глобальный объект clients
+// Глобальный объект для хранения онлайн статусов
 window.clients = {}
 
 // Хранилище чатов и непрочитанных сообщений
@@ -30,7 +30,6 @@ function showToast(message, duration = 3000) {
 // Форматирование номера телефона
 function formatPhone(phone) {
     if (!phone) return 'Нет номера'
-    // Простое форматирование для российских номеров
     if (phone.length === 11) {
         return phone.replace(/(\d{1})(\d{3})(\d{3})(\d{2})(\d{2})/, '+$1 ($2) $3-$4-$5')
     }
@@ -40,11 +39,9 @@ function formatPhone(phone) {
 // Получение первой буквы для аватара
 function getAvatarLetter(name) {
     if (!name) return '👤'
-    // Если есть username с @
     if (name.startsWith('@') && name.length > 1) {
         return name[1].toUpperCase()
     }
-    // Обычное имя
     if (name.length > 0) {
         return name[0].toUpperCase()
     }
@@ -95,7 +92,6 @@ function login() {
 
     document.getElementById("myPhone").innerText = formatPhone(phone)
     
-    // Загружаем профиль пользователя
     loadUserProfile()
     connect()
     loadChats()
@@ -110,11 +106,9 @@ async function loadUserProfile() {
         
         currentUserProfile = data
         
-        // Отображаем профиль
         const displayName = data.name || data.username || data.phone
         document.getElementById("myDisplayName").innerText = displayName
         
-        // Обновляем аватар в профиле
         const myAvatar = document.getElementById("myAvatarText")
         if (data.avatar) {
             myAvatar.innerHTML = `<img src="${data.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`
@@ -140,7 +134,6 @@ function openChatProfile() {
 }
 
 // Показать профиль пользователя
-// Показать профиль пользователя
 async function showUserProfile(phone, isMyProfile = false) {
     try {
         const res = await fetch(`/user/${phone}`)
@@ -152,10 +145,8 @@ async function showUserProfile(phone, isMyProfile = false) {
         const profileEdit = document.getElementById('profileEdit')
         const modalActions = document.getElementById('modalActions')
         
-        // Заполняем данные
         const displayName = user.name || user.username || user.phone
         
-        // Отображаем аватар
         const modalAvatar = document.getElementById('modalAvatarText')
         if (user.avatar) {
             modalAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`
@@ -167,21 +158,19 @@ async function showUserProfile(phone, isMyProfile = false) {
         document.getElementById('modalUsername').innerText = user.username || 'Не установлен'
         document.getElementById('modalPhone').innerText = formatPhone(user.phone)
         
-        // ИСПРАВЛЕНИЕ ЗДЕСЬ - проверяем статус онлайн
+        // ИСПРАВЛЕНО: проверка онлайн статуса
         let isOnline = false
-        if (typeof clients !== 'undefined' && clients) {
-            isOnline = phone in clients
+        if (window.clients && typeof window.clients === 'object') {
+            isOnline = phone in window.clients
         }
         
         document.getElementById('modalStatus').innerHTML = isOnline ? 
             '<span style="color: #4ade80;">● Онлайн</span>' : 
             '<span style="color: #f87171;">● Оффлайн</span>'
         
-        // Действия в зависимости от того, свой профиль или чужой
         modalActions.innerHTML = ''
         
         if (isMyProfile) {
-            // Свой профиль - кнопка редактирования
             profileView.style.display = 'block'
             profileEdit.style.display = 'none'
             
@@ -192,7 +181,6 @@ async function showUserProfile(phone, isMyProfile = false) {
                 document.getElementById('editName').value = user.name || ''
                 document.getElementById('editUsername').value = user.username || ''
                 
-                // Сбрасываем предпросмотр аватара
                 const previewAvatar = document.getElementById('previewAvatarText')
                 if (user.avatar) {
                     previewAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`
@@ -206,7 +194,6 @@ async function showUserProfile(phone, isMyProfile = false) {
             modalActions.appendChild(editBtn)
             
         } else {
-            // Чужой профиль - кнопка "Написать"
             profileView.style.display = 'block'
             profileEdit.style.display = 'none'
             
@@ -228,7 +215,7 @@ async function showUserProfile(phone, isMyProfile = false) {
     }
 }
 
-// Предпросмотр аватара перед загрузкой
+// Предпросмотр аватара
 document.getElementById('avatarInput')?.addEventListener('change', function(e) {
     const file = e.target.files[0]
     if (file) {
@@ -251,7 +238,6 @@ async function uploadAvatar() {
         return
     }
     
-    // Проверка размера (макс 2MB)
     if (file.size > 2 * 1024 * 1024) {
         showToast("Файл слишком большой (макс 2MB)")
         return
@@ -275,11 +261,8 @@ async function uploadAvatar() {
         
         showToast('Аватар загружен')
         
-        // Обновляем отображение
         await loadUserProfile()
         loadChats()
-        
-        // Закрываем модальное окно
         closeModal()
         
     } catch (error) {
@@ -306,7 +289,6 @@ async function removeAvatar() {
         
         showToast('Аватар удален')
         
-        // Обновляем отображение
         document.getElementById('previewAvatarText').innerText = '👤'
         document.getElementById('avatarInput').value = ''
         
@@ -334,7 +316,6 @@ async function saveProfile() {
         return
     }
     
-    // Сначала загружаем аватар, если выбран
     const avatarInput = document.getElementById('avatarInput')
     if (avatarInput.files.length > 0) {
         await uploadAvatar()
@@ -361,7 +342,6 @@ async function saveProfile() {
         showToast('Профиль обновлен')
         closeModal()
         
-        // Обновляем отображение
         await loadUserProfile()
         loadChats()
         
@@ -384,7 +364,6 @@ function closeModal() {
 
 // Подключение WebSocket
 function connect() {
-    // Очищаем предыдущие интервалы
     if (pingInterval) clearInterval(pingInterval)
     if (reconnectTimeout) clearTimeout(reconnectTimeout)
 
@@ -401,7 +380,9 @@ function connect() {
             reconnectAttempts = 0
             showToast('Подключено к серверу')
             
-            // Пинг каждые 30 секунд
+            // Обновляем онлайн статус для всех
+            updateOnlineStatus()
+            
             pingInterval = setInterval(() => {
                 if (ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({ action: 'ping' }))
@@ -413,26 +394,25 @@ function connect() {
             try {
                 const data = JSON.parse(event.data)
 
-                // Игнорируем pong
                 if (data.action === 'pong') return
 
                 if (data.action === "message") {
                     addMessage(data.from, data.text)
                     
-                    // Если сообщение не из текущего чата - увеличиваем счетчик
+                    // ИСПРАВЛЕНО: показываем уведомление только если не в этом чате
                     if (currentChat !== data.from) {
                         // Увеличиваем счетчик непрочитанных
                         unreadCounts[data.from] = (unreadCounts[data.from] || 0) + 1
+                        
+                        // Показываем уведомление только если не в этом чате
+                        showToast(`Новое сообщение от ${data.from}`)
+                        if (window.navigator.vibrate) {
+                            window.navigator.vibrate(200)
+                        }
                     }
                     
                     // Обновляем чат и поднимаем его наверх
                     updateSingleChat(data.from, true)
-                    
-                    // Показываем уведомление
-                    showToast(`Новое сообщение`)
-                    if (window.navigator.vibrate) {
-                        window.navigator.vibrate(200)
-                    }
                 }
 
                 if (data.action === "history") {
@@ -441,7 +421,6 @@ function connect() {
                         addMessage(m[0], m[1])
                     })
                     
-                    // Когда открываем чат - обнуляем счетчик для этого чата
                     if (currentChat) {
                         unreadCounts[currentChat] = 0
                         updateSingleChat(currentChat)
@@ -454,7 +433,9 @@ function connect() {
                         clearTimeout(window.typingStatusTimeout)
                         window.typingStatusTimeout = setTimeout(() => {
                             if (currentChat === data.from) {
-                                document.getElementById('chatUserStatus').textContent = 'online'
+                                // ИСПРАВЛЕНО: проверяем онлайн статус
+                                let isOnline = window.clients && data.from in window.clients
+                                document.getElementById('chatUserStatus').textContent = isOnline ? 'online' : 'offline'
                             }
                         }, 3000)
                     }
@@ -482,6 +463,25 @@ function connect() {
     } catch (error) {
         console.error('Connection error:', error)
         handleReconnect()
+    }
+}
+
+// Обновление онлайн статусов
+function updateOnlineStatus() {
+    // Эта функция будет обновлять статусы в UI
+    document.querySelectorAll('.chatItem').forEach(item => {
+        const phone = item.id.replace('chat-', '')
+        const statusDot = item.querySelector('.chat-status')
+        if (statusDot) {
+            const isOnline = window.clients && phone in window.clients
+            statusDot.className = `chat-status ${isOnline ? '' : 'offline'}`
+        }
+    })
+    
+    // Обновляем статус в текущем чате если открыт
+    if (currentChat) {
+        const isOnline = window.clients && currentChat in window.clients
+        document.getElementById('chatUserStatus').textContent = isOnline ? 'online' : 'offline'
     }
 }
 
@@ -549,7 +549,6 @@ function createChatElement(chat) {
         div.classList.add('active')
     }
     
-    // Аватар: если есть - показываем картинку, если нет - букву
     let avatarHtml
     if (chat.avatar) {
         avatarHtml = `<img src="${chat.avatar}" class="chat-avatar-img" alt="avatar">`
@@ -557,7 +556,9 @@ function createChatElement(chat) {
         avatarHtml = escapeHtml(getAvatarLetter(displayName))
     }
     
-    // Бейдж с непрочитанными
+    // ИСПРАВЛЕНО: проверка онлайн статуса
+    const isOnline = window.clients && chat.phone in window.clients
+    
     const unreadBadge = unreadCount > 0 ? 
         `<span class="unread-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>` : ''
     
@@ -568,7 +569,7 @@ function createChatElement(chat) {
             <div class="chat-last-message">${escapeHtml(lastMessage)}</div>
         </div>
         ${unreadBadge}
-        <div class="chat-status ${chat.online ? '' : 'offline'}"></div>
+        <div class="chat-status ${isOnline ? '' : 'offline'}"></div>
     `
     
     div.onclick = () => openChat(chat.phone, displayName)
@@ -578,7 +579,6 @@ function createChatElement(chat) {
 // Обновление одного чата и поднятие наверх
 async function updateSingleChat(phone, moveToTop = false) {
     try {
-        // Загружаем обновленные данные для этого чата
         const userRes = await fetch(`/user/${phone}`)
         const userData = await userRes.json()
         
@@ -588,17 +588,13 @@ async function updateSingleChat(phone, moveToTop = false) {
         
         if (!updatedChat) return
         
-        // Добавляем количество непрочитанных
         updatedChat.unread = unreadCounts[phone] || 0
-        
-        // Обновляем кэш
         chatsCache[phone] = updatedChat
         
         const list = document.getElementById("chatList")
         const existingChat = document.getElementById(`chat-${phone}`)
         
         if (existingChat) {
-            // Обновляем существующий элемент
             const displayName = updatedChat.displayName || updatedChat.name || updatedChat.username || phone
             const lastMessage = updatedChat.last || 'Нет сообщений'
             const unreadCount = unreadCounts[phone] || 0
@@ -606,18 +602,23 @@ async function updateSingleChat(phone, moveToTop = false) {
             const nameElement = existingChat.querySelector('.chat-name')
             const lastMessageElement = existingChat.querySelector('.chat-last-message')
             const avatarElement = existingChat.querySelector('.chat-avatar')
+            const statusDot = existingChat.querySelector('.chat-status')
             
             if (nameElement) nameElement.innerText = displayName
             if (lastMessageElement) lastMessageElement.innerText = lastMessage
             
-            // Обновляем аватар
             if (updatedChat.avatar) {
                 avatarElement.innerHTML = `<img src="${updatedChat.avatar}" class="chat-avatar-img" alt="avatar">`
             } else {
                 avatarElement.innerText = getAvatarLetter(displayName)
             }
             
-            // Обновляем/добавляем бейдж
+            // ИСПРАВЛЕНО: обновляем онлайн статус
+            const isOnline = window.clients && phone in window.clients
+            if (statusDot) {
+                statusDot.className = `chat-status ${isOnline ? '' : 'offline'}`
+            }
+            
             let badge = existingChat.querySelector('.unread-badge')
             if (unreadCount > 0) {
                 if (!badge) {
@@ -630,13 +631,13 @@ async function updateSingleChat(phone, moveToTop = false) {
                 badge.remove()
             }
             
-            // Если нужно поднять наверх
             if (moveToTop) {
                 list.prepend(existingChat)
             }
             
         } else {
-            // Если чата нет - создаем новый
+            // ИСПРАВЛЕНО: если чата нет - создаем новый даже без сообщений
+            // (для случая когда пользователь сам написал первым)
             const newChat = createChatElement(updatedChat)
             if (moveToTop) {
                 list.prepend(newChat)
@@ -644,7 +645,6 @@ async function updateSingleChat(phone, moveToTop = false) {
                 list.appendChild(newChat)
             }
             
-            // Обновляем счетчик
             const count = document.getElementById("chatsCount")
             count.textContent = parseInt(count.textContent) + 1
         }
@@ -655,17 +655,12 @@ async function updateSingleChat(phone, moveToTop = false) {
 }
 
 // Открыть чат
-// Открыть чат
 function openChat(phone, displayName) {
     currentChat = phone
     
-    // Обнуляем счетчик для этого чата
     unreadCounts[phone] = 0
-    
-    // Обновляем отображение чата (убираем бейдж)
     updateSingleChat(phone)
     
-    // Загружаем профиль для отображения в шапке
     fetch(`/user/${phone}`)
         .then(res => res.json())
         .then(user => {
@@ -673,7 +668,6 @@ function openChat(phone, displayName) {
             document.getElementById("chatUserName").innerText = name
             document.getElementById("chatUserPhone").innerText = formatPhone(phone)
             
-            // Обновляем аватар в шапке чата
             const chatAvatar = document.getElementById("chatAvatarText")
             if (user.avatar) {
                 chatAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`
@@ -681,11 +675,8 @@ function openChat(phone, displayName) {
                 chatAvatar.innerText = getAvatarLetter(name)
             }
             
-            // ИСПРАВЛЕНИЕ ЗДЕСЬ - проверяем статус
-            let isOnline = false
-            if (typeof clients !== 'undefined' && clients) {
-                isOnline = phone in clients
-            }
+            // ИСПРАВЛЕНО: проверка онлайн статуса
+            const isOnline = window.clients && phone in window.clients
             document.getElementById('chatUserStatus').textContent = isOnline ? 'online' : 'offline'
         })
         .catch(() => {
@@ -703,12 +694,10 @@ function openChat(phone, displayName) {
     
     loadMessages()
     
-    // Убираем активный класс у всех чатов
     document.querySelectorAll('.chatItem').forEach(el => {
         el.classList.remove('active')
     })
     
-    // Добавляем активный класс текущему чату
     const activeChat = document.getElementById(`chat-${phone}`)
     if (activeChat) {
         activeChat.classList.add('active')
@@ -754,7 +743,7 @@ function send() {
     document.getElementById("text").value = ""
 }
 
-// Добавление сообщения в окно чата
+// Добавление сообщения
 function addMessage(user, text) {
     const messagesDiv = document.getElementById("messages")
     const div = document.createElement("div")
@@ -819,7 +808,6 @@ async function search() {
             return
         }
 
-        // Показываем профиль найденного пользователя
         showUserProfile(data.phone, false)
         document.getElementById("searchUser").value = ""
 
@@ -829,7 +817,7 @@ async function search() {
     }
 }
 
-// Обработка Enter для отправки
+// Обработка Enter
 document.getElementById("text").addEventListener("keypress", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault()
@@ -871,15 +859,18 @@ window.addEventListener('resize', () => {
     }
 })
 
-// Инициализация при загрузке страницы
+// Инициализация
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('loginPhone').focus()
 })
 
-// Очистка при закрытии страницы
+// Очистка при закрытии
 window.addEventListener('beforeunload', () => {
     if (pingInterval) clearInterval(pingInterval)
     if (reconnectTimeout) clearTimeout(reconnectTimeout)
     if (ws) ws.close(1000, 'Page closed')
 })
+
+// Периодическое обновление онлайн статусов
+setInterval(updateOnlineStatus, 5000)
 
