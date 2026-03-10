@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NonBlock Messenger</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- Экран входа -->
+<div id="loginScreen">
+    <div class="login-container">
+        <h1>NonBlock</h1>
+        <p>Введите номер телефона</p>
+        <input id="loginPhone" type="tel" placeholder="+7 (999) 999-99-99" class="login-input">
+        <button onclick="login()" class="login-btn">Войти</button>
+    </div>
+</div>
+
+<!-- Основное приложение -->
+<div class="app" id="app">
+
+    <!-- Левый сайдбар (список чатов) -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar()">☰</button>
+            <h3>NonBlock</h3>
+            <div class="header-actions">
+                <span class="online-status"></span>
+            </div>
+        </div>
+
+        <!-- Профиль пользователя -->
+        <div class="profile-section">
+            <div class="profile-header" onclick="openMyProfile()">
+                <div class="profile-avatar" id="myAvatar">
+                    <span id="myAvatarText">👤</span>
+                </div>
+                <div class="profile-info">
+                    <div class="profile-name" id="myDisplayName">Загрузка...</div>
+                    <div class="profile-phone" id="myPhone"></div>
+                </div>
+                <div class="profile-edit-badge">
+                    <span class="edit-icon">✎</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Поиск -->
+        <div class="search-section">
+            <input id="searchUser" placeholder="Поиск по username" class="search-input">
+            <button onclick="search()" class="search-btn">🔍</button>
+        </div>
+
+        <!-- Список чатов -->
+        <div class="chats-header">
+            <span>Чаты</span>
+            <span class="chats-count" id="chatsCount">0</span>
+        </div>
+        <div id="chatList" class="chat-list"></div>
+    </div>
+
+    <!-- Правая часть (чат) -->
+    <div class="chat-area">
+        <!-- Пустой чат -->
+        <div id="emptyChat" class="empty-chat">
+            <div class="empty-chat-content">
+                <div class="empty-icon">💬</div>
+                <h3>Выберите чат</h3>
+                <p>Начните общение с другом</p>
+            </div>
+        </div>
+
+        <!-- Активный чат -->
+        <div id="chatBlock" class="chat-block">
+            <!-- Шапка чата с профилем собеседника -->
+            <div class="chat-header" id="chatHeader" onclick="openChatProfile()">
+                <button class="back-btn" onclick="closeChat(event)">←</button>
+                <div class="chat-user-info">
+                    <div class="chat-user-avatar" id="chatAvatar">
+                        <span id="chatAvatarText">👤</span>
+                    </div>
+                    <div class="chat-user-details">
+                        <span class="chat-user-name" id="chatUserName">Загрузка...</span>
+                        <span class="chat-user-phone" id="chatUserPhone"></span>
+                        <span class="chat-user-status" id="chatUserStatus">offline</span>
+                    </div>
+                </div>
+                <div class="chat-actions">
+                    <button class="action-btn" onclick="openChatProfile()">📋</button>
+                </div>
+            </div>
+
+            <!-- Сообщения -->
+            <div id="messages" class="messages"></div>
+
+            <!-- Ввод сообщения -->
+            <div class="input-area">
+                <input id="text" placeholder="Напишите сообщение..." class="message-input">
+                <button onclick="send()" class="send-btn">📤</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно профиля (как в Telegram) -->
+<div id="profileModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Профиль</h2>
+            <button class="close-btn" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="profile-view">
+                <div class="profile-view-avatar" id="modalAvatar">
+                    <span id="modalAvatarText">👤</span>
+                </div>
+
+                <div class="profile-view-field">
+                    <label>Имя</label>
+                    <div class="field-value" id="modalName"></div>
+                </div>
+
+                <div class="profile-view-field">
+                    <label>Username</label>
+                    <div class="field-value" id="modalUsername"></div>
+                </div>
+
+                <div class="profile-view-field">
+                    <label>Телефон</label>
+                    <div class="field-value" id="modalPhone"></div>
+                </div>
+
+                <div class="profile-view-field">
+                    <label>Статус</label>
+                    <div class="field-value" id="modalStatus"></div>
+                </div>
+
+                <div id="modalActions" class="profile-actions">
+                    <!-- Действия будут добавляться динамически -->
+                </div>
+            </div>
+
+            <!-- Редактирование профиля (для своего профиля) -->
+            <div class="profile-edit" id="profileEdit" style="display: none;">
+                <div class="edit-field">
+                    <label>Имя</label>
+                    <input type="text" id="editName" placeholder="Введите имя">
+                </div>
+                <div class="edit-field">
+                    <label>Username</label>
+                    <input type="text" id="editUsername" placeholder="@username">
+                </div>
+                <div class="edit-actions">
+                    <button onclick="saveProfile()" class="save-profile-btn">Сохранить</button>
+                    <button onclick="cancelEdit()" class="cancel-profile-btn">Отмена</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Уведомления -->
+<div id="toast" class="toast"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>
