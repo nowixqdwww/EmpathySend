@@ -52,8 +52,10 @@
 
         <!-- Поиск -->
         <div class="search-section">
-            <input id="searchUser" placeholder="Поиск по username" class="search-input">
-            <button onclick="search()" class="search-btn">🔍</button>
+            <div class="search-container">
+                <input id="searchUser" placeholder="Поиск по username" class="search-input" autocomplete="off">
+                <div id="searchResults" class="search-results" style="display: none;"></div>
+            </div>
         </div>
 
         <!-- Список чатов -->
@@ -209,6 +211,7 @@
 <script src="/app.js"></script>
 </body>
 </html>
+
 
 
 
