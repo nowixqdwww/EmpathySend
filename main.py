@@ -309,6 +309,24 @@ async def delete_message(data: DeleteMessage):
         logger.error(f"Error deleting message: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.get("/last-message/{user1}/{user2}")
+async def get_last_message(user1: str, user2: str):
+    try:
+        conn = await get_db()
+        last_msg = await conn.fetchrow('''
+            SELECT text FROM messages 
+            WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
+            AND is_deleted = 0
+            ORDER BY timestamp DESC LIMIT 1
+        ''', user1, user2)
+        await conn.close()
+        
+        return {"last": last_msg['text'] if last_msg else ""}
+        
+    except Exception as e:
+        logger.error(f"Error getting last message: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.post("/delete-chat")
 async def delete_chat(data: dict):
     try:
@@ -628,4 +646,5 @@ if __name__ == "__main__":
         port=port,
         reload=False
     )
+
 
