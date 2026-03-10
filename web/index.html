@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NonBlock Messenger</title>
     <link rel="stylesheet" href="/style.css">
+    <link rel="apple-touch-icon" href="/icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
 
@@ -20,7 +23,7 @@
 
 <!-- Основное приложение -->
 <div class="app" id="app">
-
+    
     <!-- Левый сайдбар (список чатов) -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
@@ -112,11 +115,12 @@
             <button class="close-btn" onclick="closeModal()">✕</button>
         </div>
         <div class="modal-body">
-            <div class="profile-view">
+            <!-- Просмотр профиля -->
+            <div class="profile-view" id="profileView">
                 <div class="profile-view-avatar" id="modalAvatar">
                     <span id="modalAvatarText">👤</span>
                 </div>
-
+                
                 <div class="profile-view-field">
                     <label>Имя</label>
                     <div class="field-value" id="modalName"></div>
@@ -144,6 +148,20 @@
 
             <!-- Редактирование профиля (для своего профиля) -->
             <div class="profile-edit" id="profileEdit" style="display: none;">
+                <!-- Блок загрузки аватара -->
+                <div class="edit-field avatar-upload">
+                    <label>Аватар</label>
+                    <div class="avatar-preview" id="avatarPreview">
+                        <span id="previewAvatarText">👤</span>
+                    </div>
+                    <div class="upload-controls">
+                        <input type="file" id="avatarInput" accept="image/*" style="display: none;">
+                        <button onclick="document.getElementById('avatarInput').click()" class="upload-btn">Выбрать фото</button>
+                        <button onclick="removeAvatar()" class="remove-avatar-btn">Удалить</button>
+                    </div>
+                </div>
+
+                <!-- Поля для редактирования -->
                 <div class="edit-field">
                     <label>Имя</label>
                     <input type="text" id="editName" placeholder="Введите имя">
@@ -152,6 +170,8 @@
                     <label>Username</label>
                     <input type="text" id="editUsername" placeholder="@username">
                 </div>
+
+                <!-- Кнопки действий -->
                 <div class="edit-actions">
                     <button onclick="saveProfile()" class="save-profile-btn">Сохранить</button>
                     <button onclick="cancelEdit()" class="cancel-profile-btn">Отмена</button>
