@@ -30,6 +30,7 @@
             <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar()">☰</button>
             <h3>NonBlock</h3>
             <div class="header-actions">
+                <button class="settings-btn" onclick="openSettings()">⚙️</button>
                 <span class="online-status"></span>
             </div>
         </div>
@@ -50,7 +51,7 @@
             </div>
         </div>
 
-        <!-- Поиск -->
+        <!-- Поиск с автодополнением -->
         <div class="search-section">
             <div class="search-container">
                 <input id="searchUser" placeholder="Поиск по username или имени" class="search-input" autocomplete="off">
@@ -193,6 +194,97 @@
     </div>
 </div>
 
+<!-- Модальное окно настроек -->
+<div id="settingsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Настройки</h2>
+            <button class="close-btn" onclick="closeSettings()">✕</button>
+        </div>
+        <div class="modal-body">
+            <div class="settings-section">
+                <h3>Конфиденциальность</h3>
+                
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-title">Номер телефона</div>
+                        <div class="settings-item-description">Кто может видеть ваш номер</div>
+                    </div>
+                    <select id="phonePrivacy" class="settings-select" onchange="savePhonePrivacy()">
+                        <option value="everyone">Все</option>
+                        <option value="contacts">Мои контакты</option>
+                        <option value="nobody">Никто</option>
+                    </select>
+                </div>
+
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-title">Статус "онлайн"</div>
+                        <div class="settings-item-description">Кто может видеть, когда вы в сети</div>
+                    </div>
+                    <select id="onlinePrivacy" class="settings-select" onchange="saveOnlinePrivacy()">
+                        <option value="everyone">Все</option>
+                        <option value="contacts">Мои контакты</option>
+                        <option value="nobody">Никто</option>
+                    </select>
+                </div>
+
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-title">Фото профиля</div>
+                        <div class="settings-item-description">Кто может видеть ваше фото</div>
+                    </div>
+                    <select id="avatarPrivacy" class="settings-select" onchange="saveAvatarPrivacy()">
+                        <option value="everyone">Все</option>
+                        <option value="contacts">Мои контакты</option>
+                        <option value="nobody">Никто</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3>Безопасность</h3>
+                
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-title">Блокировка</div>
+                        <div class="settings-item-description">Заблокированные пользователи</div>
+                    </div>
+                    <button class="settings-button" onclick="openBlockedUsers()">Управление</button>
+                </div>
+
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-title">Активные сессии</div>
+                        <div class="settings-item-description">Устройства, где выполнен вход</div>
+                    </div>
+                    <button class="settings-button" onclick="openSessions()">Управление</button>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <h3>Данные и хранилище</h3>
+                
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-title">Очистить все чаты</div>
+                        <div class="settings-item-description">Удалить историю всех сообщений</div>
+                    </div>
+                    <button class="settings-button danger" onclick="clearAllChats()">Очистить</button>
+                </div>
+
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-title">Экспорт данных</div>
+                        <div class="settings-item-description">Скачать все свои данные</div>
+                    </div>
+                    <button class="settings-button" onclick="exportData()">Экспорт</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Контекстное меню для сообщений -->
 <div id="messageContextMenu" class="context-menu" style="display: none;">
     <div class="context-menu-item delete" onclick="deleteMessage()">🗑️ Удалить сообщение</div>
@@ -211,8 +303,3 @@
 <script src="/app.js"></script>
 </body>
 </html>
-
-
-
-
-
