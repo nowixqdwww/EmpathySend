@@ -20,6 +20,10 @@ let longPressTarget = null
 // Для поиска
 let searchTimeout = null
 
+// Для редактора аватара
+let cropper = null
+let currentAvatarFile = null
+
 // Глобальный объект для хранения онлайн статусов
 window.clients = {}
 
@@ -592,36 +596,132 @@ async function showUserProfile(phone, isMyProfile = false) {
     }
 }
 
+// ============= ФУНКЦИИ ДЛЯ РЕДАКТОРА АВАТАРА =============
+
 document.getElementById('avatarInput')?.addEventListener('change', function(e) {
     const file = e.target.files[0]
     if (file) {
+        if (file.size > 5 * 1024 * 1024) {
+            showToast("Файл слишком большой (макс 5MB)")
+            return
+        }
+        
+        if (!file.type.startsWith('image/')) {
+            showToast("Пожалуйста, выберите изображение")
+            return
+        }
+        
+        currentAvatarFile = file
+        
         const reader = new FileReader()
         reader.onload = function(e) {
             document.getElementById('previewAvatarText').innerHTML = 
                 `<img src="${e.target.result}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`
+            
+            openAvatarEditor(e.target.result)
         }
         reader.readAsDataURL(file)
     }
 })
 
-async function uploadAvatar() {
-    const input = document.getElementById('avatarInput')
-    const file = input.files[0]
+function openAvatarEditor(imageUrl) {
+    const modal = document.getElementById('avatarEditorModal')
+    const image = document.getElementById('avatarImage')
     
-    if (!file) {
-        showToast("Выберите файл")
-        return
+    image.src = imageUrl
+    
+    modal.classList.add('show')
+    
+    image.onload = function() {
+        if (cropper) {
+            cropper.destroy()
+        }
+        
+        cropper = new Cropper(image, {
+            aspectRatio: 1 / 1,
+            viewMode: 1,
+            dragMode: 'move',
+            autoCropArea: 1,
+            cropBoxMovable: true,
+            cropBoxResizable: true,
+            toggleDragModeOnDblclick: false,
+            minCropBoxWidth: 100,
+            minCropBoxHeight: 100,
+            zoomable: true,
+            scalable: true,
+            rotatable: true
+        })
+        
+        updateZoomLevel()
+    }
+}
+
+function closeAvatarEditor() {
+    const modal = document.getElementById('avatarEditorModal')
+    modal.classList.remove('show')
+    
+    if (cropper) {
+        cropper.destroy()
+        cropper = null
     }
     
-    if (file.size > 2 * 1024 * 1024) {
-        showToast("Файл слишком большой (макс 2MB)")
-        return
+    document.getElementById('avatarInput').value = ''
+}
+
+function zoomIn() {
+    if (cropper) {
+        cropper.zoom(0.1)
+        updateZoomLevel()
     }
+}
+
+function zoomOut() {
+    if (cropper) {
+        cropper.zoom(-0.1)
+        updateZoomLevel()
+    }
+}
+
+function rotateLeft() {
+    if (cropper) {
+        cropper.rotate(-90)
+    }
+}
+
+function rotateRight() {
+    if (cropper) {
+        cropper.rotate(90)
+    }
+}
+
+function updateZoomLevel() {
+    if (cropper) {
+        const zoom = cropper.getZoom()
+        const percent = Math.round(zoom * 100)
+        document.getElementById('zoomLevel').textContent = percent + '%'
+    }
+}
+
+async function saveCroppedAvatar() {
+    if (!cropper || !currentUser) return
     
-    const formData = new FormData()
-    formData.append('file', file)
+    showToast('Обработка изображения...')
     
     try {
+        const canvas = cropper.getCroppedCanvas({
+            width: 512,
+            height: 512,
+            imageSmoothingEnabled: true,
+            imageSmoothingQuality: 'high'
+        })
+        
+        const blob = await new Promise(resolve => {
+            canvas.toBlob(resolve, 'image/jpeg', 0.9)
+        })
+        
+        const formData = new FormData()
+        formData.append('file', blob, 'avatar.jpg')
+        
         const res = await fetch(`/upload-avatar/${currentUser}`, {
             method: 'POST',
             body: formData
@@ -636,9 +736,10 @@ async function uploadAvatar() {
         
         showToast('Аватар загружен')
         
+        closeAvatarEditor()
+        
         await loadUserProfile()
         loadChats()
-        closeModal()
         
     } catch (error) {
         console.error("Error uploading avatar:", error)
@@ -666,6 +767,8 @@ async function removeAvatar() {
         document.getElementById('previewAvatarText').innerText = '👤'
         document.getElementById('avatarInput').value = ''
         
+        closeAvatarEditor()
+        
         await loadUserProfile()
         loadChats()
         
@@ -690,9 +793,8 @@ async function saveProfile() {
         return
     }
     
-    const avatarInput = document.getElementById('avatarInput')
-    if (avatarInput.files.length > 0) {
-        await uploadAvatar()
+    if (cropper) {
+        await saveCroppedAvatar()
     }
     
     try {
@@ -1594,6 +1696,26 @@ document.getElementById("text").addEventListener("keypress", (e) => {
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         closeModal()
+        closeAvatarEditor()
+    }
+    
+    if (document.getElementById('avatarEditorModal').classList.contains('show')) {
+        if (e.key === '+' || e.key === '=') {
+            e.preventDefault()
+            zoomIn()
+        } else if (e.key === '-' || e.key === '_') {
+            e.preventDefault()
+            zoomOut()
+        } else if (e.key === 'r') {
+            e.preventDefault()
+            rotateRight()
+        } else if (e.key === 'R' && e.shiftKey) {
+            e.preventDefault()
+            rotateLeft()
+        } else if (e.key === 'Enter') {
+            e.preventDefault()
+            saveCroppedAvatar()
+        }
     }
 })
 
