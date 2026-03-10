@@ -56,24 +56,16 @@ function getAvatarLetter(name) {
     return '👤'
 }
 
-// Функция для проверки аватаров (для отладки)
-async function checkAvatar(url) {
-    try {
-        const res = await fetch(url, { method: 'HEAD' })
-        console.log(`Avatar ${url}: ${res.ok ? 'OK' : 'NOT FOUND'}`)
-        return res.ok
-    } catch (error) {
-        console.error(`Error checking avatar ${url}:`, error)
-        return false
-    }
-}
-
-
 // Экранирование HTML
 function escapeHtml(text) {
     const div = document.createElement('div')
     div.textContent = text
     return div.innerHTML
+}
+
+// Очистка номера от пробелов
+function cleanPhone(phone) {
+    return phone.replace(/\s+/g, '').trim()
 }
 
 // Переключение сайдбара на мобильных
@@ -125,13 +117,7 @@ async function loadUserProfile() {
         if (!res.ok) throw new Error('Failed to load profile')
         const data = await res.json()
         
-        console.log('Profile data:', data) // Для отладки
-        
-        if (data.avatar) {
-            // Проверяем существование аватара
-            const exists = await checkAvatar(data.avatar)
-            console.log(`Avatar exists: ${exists}`)
-        }
+        console.log('Profile data:', data)
         
         currentUserProfile = data
         
@@ -149,6 +135,7 @@ async function loadUserProfile() {
         console.error("Error loading profile:", error)
     }
 }
+
 // Открыть свой профиль
 function openMyProfile() {
     showUserProfile(currentUser, true)
@@ -177,7 +164,7 @@ async function showUserProfile(phone, isMyProfile = false) {
         
         const modalAvatar = document.getElementById('modalAvatarText')
         if (user.avatar) {
-            modalAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`
+            modalAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerText=getAvatarLetter('${displayName}')">`
         } else {
             modalAvatar.innerText = getAvatarLetter(displayName)
         }
@@ -556,7 +543,8 @@ function connect() {
                 if (data.action === "message") {
                     addMessage(data.from, data.text, data.id)
                     
-                    const existingChat = document.getElementById(`chat-${data.from}`)
+                    const cleanFrom = cleanPhone(data.from)
+                    const existingChat = document.getElementById(`chat-${cleanFrom}`)
                     
                     if (!existingChat) {
                         updateSingleChat(data.from, true)
@@ -573,7 +561,7 @@ function connect() {
                     if (currentChat !== data.from) {
                         unreadCounts[data.from] = (unreadCounts[data.from] || 0) + 1
                         
-                        const chatElement = document.getElementById(`chat-${data.from}`)
+                        const chatElement = document.getElementById(`chat-${cleanFrom}`)
                         const badge = chatElement?.querySelector('.unread-badge')
                         if (badge) {
                             badge.textContent = unreadCounts[data.from] > 99 ? '99+' : unreadCounts[data.from]
@@ -683,6 +671,30 @@ function handleReconnect() {
     }
 }
 
+// Очистка дубликатов чатов
+function removeDuplicateChats() {
+    const chatList = document.getElementById("chatList")
+    const seen = new Set()
+    const duplicates = []
+    
+    const chats = chatList.querySelectorAll('.chatItem')
+    
+    chats.forEach(chat => {
+        const id = chat.id
+        if (seen.has(id)) {
+            duplicates.push(chat)
+        } else {
+            seen.add(id)
+        }
+    })
+    
+    duplicates.forEach(dup => dup.remove())
+    
+    if (duplicates.length > 0) {
+        console.log(`Removed ${duplicates.length} duplicate chats`)
+    }
+}
+
 // Загрузка списка чатов
 async function loadChats() {
     if (!currentUser) return
@@ -704,7 +716,10 @@ async function loadChats() {
         })
         
         renderChatList(chats)
-
+        
+        // Очищаем дубликаты после рендера
+        setTimeout(removeDuplicateChats, 100)
+        
     } catch (error) {
         console.error("Error loading chats:", error)
         showToast("Ошибка загрузки чатов")
@@ -732,7 +747,8 @@ function createChatElement(chat) {
     
     let div = document.createElement("div")
     div.className = "chatItem"
-    div.id = `chat-${chat.phone}`
+    const cleanPhone = cleanPhone(chat.phone)
+    div.id = `chat-${cleanPhone}`
     
     if (chat.phone === currentChat) {
         div.classList.add('active')
@@ -740,7 +756,7 @@ function createChatElement(chat) {
     
     let avatarHtml
     if (chat.avatar) {
-        avatarHtml = `<img src="${chat.avatar}" class="chat-avatar-img" alt="avatar">`
+        avatarHtml = `<img src="${chat.avatar}" class="chat-avatar-img" alt="avatar" onerror="this.onerror=null; this.parentElement.innerText=getAvatarLetter('${displayName}')">`
     } else {
         avatarHtml = escapeHtml(getAvatarLetter(displayName))
     }
@@ -782,7 +798,9 @@ function createChatElement(chat) {
 // Обновление одного чата
 async function updateSingleChat(phone, moveToTop = false) {
     try {
-        const existingElement = document.getElementById(`chat-${phone}`)
+        const cleanPhone = cleanPhone(phone)
+        
+        const existingElement = document.getElementById(`chat-${cleanPhone}`)
         if (existingElement && !moveToTop) {
             return
         }
@@ -791,7 +809,7 @@ async function updateSingleChat(phone, moveToTop = false) {
         if (!res.ok) throw new Error('Failed to load chats')
         
         const chats = await res.json()
-        const updatedChat = chats.find(c => c.phone === phone)
+        const updatedChat = chats.find(c => c.phone === phone || cleanPhone(c.phone) === cleanPhone)
         
         if (!updatedChat) {
             const userRes = await fetch(`/user/${phone}`)
@@ -828,7 +846,7 @@ async function updateSingleChat(phone, moveToTop = false) {
         chatsCache[phone] = updatedChat
         
         const list = document.getElementById("chatList")
-        let chatElement = document.getElementById(`chat-${phone}`)
+        let chatElement = document.getElementById(`chat-${cleanPhone}`)
         
         if (chatElement) {
             const displayName = updatedChat.displayName || updatedChat.name || updatedChat.username || phone
@@ -844,7 +862,7 @@ async function updateSingleChat(phone, moveToTop = false) {
             if (lastMessageElement) lastMessageElement.innerText = lastMessage
             
             if (updatedChat.avatar) {
-                avatarElement.innerHTML = `<img src="${updatedChat.avatar}" class="chat-avatar-img" alt="avatar">`
+                avatarElement.innerHTML = `<img src="${updatedChat.avatar}" class="chat-avatar-img" alt="avatar" onerror="this.onerror=null; this.parentElement.innerText=getAvatarLetter('${displayName}')">`
             } else {
                 avatarElement.innerText = getAvatarLetter(displayName)
             }
@@ -882,6 +900,9 @@ async function updateSingleChat(phone, moveToTop = false) {
             count.textContent = parseInt(count.textContent) + 1
         }
         
+        // Очищаем дубликаты
+        setTimeout(removeDuplicateChats, 50)
+        
     } catch (error) {
         console.error("Error updating single chat:", error)
     }
@@ -905,7 +926,7 @@ function openChat(phone, displayName) {
             
             const chatAvatar = document.getElementById("chatAvatarText")
             if (user.avatar) {
-                chatAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`
+                chatAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerText=getAvatarLetter('${name}')">`
             } else {
                 chatAvatar.innerText = getAvatarLetter(name)
             }
@@ -932,7 +953,8 @@ function openChat(phone, displayName) {
         el.classList.remove('active')
     })
     
-    const activeChat = document.getElementById(`chat-${phone}`)
+    const cleanPhone = cleanPhone(phone)
+    const activeChat = document.getElementById(`chat-${cleanPhone}`)
     if (activeChat) {
         activeChat.classList.add('active')
     }
@@ -976,7 +998,8 @@ function send() {
     addMessage(currentUser, text)
     document.getElementById("text").value = ""
     
-    const existingChat = document.getElementById(`chat-${currentChat}`)
+    const cleanPhone = cleanPhone(currentChat)
+    const existingChat = document.getElementById(`chat-${cleanPhone}`)
     if (!existingChat) {
         updateSingleChat(currentChat, true)
     } else {
@@ -1085,8 +1108,10 @@ async function deleteChat() {
         })
         
         if (res.ok) {
-            if (selectedChatElement) {
-                selectedChatElement.remove()
+            const cleanPhone = cleanPhone(selectedChatPhone)
+            const chatElement = document.getElementById(`chat-${cleanPhone}`)
+            if (chatElement) {
+                chatElement.remove()
             }
             
             if (currentChat === selectedChatPhone) {
@@ -1097,6 +1122,8 @@ async function deleteChat() {
             
             const count = document.getElementById("chatsCount")
             count.textContent = parseInt(count.textContent) - 1
+            
+            delete chatsCache[selectedChatPhone]
             
             showToast('Чат удален')
         }
@@ -1135,33 +1162,31 @@ async function clearChat() {
             })
         })
         
-        if (!res.ok) {
-            const errorText = await res.text()
-            console.error('Clear chat error:', res.status, errorText)
-            showToast(`Ошибка: ${res.status}`)
-            return
-        }
-        
-        const data = await res.json()
-        
-        if (data.error) {
-            showToast(data.error)
-            return
-        }
-        
-        if (currentChat === selectedChatPhone) {
-            document.getElementById("messages").innerHTML = ""
-        }
-        
-        const chatElement = document.getElementById(`chat-${selectedChatPhone}`)
-        if (chatElement) {
-            const lastMsgElement = chatElement.querySelector('.chat-last-message')
-            if (lastMsgElement) {
-                lastMsgElement.innerText = 'Нет сообщений'
+        if (res.ok) {
+            if (currentChat === selectedChatPhone) {
+                document.getElementById("messages").innerHTML = ""
             }
+            
+            const cleanPhone = cleanPhone(selectedChatPhone)
+            const chatElement = document.getElementById(`chat-${cleanPhone}`)
+            if (chatElement) {
+                const lastMsgElement = chatElement.querySelector('.chat-last-message')
+                if (lastMsgElement) {
+                    lastMsgElement.innerText = 'Нет сообщений'
+                }
+                
+                const badge = chatElement.querySelector('.unread-badge')
+                if (badge) {
+                    badge.remove()
+                }
+            }
+            
+            if (chatsCache[selectedChatPhone]) {
+                chatsCache[selectedChatPhone].last = ''
+            }
+            
+            showToast('История очищена')
         }
-        
-        showToast('История очищена')
         
     } catch (error) {
         console.error("Error clearing chat:", error)
@@ -1283,5 +1308,3 @@ window.addEventListener('beforeunload', () => {
 
 // Периодическое обновление онлайн статусов
 setInterval(updateOnlineStatus, 5000)
-
-
