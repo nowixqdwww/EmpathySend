@@ -22,7 +22,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methodies=["*"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
@@ -436,3 +436,4 @@ if __name__ == "__main__":
         port=port,
         reload=False
     )
+
