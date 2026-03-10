@@ -408,11 +408,38 @@ function connect() {
                 if (data.action === "message") {
                     addMessage(data.from, data.text, data.id)
                     
-                    // НЕМЕДЛЕННО создаем/обновляем чат у получателя
-                    updateSingleChat(data.from, true)
+                    // Проверяем, есть ли уже чат
+                    const existingChat = document.getElementById(`chat-${data.from}`)
+                    
+                    if (!existingChat) {
+                        // Если чата нет - создаем новый
+                        updateSingleChat(data.from, true)
+                    } else {
+                        // Если чат есть - поднимаем наверх и обновляем последнее сообщение
+                        const list = document.getElementById("chatList")
+                        list.prepend(existingChat)
+                        
+                        // Обновляем последнее сообщение
+                        const lastMsgElement = existingChat.querySelector('.chat-last-message')
+                        if (lastMsgElement) {
+                            lastMsgElement.innerText = data.text
+                        }
+                    }
                     
                     if (currentChat !== data.from) {
                         unreadCounts[data.from] = (unreadCounts[data.from] || 0) + 1
+                        
+                        // Обновляем счетчик
+                        const badge = existingChat?.querySelector('.unread-badge')
+                        if (badge) {
+                            badge.textContent = unreadCounts[data.from] > 99 ? '99+' : unreadCounts[data.from]
+                        } else if (existingChat) {
+                            const newBadge = document.createElement('span')
+                            newBadge.className = 'unread-badge'
+                            newBadge.textContent = unreadCounts[data.from] > 99 ? '99+' : unreadCounts[data.from]
+                            existingChat.appendChild(newBadge)
+                        }
+                        
                         showToast(`Новое сообщение`)
                         if (window.navigator.vibrate) {
                             window.navigator.vibrate(200)
@@ -595,7 +622,13 @@ function createChatElement(chat) {
 // Обновление одного чата и поднятие наверх
 async function updateSingleChat(phone, moveToTop = false) {
     try {
-        // Всегда загружаем свежие данные
+        // Проверяем, есть ли уже такой элемент
+        const existingElement = document.getElementById(`chat-${phone}`)
+        if (existingElement && !moveToTop) {
+            return // Если элемент уже есть и не нужно поднимать - выходим
+        }
+        
+        // Загружаем свежие данные
         const res = await fetch(`/users/${currentUser}`)
         if (!res.ok) throw new Error('Failed to load chats')
         
@@ -604,11 +637,9 @@ async function updateSingleChat(phone, moveToTop = false) {
         
         if (!updatedChat) {
             // Если чата нет в списке, но мы его хотим создать
-            // Получаем информацию о пользователе
             const userRes = await fetch(`/user/${phone}`)
             const userData = await userRes.json()
             
-            // Создаем минимальный объект чата
             const newChat = {
                 phone: phone,
                 username: userData.username,
@@ -616,13 +647,11 @@ async function updateSingleChat(phone, moveToTop = false) {
                 displayName: userData.name || userData.username || phone,
                 avatar: userData.avatar,
                 online: phone in window.clients,
-                last: '' // Пустое последнее сообщение пока
+                last: ''
             }
             
-            // Добавляем в кэш
             chatsCache[phone] = newChat
             
-            // Создаем элемент
             const list = document.getElementById("chatList")
             const newChatElement = createChatElement(newChat)
             
@@ -632,7 +661,6 @@ async function updateSingleChat(phone, moveToTop = false) {
                 list.appendChild(newChatElement)
             }
             
-            // Обновляем счетчик
             const count = document.getElementById("chatsCount")
             count.textContent = parseInt(count.textContent) + 1
             
@@ -644,17 +672,18 @@ async function updateSingleChat(phone, moveToTop = false) {
         chatsCache[phone] = updatedChat
         
         const list = document.getElementById("chatList")
-        const existingChat = document.getElementById(`chat-${phone}`)
+        let chatElement = document.getElementById(`chat-${phone}`)
         
-        if (existingChat) {
+        if (chatElement) {
+            // Обновляем существующий элемент
             const displayName = updatedChat.displayName || updatedChat.name || updatedChat.username || phone
             const lastMessage = updatedChat.last || 'Нет сообщений'
             const unreadCount = unreadCounts[phone] || 0
             
-            const nameElement = existingChat.querySelector('.chat-name')
-            const lastMessageElement = existingChat.querySelector('.chat-last-message')
-            const avatarElement = existingChat.querySelector('.chat-avatar')
-            const statusDot = existingChat.querySelector('.chat-status')
+            const nameElement = chatElement.querySelector('.chat-name')
+            const lastMessageElement = chatElement.querySelector('.chat-last-message')
+            const avatarElement = chatElement.querySelector('.chat-avatar')
+            const statusDot = chatElement.querySelector('.chat-status')
             
             if (nameElement) nameElement.innerText = displayName
             if (lastMessageElement) lastMessageElement.innerText = lastMessage
@@ -670,12 +699,12 @@ async function updateSingleChat(phone, moveToTop = false) {
                 statusDot.className = `chat-status ${isOnline ? '' : 'offline'}`
             }
             
-            let badge = existingChat.querySelector('.unread-badge')
+            let badge = chatElement.querySelector('.unread-badge')
             if (unreadCount > 0) {
                 if (!badge) {
                     badge = document.createElement('span')
                     badge.className = 'unread-badge'
-                    existingChat.appendChild(badge)
+                    chatElement.appendChild(badge)
                 }
                 badge.textContent = unreadCount > 99 ? '99+' : unreadCount
             } else if (badge) {
@@ -683,7 +712,7 @@ async function updateSingleChat(phone, moveToTop = false) {
             }
             
             if (moveToTop) {
-                list.prepend(existingChat)
+                list.prepend(chatElement)
             }
             
         } else {
@@ -706,11 +735,19 @@ async function updateSingleChat(phone, moveToTop = false) {
 
 // Открыть чат
 function openChat(phone, displayName) {
+    // Если уже открыт этот чат - не делаем ничего
+    if (currentChat === phone) {
+        return
+    }
+    
     currentChat = phone
     
     unreadCounts[phone] = 0
-    updateSingleChat(phone)
     
+    // Обновляем отображение чата (убираем бейдж)
+    updateSingleChat(phone, false)
+    
+    // Загружаем профиль для отображения в шапке
     fetch(`/user/${phone}`)
         .then(res => res.json())
         .then(user => {
@@ -743,10 +780,12 @@ function openChat(phone, displayName) {
     
     loadMessages()
     
+    // Убираем активный класс у всех чатов
     document.querySelectorAll('.chatItem').forEach(el => {
         el.classList.remove('active')
     })
     
+    // Добавляем активный класс текущему чату
     const activeChat = document.getElementById(`chat-${phone}`)
     if (activeChat) {
         activeChat.classList.add('active')
@@ -783,17 +822,28 @@ function send() {
 
     if (!text) return
 
+    // Отправляем сообщение
     ws.send(JSON.stringify({
         action: "send",
         to: currentChat,
         text: text
     }))
 
+    // Добавляем сообщение в интерфейс
     addMessage(currentUser, text)
     document.getElementById("text").value = ""
     
-    // НЕМЕДЛЕННО создаем/обновляем чат у отправителя
-    updateSingleChat(currentChat, true)
+    // Обновляем чат (поднимаем наверх) ТОЛЬКО если это новый чат
+    // Проверяем, есть ли уже этот чат в списке
+    const existingChat = document.getElementById(`chat-${currentChat}`)
+    if (!existingChat) {
+        // Если чата нет - создаем
+        updateSingleChat(currentChat, true)
+    } else {
+        // Если чат есть - просто поднимаем наверх
+        const list = document.getElementById("chatList")
+        list.prepend(existingChat)
+    }
 }
 
 // Добавление сообщения в окно чата
@@ -1009,5 +1059,6 @@ window.addEventListener('beforeunload', () => {
 
 // Периодическое обновление онлайн статусов
 setInterval(updateOnlineStatus, 5000)
+
 
 
