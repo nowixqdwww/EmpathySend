@@ -17,6 +17,9 @@ let selectedChatElement = null
 let longPressTimer = null
 let longPressTarget = null
 
+// Для поиска
+let searchTimeout = null
+
 // Глобальный объект для хранения онлайн статусов
 window.clients = {}
 
@@ -818,7 +821,6 @@ function send() {
     addMessage(currentUser, text)
     document.getElementById("text").value = ""
     
-    // Создаем/обновляем чат после отправки сообщения
     updateSingleChat(currentChat, true)
 }
 
@@ -1250,11 +1252,149 @@ function handleReconnect() {
     }
 }
 
-// ============= ПОИСК =============
+// ============= ПОИСК С АВТОДОПОЛНЕНИЕМ =============
 
-async function search() {
-    const username = document.getElementById("searchUser").value.trim()
+// Поиск пользователей по части имени
+async function searchUsers(query) {
+    if (query.length < 2) {
+        hideSearchResults()
+        return
+    }
+    
+    try {
+        const res = await fetch(`/search-users/${encodeURIComponent(query)}`)
+        if (!res.ok) throw new Error('Search failed')
+        
+        const data = await res.json()
+        displaySearchResults(data.users, query)
+        
+    } catch (error) {
+        console.error("Search error:", error)
+    }
+}
 
+// Отображение результатов поиска
+function displaySearchResults(users, query) {
+    const resultsDiv = document.getElementById('searchResults')
+    const searchInput = document.getElementById('searchUser')
+    
+    if (!resultsDiv) return
+    
+    resultsDiv.innerHTML = ''
+    
+    if (users.length === 0) {
+        resultsDiv.innerHTML = '<div class="search-no-results">Ничего не найдено</div>'
+        resultsDiv.style.display = 'block'
+        return
+    }
+    
+    users.forEach(user => {
+        const item = createSearchResultItem(user, query)
+        resultsDiv.appendChild(item)
+    })
+    
+    resultsDiv.style.display = 'block'
+}
+
+// Создание элемента результата поиска
+function createSearchResultItem(user, query) {
+    const div = document.createElement('div')
+    div.className = 'search-result-item'
+    
+    // Подсвечиваем совпадения
+    const highlightedUsername = highlightMatch(user.username || '', query)
+    const highlightedName = highlightMatch(user.name || '', query)
+    
+    let avatarHtml
+    if (user.avatar) {
+        avatarHtml = `<img src="${user.avatar}" alt="avatar">`
+    } else {
+        avatarHtml = getAvatarLetter(user.displayName || user.username || user.phone)
+    }
+    
+    div.innerHTML = `
+        <div class="search-result-avatar">${avatarHtml}</div>
+        <div class="search-result-info">
+            <div class="search-result-name">${highlightedName || user.displayName || user.phone}</div>
+            <div class="search-result-username">${highlightedUsername || ''}</div>
+            <div class="search-result-phone">${formatPhone(user.phone)}</div>
+        </div>
+    `
+    
+    div.onclick = () => {
+        document.getElementById('searchUser').value = user.username || user.name || ''
+        hideSearchResults()
+        showUserProfile(user.phone, false)
+    }
+    
+    return div
+}
+
+// Подсветка совпадений
+function highlightMatch(text, query) {
+    if (!text || !query) return text
+    
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+    return text.replace(regex, '<span style="background-color: #ffeb3b; color: #333;">$1</span>')
+}
+
+// Обработчик ввода в поле поиска
+document.getElementById('searchUser').addEventListener('input', (e) => {
+    const query = e.target.value.trim()
+    
+    if (searchTimeout) {
+        clearTimeout(searchTimeout)
+    }
+    
+    if (query.length < 2) {
+        hideSearchResults()
+        return
+    }
+    
+    const resultsDiv = document.getElementById('searchResults')
+    resultsDiv.innerHTML = '<div class="search-loading">Поиск...</div>'
+    resultsDiv.style.display = 'block'
+    
+    searchTimeout = setTimeout(() => {
+        searchUsers(query)
+    }, 300)
+})
+
+// Обработчик клика вне области поиска
+document.addEventListener('click', (e) => {
+    const searchInput = document.getElementById('searchUser')
+    const searchResults = document.getElementById('searchResults')
+    
+    if (searchInput && searchResults) {
+        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+            hideSearchResults()
+        }
+    }
+})
+
+// Скрыть результаты поиска
+function hideSearchResults() {
+    const resultsDiv = document.getElementById('searchResults')
+    if (resultsDiv) {
+        resultsDiv.style.display = 'none'
+    }
+}
+
+// Обработчик клавиш в поиске
+document.getElementById('searchUser').addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        hideSearchResults()
+        e.target.value = ''
+    } else if (e.key === 'Enter') {
+        const query = e.target.value.trim()
+        if (query) {
+            searchExactUser(query)
+        }
+    }
+})
+
+// Поиск точного пользователя
+async function searchExactUser(username) {
     if (!username) {
         showToast("Введите username")
         return
@@ -1277,6 +1417,7 @@ async function search() {
 
         showUserProfile(data.phone, false)
         document.getElementById("searchUser").value = ""
+        hideSearchResults()
 
     } catch (error) {
         console.error("Search error:", error)
