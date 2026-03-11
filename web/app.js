@@ -306,6 +306,28 @@ async function login() {
         const data = await res.json()
 
         if (data.error) {
+            // Проверяем, существует ли пользователь вообще
+            const userCheck = await fetch(`/user/${cleanPhone}`)
+            
+            if (userCheck.ok) {
+                // Пользователь существует, но пароль неверный
+                // Возможно, у него вообще нет пароля
+                const userData = await userCheck.json()
+                
+                // Проверяем, есть ли у пользователя пароль (можно через отдельный эндпоинт)
+                const passwordCheck = await fetch(`/check-password/${cleanPhone}`)
+                const passwordData = await passwordCheck.json()
+                
+                if (!passwordData.hasPassword) {
+                    // У пользователя нет пароля - предлагаем создать
+                    if (confirm('У этого аккаунта еще нет пароля. Хотите создать пароль?')) {
+                        currentUser = cleanPhone
+                        showPasswordSetup()
+                        return
+                    }
+                }
+            }
+            
             showToast(data.error)
             return
         }
@@ -318,7 +340,6 @@ async function login() {
         showToast('Ошибка входа')
     }
 }
-
 function completeLogin() {
     document.getElementById('loginScreen').style.display = 'none'
     document.getElementById('app').style.display = 'flex'
@@ -1541,3 +1562,4 @@ window.addEventListener('beforeunload', () => {
 
 // Периодическое обновление статусов
 setInterval(updateOnlineStatus, 5000)
+
