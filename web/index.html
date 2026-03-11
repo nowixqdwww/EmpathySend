@@ -383,6 +383,59 @@
     </div>
 </div>
 
+<!-- Добавьте после модального окна для SMS кода -->
+
+<!-- Модальное окно для создания пароля (при первой регистрации) -->
+<div id="passwordSetupModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Создание пароля</h2>
+            <button class="close-btn" onclick="closePasswordSetup()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p>Придумайте пароль для входа в аккаунт</p>
+            <input type="password" id="newPassword" placeholder="Пароль" class="login-input">
+            <input type="password" id="confirmPassword" placeholder="Подтвердите пароль" class="login-input" style="margin-top: 10px;">
+            <div class="password-strength" id="passwordStrength">
+                <div class="strength-bar" id="strengthBar"></div>
+            </div>
+            <div class="password-requirements">
+                <p class="requirement" id="reqLength">❌ Минимум 6 символов</p>
+                <p class="requirement" id="reqNumber">❌ Хотя бы одна цифра</p>
+                <p class="requirement" id="reqLetter">❌ Хотя бы одна буква</p>
+            </div>
+            <button onclick="savePassword()" class="login-btn" id="savePasswordBtn" disabled>
+                <i class="fas fa-check"></i> Сохранить пароль
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для смены пароля (в настройках) -->
+<div id="changePasswordModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Смена пароля</h2>
+            <button class="close-btn" onclick="closeChangePassword()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <input type="password" id="currentPassword" placeholder="Текущий пароль" class="login-input">
+            <input type="password" id="newPasswordChange" placeholder="Новый пароль" class="login-input" style="margin-top: 10px;">
+            <input type="password" id="confirmPasswordChange" placeholder="Подтвердите новый пароль" class="login-input" style="margin-top: 10px;">
+            <div class="password-strength" id="changePasswordStrength">
+                <div class="strength-bar" id="changeStrengthBar"></div>
+            </div>
+            <button onclick="changePassword()" class="login-btn" style="margin-top: 20px;">
+                <i class="fas fa-key"></i> Сменить пароль
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Контейнер для reCAPTCHA (невидимый) -->
 <div id="recaptcha-container"></div>
 
@@ -414,3 +467,4 @@
 <script src="/app.js"></script>
 </body>
 </html>
+
