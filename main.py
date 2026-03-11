@@ -242,6 +242,29 @@ async def change_password(data: ChangePassword):
         logger.error(f"Error changing password: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+@app.get("/check-password/{phone}")
+async def check_password(phone: str):
+    """Проверка, установлен ли пароль у пользователя"""
+    try:
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            "SELECT password FROM users WHERE phone = ?",
+            (phone,)
+        )
+        user = cursor.fetchone()
+        conn.close()
+        
+        if not user:
+            return JSONResponse(status_code=404, content={"error": "User not found"})
+        
+        return {"hasPassword": user['password'] is not None}
+        
+    except Exception as e:
+        logger.error(f"Error checking password: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 # ============= ЭНДПОИНТЫ ПОЛЬЗОВАТЕЛЕЙ =============
 
 @app.get("/user/{phone}")
@@ -788,3 +811,4 @@ if __name__ == "__main__":
         port=port,
         reload=True
     )
+
