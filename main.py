@@ -459,30 +459,37 @@ async def save_privacy_settings(phone: str, settings: dict):
 async def search_user(data: SearchUser):
     try:
         conn = await get_db()
-        user = await conn.fetchrow(
-            "SELECT phone, username, name, bio, avatar FROM users WHERE username = $1",
-            data.username
-        )
+        user = await conn.fetchrow('''
+            SELECT u.phone, u.username, u.name, u.bio, u.avatar,
+                   ps.phone_privacy
+            FROM users u
+            LEFT JOIN privacy_settings ps ON u.phone = ps.phone
+            WHERE u.username = $1
+        ''', data.username)
         await conn.close()
         
         if not user:
             return {"found": False}
         
+        # Проверяем, нужно ли показывать номер
+        show_phone = user['phone_privacy'] == 'everyone'
+        
         avatar_url = f"/avatars/{user['avatar']}" if user['avatar'] else ""
         return {
             "found": True,
-            "phone": user['phone'],
+            "phone": user['phone'] if show_phone else "hidden",
             "username": user['username'],
             "name": user['name'],
             "bio": user['bio'] or "",
-            "avatar": avatar_url
+            "avatar": avatar_url,
+            "phone_hidden": not show_phone
         }
     except Exception as e:
         logger.error(f"Error searching user {data.username}: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/search-users/{query}")
-async def search_users(query: str, current_user: str = None):
+async def search_users(query: str):
     try:
         if len(query) < 2:
             return {"users": []}
@@ -726,4 +733,3 @@ if __name__ == "__main__":
         port=port,
         reload=False
     )
-
