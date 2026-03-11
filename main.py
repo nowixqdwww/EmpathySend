@@ -523,6 +523,7 @@ async def search_users(query: str):
             avatar_url = f"/avatars/{user['avatar']}" if user['avatar'] else ""
             result.append({
                 "phone": user['phone'] if show_phone else "hidden",
+                "realPhone": user['phone'],  # ВАЖНО: всегда передаем реальный номер для открытия профиля
                 "username": user['username'],
                 "name": user['name'],
                 "avatar": avatar_url,
@@ -733,3 +734,4 @@ if __name__ == "__main__":
         port=port,
         reload=False
     )
+
