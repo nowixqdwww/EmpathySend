@@ -305,41 +305,125 @@ async function login() {
 
         const data = await res.json()
 
-        if (data.error) {
-            // Проверяем, существует ли пользователь вообще
-            const userCheck = await fetch(`/user/${cleanPhone}`)
-            
-            if (userCheck.ok) {
-                // Пользователь существует, но пароль неверный
-                // Возможно, у него вообще нет пароля
-                const userData = await userCheck.json()
-                
-                // Проверяем, есть ли у пользователя пароль (можно через отдельный эндпоинт)
-                const passwordCheck = await fetch(`/check-password/${cleanPhone}`)
-                const passwordData = await passwordCheck.json()
-                
-                if (!passwordData.hasPassword) {
-                    // У пользователя нет пароля - предлагаем создать
-                    if (confirm('У этого аккаунта еще нет пароля. Хотите создать пароль?')) {
-                        currentUser = cleanPhone
-                        showPasswordSetup()
-                        return
-                    }
+        if (!res.ok) {
+            // Специальная обработка для случая, когда пароль не установлен
+            if (data.error === 'NO_PASSWORD_SET') {
+                if (confirm('У этого аккаунта нет пароля. Хотите создать пароль?')) {
+                    currentUser = cleanPhone
+                    showPasswordSetupModal()
                 }
+                return
             }
-            
-            showToast(data.error)
+            // Обычная ошибка
+            showToast(data.error || 'Ошибка входа')
             return
         }
 
+        // Успешный вход
         currentUser = data.phone
         completeLogin()
 
     } catch (error) {
         console.error('Login error:', error)
-        showToast('Ошибка входа')
+        showToast('Ошибка соединения с сервером')
     }
 }
+
+// Показать модальное окно создания пароля
+function showPasswordSetupModal() {
+    // Очищаем поля ввода
+    document.getElementById('newPassword').value = ''
+    document.getElementById('confirmPassword').value = ''
+    
+    // Сбрасываем индикатор силы пароля
+    const strengthBar = document.getElementById('strengthBar')
+    if (strengthBar) {
+        strengthBar.className = 'strength-bar'
+        strengthBar.style.width = '0%'
+    }
+    
+    // Сбрасываем требования
+    const reqLength = document.getElementById('reqLength')
+    const reqNumber = document.getElementById('reqNumber')
+    const reqLetter = document.getElementById('reqLetter')
+    
+    if (reqLength) {
+        reqLength.innerHTML = '❌ Минимум 6 символов'
+        reqLength.className = 'requirement'
+    }
+    if (reqNumber) {
+        reqNumber.innerHTML = '❌ Хотя бы одна цифра'
+        reqNumber.className = 'requirement'
+    }
+    if (reqLetter) {
+        reqLetter.innerHTML = '❌ Хотя бы одна буква'
+        reqLetter.className = 'requirement'
+    }
+    
+    // Отключаем кнопку сохранения
+    const saveBtn = document.getElementById('savePasswordBtn')
+    if (saveBtn) {
+        saveBtn.disabled = true
+    }
+    
+    // Показываем модальное окно
+    document.getElementById('passwordSetupModal').classList.add('show')
+}
+
+// Сохранение пароля для существующего пользователя
+async function savePasswordForExisting() {
+    const password = document.getElementById('newPassword').value
+    const confirm = document.getElementById('confirmPassword').value
+    
+    if (!password) {
+        showToast('Введите пароль')
+        return
+    }
+    
+    if (password.length < 6) {
+        showToast('Пароль должен быть не менее 6 символов')
+        return
+    }
+    
+    if (password !== confirm) {
+        showToast('Пароли не совпадают')
+        return
+    }
+    
+    try {
+        const res = await fetch('/set-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                phone: currentUser,
+                password: btoa(password)
+            })
+        })
+        
+        const data = await res.json()
+        
+        if (data.error) {
+            showToast(data.error)
+            return
+        }
+        
+        showToast('Пароль сохранен')
+        closePasswordSetup()
+        
+        // Автоматически входим
+        completeLogin()
+        
+    } catch (error) {
+        console.error('Error saving password:', error)
+        showToast('Ошибка сохранения пароля')
+    }
+}
+
+// Закрыть окно создания пароля
+function closePasswordSetup() {
+    document.getElementById('passwordSetupModal').classList.remove('show')
+}
+
 function completeLogin() {
     document.getElementById('loginScreen').style.display = 'none'
     document.getElementById('app').style.display = 'flex'
@@ -1533,6 +1617,7 @@ document.addEventListener('keydown', (e) => {
         closeModal()
         closeAvatarEditor()
         closeChangePassword()
+        closePasswordSetup()
     }
 })
 
@@ -1562,4 +1647,3 @@ window.addEventListener('beforeunload', () => {
 
 // Периодическое обновление статусов
 setInterval(updateOnlineStatus, 5000)
-
