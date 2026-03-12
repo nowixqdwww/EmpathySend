@@ -63,14 +63,14 @@ function formatPhone(phone) {
 }
 
 function getAvatarLetter(name) {
-    if (!name) return '<i class="fas fa-user"></i>';
+    if (!name) return '<i class="fas fa-user"></i>'
     if (name.startsWith('@') && name.length > 1) {
-        return name[1].toUpperCase();
+        return name[1].toUpperCase()
     }
     if (name.length > 0) {
-        return name[0].toUpperCase();
+        return name[0].toUpperCase()
     }
-    return '<i class="fas fa-user"></i>';
+    return '<i class="fas fa-user"></i>'
 }
 
 function escapeHtml(text) {
@@ -139,67 +139,60 @@ function broadcastOnlineStatus(isOnline) {
 // ============= ФУНКЦИИ ДЛЯ ПРОВЕРКИ ПАРОЛЯ =============
 
 function checkPasswordStrength(password) {
-    console.log('Checking password strength:', password); // Для отладки
+    console.log('Checking password strength:', password)
     
     const strength = {
         length: password.length >= 6,
         number: /\d/.test(password),
         letter: /[a-zA-Z]/.test(password)
-    };
+    }
     
-    console.log('Strength:', strength); // Для отладки
+    console.log('Strength:', strength)
     
     // Обновляем требования
-    const reqLength = document.getElementById('reqLength');
-    const reqNumber = document.getElementById('reqNumber');
-    const reqLetter = document.getElementById('reqLetter');
-    const strengthBar = document.getElementById('strengthBar');
-    const saveBtn = document.getElementById('savePasswordBtn');
+    const reqLength = document.getElementById('reqLength')
+    const reqNumber = document.getElementById('reqNumber')
+    const reqLetter = document.getElementById('reqLetter')
+    const strengthBar = document.getElementById('strengthBar')
+    const saveBtn = document.getElementById('savePasswordBtn')
     
-    // Обновляем требование длины
     if (reqLength) {
-        reqLength.innerHTML = (strength.length ? '✅' : '❌') + ' Минимум 6 символов';
-        reqLength.className = 'requirement' + (strength.length ? ' met' : '');
+        reqLength.innerHTML = (strength.length ? '✅' : '❌') + ' Минимум 6 символов'
+        reqLength.className = 'requirement' + (strength.length ? ' met' : '')
     }
     
-    // Обновляем требование цифры
     if (reqNumber) {
-        reqNumber.innerHTML = (strength.number ? '✅' : '❌') + ' Хотя бы одна цифра';
-        reqNumber.className = 'requirement' + (strength.number ? ' met' : '');
+        reqNumber.innerHTML = (strength.number ? '✅' : '❌') + ' Хотя бы одна цифра'
+        reqNumber.className = 'requirement' + (strength.number ? ' met' : '')
     }
     
-    // Обновляем требование буквы
     if (reqLetter) {
-        reqLetter.innerHTML = (strength.letter ? '✅' : '❌') + ' Хотя бы одна буква';
-        reqLetter.className = 'requirement' + (strength.letter ? ' met' : '');
+        reqLetter.innerHTML = (strength.letter ? '✅' : '❌') + ' Хотя бы одна буква'
+        reqLetter.className = 'requirement' + (strength.letter ? ' met' : '')
     }
     
     // Определяем общую силу пароля
-    const score = Object.values(strength).filter(Boolean).length;
-    console.log('Score:', score); // Для отладки
+    const score = Object.values(strength).filter(Boolean).length
+    console.log('Score:', score)
     
-    // Обновляем шкалу надежности
     if (strengthBar) {
-        // Сначала убираем все классы
-        strengthBar.className = 'strength-bar';
-        
-        // Добавляем класс в зависимости от силы
+        strengthBar.className = 'strength-bar'
         if (score === 3) {
-            strengthBar.classList.add('strong');
-            console.log('Strong password');
+            strengthBar.classList.add('strong')
+            console.log('Strong password')
         } else if (score === 2) {
-            strengthBar.classList.add('medium');
-            console.log('Medium password');
+            strengthBar.classList.add('medium')
+            console.log('Medium password')
         } else if (score >= 1) {
-            strengthBar.classList.add('weak');
-            console.log('Weak password');
+            strengthBar.classList.add('weak')
+            console.log('Weak password')
         }
     }
     
     // Активируем кнопку если все требования выполнены
     if (saveBtn) {
-        saveBtn.disabled = !(strength.length && strength.number && strength.letter);
-        console.log('Button disabled:', saveBtn.disabled);
+        saveBtn.disabled = !(strength.length && strength.number && strength.letter)
+        console.log('Button disabled:', saveBtn.disabled)
     }
 }
 
@@ -321,9 +314,7 @@ async function login() {
 
         const data = await res.json()
 
-        // Если статус ответа не 2xx (ok)
         if (!res.ok) {
-            // Специальная обработка для случая, когда пароль не установлен
             if (data.error === 'NO_PASSWORD_SET') {
                 if (confirm('У этого аккаунта нет пароля. Хотите создать пароль?')) {
                     currentUser = cleanPhone
@@ -331,12 +322,10 @@ async function login() {
                 }
                 return
             }
-            // Обычная ошибка (пользователь не найден, неверный пароль)
             showToast(data.error || 'Ошибка входа')
             return
         }
 
-        // Успешный вход
         currentUser = data.phone
         completeLogin()
 
@@ -346,130 +335,118 @@ async function login() {
     }
 }
 
-// Показать модальное окно создания пароля
 function showPasswordSetupModal() {
-    console.log('Opening password setup modal for user:', currentUser); // Для отладки
+    console.log('Opening password setup modal for user:', currentUser)
     
-    // Очищаем поля ввода
-    const newPasswordInput = document.getElementById('newPassword');
-    const confirmPasswordInput = document.getElementById('confirmPassword');
+    const newPasswordInput = document.getElementById('newPassword')
+    const confirmPasswordInput = document.getElementById('confirmPassword')
     
-    if (newPasswordInput) newPasswordInput.value = '';
-    if (confirmPasswordInput) confirmPasswordInput.value = '';
+    if (newPasswordInput) newPasswordInput.value = ''
+    if (confirmPasswordInput) confirmPasswordInput.value = ''
     
-    // Сбрасываем индикатор силы пароля
-    const strengthBar = document.getElementById('strengthBar');
+    const strengthBar = document.getElementById('strengthBar')
     if (strengthBar) {
-        strengthBar.className = 'strength-bar';
-        strengthBar.style.width = '0%';
+        strengthBar.className = 'strength-bar'
+        strengthBar.style.width = '0%'
     }
     
-    // Сбрасываем требования
-    const reqLength = document.getElementById('reqLength');
-    const reqNumber = document.getElementById('reqNumber');
-    const reqLetter = document.getElementById('reqLetter');
+    const reqLength = document.getElementById('reqLength')
+    const reqNumber = document.getElementById('reqNumber')
+    const reqLetter = document.getElementById('reqLetter')
     
     if (reqLength) {
-        reqLength.innerHTML = '❌ Минимум 6 символов';
-        reqLength.className = 'requirement';
+        reqLength.innerHTML = '❌ Минимум 6 символов'
+        reqLength.className = 'requirement'
     }
     if (reqNumber) {
-        reqNumber.innerHTML = '❌ Хотя бы одна цифра';
-        reqNumber.className = 'requirement';
+        reqNumber.innerHTML = '❌ Хотя бы одна цифра'
+        reqNumber.className = 'requirement'
     }
     if (reqLetter) {
-        reqLetter.innerHTML = '❌ Хотя бы одна буква';
-        reqLetter.className = 'requirement';
+        reqLetter.innerHTML = '❌ Хотя бы одна буква'
+        reqLetter.className = 'requirement'
     }
     
-    // Отключаем кнопку сохранения
-    const saveBtn = document.getElementById('savePasswordBtn');
+    const saveBtn = document.getElementById('savePasswordBtn')
     if (saveBtn) {
-        saveBtn.disabled = true;
+        saveBtn.disabled = true
     }
     
-    // Показываем модальное окно
-    const modal = document.getElementById('passwordSetupModal');
+    const modal = document.getElementById('passwordSetupModal')
     if (modal) {
-        modal.classList.add('show');
+        modal.classList.add('show')
     } else {
-        console.error('Password setup modal not found!');
-        alert('Ошибка: модальное окно не найдено');
+        console.error('Password setup modal not found!')
     }
 }
 
-// Сохранение пароля для существующего пользователя
-// Сохранение пароля для существующего пользователя
 async function savePasswordForExisting() {
-    console.log('Saving password for existing user:', currentUser); // Для отладки
+    console.log('Saving password for existing user:', currentUser)
     
-    const password = document.getElementById('newPassword').value;
-    const confirm = document.getElementById('confirmPassword').value;
+    const password = document.getElementById('newPassword').value
+    const confirm = document.getElementById('confirmPassword').value
     
     if (!password) {
-        showToast('Введите пароль');
-        return;
+        showToast('Введите пароль')
+        return
     }
     
     if (password.length < 6) {
-        showToast('Пароль должен быть не менее 6 символов');
-        return;
+        showToast('Пароль должен быть не менее 6 символов')
+        return
     }
     
     if (password !== confirm) {
-        showToast('Пароли не совпадают');
-        return;
+        showToast('Пароли не совпадают')
+        return
     }
     
-    // Проверяем сложность пароля
-    const hasNumber = /\d/.test(password);
-    const hasLetter = /[a-zA-Z]/.test(password);
+    const hasNumber = /\d/.test(password)
+    const hasLetter = /[a-zA-Z]/.test(password)
     
     if (!hasNumber || !hasLetter) {
-        showToast('Пароль должен содержать хотя бы одну цифру и одну букву');
-        return;
+        showToast('Пароль должен содержать хотя бы одну цифру и одну букву')
+        return
     }
     
     try {
-        showToast('Сохранение пароля...');
+        showToast('Сохранение пароля...')
         
         const res = await fetch('/set-password', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 phone: currentUser,
-                password: btoa(password) // Простое base64 кодирование
+                password: btoa(password)
             })
-        });
+        })
         
-        const data = await res.json();
+        const data = await res.json()
         
         if (!res.ok) {
-            showToast(data.error || 'Ошибка сохранения пароля');
-            return;
+            showToast(data.error || 'Ошибка сохранения пароля')
+            return
         }
         
-        showToast('Пароль сохранен');
-        closePasswordSetup();
-        
-        // Автоматически входим
-        completeLogin();
+        showToast('Пароль сохранен')
+        closePasswordSetup()
+        completeLogin()
         
     } catch (error) {
-        console.error('Error saving password:', error);
-        showToast('Ошибка сохранения пароля: ' + error.message);
+        console.error('Error saving password:', error)
+        showToast('Ошибка сохранения пароля: ' + error.message)
     }
 }
 
-// Закрыть окно создания пароля
 function closePasswordSetup() {
-    const modal = document.getElementById('passwordSetupModal');
+    const modal = document.getElementById('passwordSetupModal')
     if (modal) {
-        modal.classList.remove('show');
+        modal.classList.remove('show')
     }
 }
 
 function completeLogin() {
+    console.log('completeLogin: currentUser =', currentUser)
     document.getElementById('loginScreen').style.display = 'none'
     document.getElementById('app').style.display = 'flex'
     document.getElementById('sidebar').classList.add('open')
@@ -480,8 +457,6 @@ function completeLogin() {
     connect()
     loadChats()
 }
-
-// ============= ФУНКЦИИ ДЛЯ СМЕНЫ ПАРОЛЯ =============
 
 function openChangePassword() {
     document.getElementById('changePasswordModal').classList.add('show')
@@ -915,11 +890,11 @@ function createChatElement(chat) {
         div.classList.add('active')
     }
     
-    let avatarHtml;
+    let avatarHtml
     if (chat.avatar) {
-        avatarHtml = `<img src="${chat.avatar}" class="chat-avatar-img" alt="avatar" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fas fa-user\'></i>'">`;
+        avatarHtml = `<img src="${chat.avatar}" class="chat-avatar-img" alt="avatar" onerror="this.onerror=null; this.parentElement.innerHTML='<i class=\'fas fa-user\'></i>'">`
     } else {
-        avatarHtml = '<i class="fas fa-user"></i>';
+        avatarHtml = '<i class="fas fa-user"></i>'
     }
     
     const isOnline = window.clients && window.clients[chat.phone] === true
@@ -985,18 +960,41 @@ function createChatElement(chat) {
 }
 
 async function loadChats() {
-    if (!currentUser) return
+    if (!currentUser) {
+        console.error('loadChats: currentUser is null')
+        return
+    }
+    
+    console.log('loadChats: loading chats for user', currentUser)
     
     try {
-        let res = await fetch(`/users/${currentUser}`)
-        if (!res.ok) throw new Error('Failed to load chats')
+        const url = `/users/${currentUser}`
+        console.log('loadChats: fetching', url)
+        
+        let res = await fetch(url)
+        console.log('loadChats: response status', res.status)
+        
+        if (!res.ok) {
+            const errorText = await res.text()
+            console.error('loadChats: error response', errorText)
+            throw new Error(`Failed to load chats: ${res.status} ${res.statusText}`)
+        }
         
         let chats = await res.json()
+        console.log('loadChats: received chats', chats)
         
         let list = document.getElementById('chatList')
+        if (!list) {
+            console.error('loadChats: chatList element not found')
+            return
+        }
+        
         list.innerHTML = ''
         
-        document.getElementById('chatsCount').textContent = chats.length
+        const chatsCount = document.getElementById('chatsCount')
+        if (chatsCount) {
+            chatsCount.textContent = chats.length
+        }
         
         chats.sort((a, b) => {
             if (!a.last) return 1
@@ -1008,9 +1006,11 @@ async function loadChats() {
             list.appendChild(createChatElement(chat))
         })
         
+        console.log('loadChats: successfully loaded', chats.length, 'chats')
+        
     } catch (error) {
-        console.error('Error loading chats:', error)
-        showToast('Ошибка загрузки чатов')
+        console.error('loadChats: error', error)
+        showToast('Ошибка загрузки чатов: ' + error.message)
     }
 }
 
@@ -1183,6 +1183,16 @@ function showContextMenu(event, type, data) {
     menu.style.display = 'block'
     menu.style.left = x + 'px'
     menu.style.top = y + 'px'
+    
+    setTimeout(() => {
+        const rect = menu.getBoundingClientRect()
+        if (rect.right > window.innerWidth) {
+            menu.style.left = (window.innerWidth - rect.width - 10) + 'px'
+        }
+        if (rect.bottom > window.innerHeight) {
+            menu.style.top = (window.innerHeight - rect.height - 10) + 'px'
+        }
+    }, 0)
 }
 
 function hideContextMenus() {
@@ -1262,9 +1272,11 @@ function connect() {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
         const wsUrl = `${protocol}//${window.location.host}/ws/${currentUser}`
         
+        console.log('Connecting to:', wsUrl)
         ws = new WebSocket(wsUrl)
 
         ws.onopen = () => {
+            console.log('WebSocket connected')
             isConnected = true
             reconnectAttempts = 0
             
@@ -1355,6 +1367,7 @@ function connect() {
         }
 
         ws.onclose = () => {
+            console.log('WebSocket disconnected')
             broadcastOnlineStatus(false)
             
             if (window.clients) {
@@ -1382,6 +1395,7 @@ function handleReconnect() {
     if (reconnectAttempts < maxReconnectAttempts && currentUser) {
         reconnectAttempts++
         const delay = 1000 * Math.pow(2, reconnectAttempts)
+        console.log(`Reconnect attempt ${reconnectAttempts} in ${delay}ms`)
         reconnectTimeout = setTimeout(connect, delay)
     }
 }
@@ -1447,6 +1461,36 @@ function displaySearchResults(users) {
 
 function hideSearchResults() {
     document.getElementById('searchResults').style.display = 'none'
+}
+
+async function searchExactUser(username) {
+    if (!username) {
+        showToast("Введите username")
+        return
+    }
+
+    try {
+        const res = await fetch("/search", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username })
+        })
+
+        const data = await res.json()
+
+        if (!data.found) {
+            showToast("Пользователь не найден")
+            return
+        }
+
+        showUserProfile(data.phone, false)
+        document.getElementById("searchUser").value = ""
+        hideSearchResults()
+
+    } catch (error) {
+        console.error("Search error:", error)
+        showToast("Ошибка при поиске")
+    }
 }
 
 // ============= НАСТРОЙКИ =============
@@ -1638,6 +1682,13 @@ document.getElementById('searchUser').addEventListener('input', (e) => {
     }, 300)
 })
 
+document.getElementById('searchUser').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault()
+        searchExactUser(e.target.value.trim())
+    }
+})
+
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         closeModal()
@@ -1673,8 +1724,3 @@ window.addEventListener('beforeunload', () => {
 
 // Периодическое обновление статусов
 setInterval(updateOnlineStatus, 5000)
-
-
-
-
-
