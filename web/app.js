@@ -830,18 +830,94 @@ function openEmojiStickerModal() {
     
     // Проверяем, загружена ли библиотека
     if (typeof EmojiMart === 'undefined') {
-        console.error('EmojiMart not loaded')
-        showToast('Ошибка загрузки библиотеки эмодзи')
+        console.error('EmojiMart not loaded, loading now...')
+        showToast('Загрузка библиотеки эмодзи...')
         
-        // Используем простой эмодзи-пикер если EmojiMart не загружен
-        createSimpleEmojiPicker()
-    } else {
-        // Создаем EmojiMart picker
-        createEmojiMartPicker()
+        // Загружаем CSS
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = 'https://cdn.jsdelivr.net/npm/emoji-mart@5.5.2/css/emoji-mart.css'
+        document.head.appendChild(link)
+        
+        // Загружаем JS и после загрузки открываем модальное окно
+        const script = document.createElement('script')
+        script.src = 'https://cdn.jsdelivr.net/npm/emoji-mart@5.5.2/dist/emoji-mart.js'
+        script.onload = () => {
+            console.log('EmojiMart loaded successfully!')
+            showToast('Библиотека эмодзи загружена')
+            
+            // Создаем пикер и показываем модальное окно
+            setTimeout(() => {
+                createEmojiMartPicker()
+                loadStickers()
+                modal.classList.add('show')
+            }, 100)
+        }
+        script.onerror = () => {
+            console.error('Failed to load EmojiMart, using simple picker')
+            showToast('Используем простой набор эмодзи')
+            
+            // Если не удалось загрузить, используем простой пикер
+            createSimpleEmojiPicker()
+            loadStickers()
+            modal.classList.add('show')
+        }
+        document.body.appendChild(script)
+        return
     }
     
+    // Библиотека уже загружена
+    createEmojiMartPicker()
     loadStickers()
     modal.classList.add('show')
+}
+
+// Создать EmojiMart picker
+function createEmojiMartPicker() {
+    const container = document.getElementById('emoji-picker')
+    if (!container) {
+        console.error('Emoji picker container not found')
+        return
+    }
+    
+    // Очищаем контейнер
+    container.innerHTML = ''
+    
+    try {
+        console.log('Creating EmojiMart picker...')
+        
+        // Для версии 5.5.2
+        if (typeof EmojiMart !== 'undefined') {
+            const picker = new EmojiMart.Picker({
+                onEmojiSelect: (emoji) => {
+                    console.log('Emoji selected:', emoji)
+                    if (emoji.native) {
+                        insertEmoji(emoji.native)
+                    }
+                },
+                theme: 'light',
+                set: 'apple',
+                skin: 1,
+                defaultSkin: 1,
+                emoji: 'smile',
+                size: 24,
+                showPreview: false,
+                showSearch: true,
+                showCategories: true,
+                emojiTooltip: true,
+                perLine: 8,
+                autoFocus: false
+            })
+            
+            container.appendChild(picker)
+            console.log('EmojiMart picker created')
+        } else {
+            throw new Error('EmojiMart not available')
+        }
+    } catch (error) {
+        console.error('Error creating EmojiMart picker:', error)
+        createSimpleEmojiPicker()
+    }
 }
 
 // Создать простой эмодзи-пикер (запасной вариант)
@@ -849,6 +925,7 @@ function createSimpleEmojiPicker() {
     const container = document.getElementById('emoji-picker')
     if (!container) return
     
+    console.log('Creating simple emoji picker')
     container.innerHTML = ''
     container.className = 'simple-emoji-grid'
     
@@ -862,7 +939,13 @@ function createSimpleEmojiPicker() {
         '😠', '😡', '🤬', '🤯', '😳', '🥵', '🥶', '😱',
         '😨', '😰', '😥', '😓', '🤗', '🤔', '🤭', '🤫',
         '🤥', '😶', '😐', '😑', '😬', '🙄', '😯', '😦',
-        '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵'
+        '😧', '😮', '😲', '🥱', '😴', '🤤', '😪', '😵',
+        '🙈', '🙉', '🙊', '🐵', '🐒', '🦍', '🦧', '🐶',
+        '🐕', '🦮', '🐕‍🦺', '🐩', '🐺', '🦊', '🦝', '🐱',
+        '🐈', '🐈‍⬛', '🦁', '🐯', '🐅', '🐆', '🐴', '🐎',
+        '🦄', '🦓', '🦌', '🦬', '🐮', '🐂', '🐃', '🐄',
+        '🐷', '🐖', '🐗', '🐽', '🐏', '🐑', '🐐', '🐪',
+        '🐫', '🦙', '🦒', '🐘', '🦣', '🦏', '🦛', '🐭'
     ]
     
     simpleEmojis.forEach(emoji => {
@@ -872,41 +955,6 @@ function createSimpleEmojiPicker() {
         span.onclick = () => insertEmoji(emoji)
         container.appendChild(span)
     })
-}
-
-// Создать EmojiMart picker
-function createEmojiMartPicker() {
-    const container = document.getElementById('emoji-picker')
-    if (!container) return
-    
-    container.innerHTML = ''
-    
-    try {
-        const picker = new EmojiMart.Picker({
-            onEmojiSelect: (emoji) => {
-                if (emoji.native) {
-                    insertEmoji(emoji.native)
-                }
-            },
-            theme: 'light',
-            set: 'apple',
-            skin: 1,
-            defaultSkin: 1,
-            emoji: 'smile',
-            size: 24,
-            showPreview: false,
-            showSearch: true,
-            showCategories: true,
-            emojiTooltip: true,
-            perLine: 8,
-            autoFocus: false
-        })
-        
-        container.appendChild(picker)
-    } catch (error) {
-        console.error('Error creating EmojiMart picker:', error)
-        createSimpleEmojiPicker()
-    }
 }
 
 function insertEmoji(emoji) {
