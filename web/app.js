@@ -146,11 +146,11 @@ function checkPasswordStrength(password) {
     };
     
     // Обновляем требования
-    const reqLength = document.getElementById('reqLength')
-    const reqNumber = document.getElementById('reqNumber')
-    const reqLetter = document.getElementById('reqLetter')
-    const strengthBar = document.getElementById('strengthBar')
-    const saveBtn = document.getElementById('savePasswordBtn')
+    const reqLength = document.getElementById('reqLength');
+    const reqNumber = document.getElementById('reqNumber');
+    const reqLetter = document.getElementById('reqLetter');
+    const strengthBar = document.getElementById('strengthBar');
+    const saveBtn = document.getElementById('savePasswordBtn');
     
     if (reqLength) {
         reqLength.innerHTML = (strength.length ? '✅' : '❌') + ' Минимум 6 символов';
@@ -184,6 +184,7 @@ function checkPasswordStrength(password) {
     // Активируем кнопку если все требования выполнены
     if (saveBtn) {
         saveBtn.disabled = !(strength.length && strength.number && strength.letter);
+        console.log('Button disabled:', saveBtn.disabled); // Для отладки
     }
 }
 
@@ -1657,5 +1658,6 @@ window.addEventListener('beforeunload', () => {
 
 // Периодическое обновление статусов
 setInterval(updateOnlineStatus, 5000)
+
 
 
