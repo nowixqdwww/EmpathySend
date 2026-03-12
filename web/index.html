@@ -18,7 +18,7 @@
 <!-- Экран входа -->
 <div id="loginScreen">
     <div class="login-container">
-        <h1>HZgram</h1>
+        <h1>NonBlock</h1>
         <p>Введите номер телефона и пароль</p>
         <input id="loginPhone" type="tel" placeholder="+7 (999) 999-99-99" class="login-input">
         <input id="loginPassword" type="password" placeholder="Пароль" class="login-input" style="margin-top: 10px;">
@@ -313,6 +313,16 @@
                 
                 <div class="settings-item">
                     <div class="settings-item-info">
+                        <div class="settings-item-title">Пароль</div>
+                        <div class="settings-item-description">Изменить пароль для входа</div>
+                    </div>
+                    <button class="settings-button" onclick="openChangePassword()">
+                        <i class="fas fa-key"></i> Сменить
+                    </button>
+                </div>
+                
+                <div class="settings-item">
+                    <div class="settings-item-info">
                         <div class="settings-item-title">Блокировка</div>
                         <div class="settings-item-description">Заблокированные пользователи</div>
                     </div>
@@ -372,8 +382,47 @@
             <input type="password" id="currentPassword" placeholder="Текущий пароль" class="login-input">
             <input type="password" id="newPasswordChange" placeholder="Новый пароль" class="login-input" style="margin-top: 10px;">
             <input type="password" id="confirmPasswordChange" placeholder="Подтвердите новый пароль" class="login-input" style="margin-top: 10px;">
+            
+            <!-- Индикатор силы пароля для смены -->
+            <div class="password-strength">
+                <div class="strength-bar" id="changeStrengthBar"></div>
+            </div>
+            
             <button onclick="changePassword()" class="login-btn" style="margin-top: 20px;">
                 <i class="fas fa-key"></i> Сменить пароль
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для создания пароля (при первом входе) -->
+<div id="passwordSetupModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Создание пароля</h2>
+            <button class="close-btn" onclick="closePasswordSetup()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p>Придумайте пароль для входа в аккаунт</p>
+            <input type="password" id="newPassword" placeholder="Пароль" class="login-input" oninput="checkPasswordStrength(this.value)">
+            <input type="password" id="confirmPassword" placeholder="Подтвердите пароль" class="login-input" style="margin-top: 10px;">
+            
+            <!-- Индикатор силы пароля -->
+            <div class="password-strength">
+                <div class="strength-bar" id="strengthBar"></div>
+            </div>
+            
+            <!-- Требования к паролю -->
+            <div class="password-requirements">
+                <p class="requirement" id="reqLength">❌ Минимум 6 символов</p>
+                <p class="requirement" id="reqNumber">❌ Хотя бы одна цифра</p>
+                <p class="requirement" id="reqLetter">❌ Хотя бы одна буква</p>
+            </div>
+            
+            <button onclick="savePasswordForExisting()" class="login-btn" id="savePasswordBtn" disabled>
+                <i class="fas fa-check"></i> Сохранить пароль
             </button>
         </div>
     </div>
@@ -443,4 +492,3 @@
 <script src="/app.js"></script>
 </body>
 </html>
-
