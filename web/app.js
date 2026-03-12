@@ -824,58 +824,7 @@ async function loadStickers() {
 }
 
 // Открыть модальное окно с эмодзи и стикерами
-// Открыть модальное окно с эмодзи и стикерами
 function openEmojiStickerModal() {
-    console.log('Opening emoji sticker modal')
-    const modal = document.getElementById('emojiStickerModal')
-    
-    // Проверяем, загружена ли библиотека
-    if (typeof EmojiMart === 'undefined') {
-        console.error('EmojiMart not loaded')
-        showToast('Библиотека эмодзи не загружена. Пожалуйста, обновите страницу.')
-        return
-    }
-    
-    // Создаем picker только если его еще нет
-    const pickerContainer = document.getElementById('emoji-picker')
-    
-    if (!emojiPicker && pickerContainer) {
-        try {
-            // Очищаем контейнер
-            pickerContainer.innerHTML = ''
-            
-            // Создаем новый picker
-            emojiPicker = new EmojiMart.Picker({
-                onSelect: (emoji) => {
-                    console.log('Emoji selected:', emoji)
-                    insertEmoji(emoji.native || emoji.colons)
-                },
-                set: 'apple',
-                theme: 'light',
-                title: 'Выберите эмодзи',
-                emoji: 'smile',
-                showPreview: false,
-                showSearch: true,
-                showCategories: true,
-                showEmojis: true,
-                perLine: 8,
-                native: true,
-                emojiTooltip: true
-            })
-            
-            pickerContainer.appendChild(emojiPicker)
-            console.log('Emoji picker created')
-            
-        } catch (error) {
-            console.error('Error creating emoji picker:', error)
-            showToast('Ошибка загрузки эмодзи')
-        }
-    }
-    
-    loadStickers()
-    modal.classList.add('show')
-}
-
 function insertEmoji(emoji) {
     const input = document.getElementById('text')
     const start = input.selectionStart
@@ -1820,4 +1769,5 @@ window.addEventListener('beforeunload', () => {
 })
 
 setInterval(updateOnlineStatus, 5000)
+
 
