@@ -39,7 +39,7 @@
         <input id="registerPhone" type="tel" placeholder="+7 (999) 999-99-99" class="login-input">
         <input id="registerUsername" type="text" placeholder="Username (начинается с @)" class="login-input" style="margin-top: 10px;">
         <input id="registerName" type="text" placeholder="Имя (необязательно)" class="login-input" style="margin-top: 10px;">
-        <input id="registerPassword" type="password" placeholder="Пароль" class="login-input" style="margin-top: 10px;">
+        <input id="registerPassword" type="password" placeholder="Пароль" class="login-input" style="margin-top: 10px;" oninput="checkPasswordStrength(this.value)">
         <input id="registerConfirm" type="password" placeholder="Подтвердите пароль" class="login-input" style="margin-top: 10px;">
         
         <!-- Индикатор силы пароля -->
@@ -380,7 +380,7 @@
         </div>
         <div class="modal-body">
             <input type="password" id="currentPassword" placeholder="Текущий пароль" class="login-input">
-            <input type="password" id="newPasswordChange" placeholder="Новый пароль" class="login-input" style="margin-top: 10px;">
+            <input type="password" id="newPasswordChange" placeholder="Новый пароль" class="login-input" style="margin-top: 10px;" oninput="checkChangePasswordStrength(this.value)">
             <input type="password" id="confirmPasswordChange" placeholder="Подтвердите новый пароль" class="login-input" style="margin-top: 10px;">
             
             <!-- Индикатор силы пароля для смены -->
@@ -421,9 +421,9 @@
                 <p class="requirement" id="reqLetter">❌ Хотя бы одна буква</p>
             </div>
             
-           <button onclick="savePasswordForExisting()" class="login-btn" id="savePasswordBtn" disabled>
-               <i class="fas fa-check"></i> Сохранить пароль
-           </button>
+            <button onclick="savePasswordForExisting()" class="login-btn" id="savePasswordBtn" disabled>
+                <i class="fas fa-check"></i> Сохранить пароль
+            </button>
         </div>
     </div>
 </div>
@@ -492,4 +492,3 @@
 <script src="/app.js"></script>
 </body>
 </html>
-
