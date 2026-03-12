@@ -305,6 +305,7 @@ async function login() {
 
         const data = await res.json()
 
+        // Если статус ответа не 2xx (ok)
         if (!res.ok) {
             // Специальная обработка для случая, когда пароль не установлен
             if (data.error === 'NO_PASSWORD_SET') {
@@ -314,7 +315,7 @@ async function login() {
                 }
                 return
             }
-            // Обычная ошибка
+            // Обычная ошибка (пользователь не найден, неверный пароль)
             showToast(data.error || 'Ошибка входа')
             return
         }
@@ -1655,3 +1656,4 @@ window.addEventListener('beforeunload', () => {
 
 // Периодическое обновление статусов
 setInterval(updateOnlineStatus, 5000)
+
