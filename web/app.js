@@ -824,36 +824,56 @@ async function loadStickers() {
 }
 
 // Открыть модальное окно с эмодзи и стикерами
+// Открыть модальное окно с эмодзи и стикерами
 function openEmojiStickerModal() {
+    console.log('Opening emoji sticker modal')
     const modal = document.getElementById('emojiStickerModal')
     
-    if (!emojiPicker) {
-        emojiPicker = new EmojiMart.Picker({
-            onEmojiSelect: (emoji) => {
-                insertEmoji(emoji.native)
-            },
-            theme: 'light',
-            set: 'apple',
-            skinTonePosition: 'none',
-            previewPosition: 'none'
-        })
-        document.getElementById('emoji-picker').appendChild(emojiPicker)
+    // Проверяем, загружена ли библиотека
+    if (typeof EmojiMart === 'undefined') {
+        console.error('EmojiMart not loaded')
+        showToast('Библиотека эмодзи не загружена. Пожалуйста, обновите страницу.')
+        return
+    }
+    
+    // Создаем picker только если его еще нет
+    const pickerContainer = document.getElementById('emoji-picker')
+    
+    if (!emojiPicker && pickerContainer) {
+        try {
+            // Очищаем контейнер
+            pickerContainer.innerHTML = ''
+            
+            // Создаем новый picker
+            emojiPicker = new EmojiMart.Picker({
+                onSelect: (emoji) => {
+                    console.log('Emoji selected:', emoji)
+                    insertEmoji(emoji.native || emoji.colons)
+                },
+                set: 'apple',
+                theme: 'light',
+                title: 'Выберите эмодзи',
+                emoji: 'smile',
+                showPreview: false,
+                showSearch: true,
+                showCategories: true,
+                showEmojis: true,
+                perLine: 8,
+                native: true,
+                emojiTooltip: true
+            })
+            
+            pickerContainer.appendChild(emojiPicker)
+            console.log('Emoji picker created')
+            
+        } catch (error) {
+            console.error('Error creating emoji picker:', error)
+            showToast('Ошибка загрузки эмодзи')
+        }
     }
     
     loadStickers()
     modal.classList.add('show')
-}
-
-function closeEmojiStickerModal() {
-    document.getElementById('emojiStickerModal').classList.remove('show')
-}
-
-function switchTab(tab) {
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'))
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'))
-    
-    document.getElementById(`tab${tab.charAt(0).toUpperCase() + tab.slice(1)}Btn`).classList.add('active')
-    document.getElementById(`${tab}Tab`).classList.add('active')
 }
 
 function insertEmoji(emoji) {
@@ -1800,3 +1820,4 @@ window.addEventListener('beforeunload', () => {
 })
 
 setInterval(updateOnlineStatus, 5000)
+
