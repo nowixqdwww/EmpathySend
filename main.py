@@ -9,6 +9,7 @@ import asyncpg
 import hashlib
 import base64
 from datetime import datetime
+from typing import List
 from pydantic import BaseModel
 import uvicorn
 
@@ -27,12 +28,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Создаем папку для аватарок
+# Создаем папки для файлов
 AVATAR_DIR = os.path.join(os.path.dirname(__file__), "avatars")
+STICKER_DIR = os.path.join(os.path.dirname(__file__), "stickers")
 os.makedirs(AVATAR_DIR, exist_ok=True)
+os.makedirs(STICKER_DIR, exist_ok=True)
 
-# Монтируем папку с аватарками
+# Монтируем папки
 app.mount("/avatars", StaticFiles(directory=AVATAR_DIR), name="avatars")
+app.mount("/stickers", StaticFiles(directory=STICKER_DIR), name="stickers")
 
 # Подключение к PostgreSQL
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/messenger")
@@ -49,48 +53,36 @@ def create_safe_filename(phone: str, extension: str) -> str:
 # Функция для хеширования пароля
 def hash_password(password):
     """Хеширование пароля с солью"""
-    salt = "nonblock_salt"  # В продакшене используйте уникальную соль
+    salt = "nonblock_salt"
     return hashlib.sha256((password + salt).encode()).hexdigest()
 
 # Инициализация базы данных
-# Обновите функцию init_db для добавления колонки is_read
 async def init_db():
     conn = await get_db()
     try:
-        # Проверяем, существует ли таблица users
-        table_exists = await conn.fetchval("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_name = 'users'
+        # Таблица пользователей
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                phone TEXT PRIMARY KEY,
+                username TEXT UNIQUE,
+                name TEXT,
+                bio TEXT,
+                avatar TEXT,
+                password TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
         
-        if not table_exists:
-            # Создаем таблицу с паролем
-            await conn.execute("""
-                CREATE TABLE users (
-                    phone TEXT PRIMARY KEY,
-                    username TEXT UNIQUE,
-                    name TEXT,
-                    bio TEXT,
-                    avatar TEXT,
-                    password TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            logger.info("Created users table")
-        else:
-            # Проверяем, есть ли колонка password
-            column_exists = await conn.fetchval("""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.columns 
-                    WHERE table_name = 'users' AND column_name = 'password'
-                )
-            """)
-            
-            if not column_exists:
-                await conn.execute("ALTER TABLE users ADD COLUMN password TEXT")
-                logger.info("Added password column to users table")
+        # Проверяем и добавляем колонку password если нужно
+        column_exists = await conn.fetchval("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.columns 
+                WHERE table_name = 'users' AND column_name = 'password'
+            )
+        """)
+        if not column_exists:
+            await conn.execute("ALTER TABLE users ADD COLUMN password TEXT")
+            logger.info("Added password column to users table")
         
         # Таблица настроек конфиденциальности
         await conn.execute("""
@@ -115,17 +107,27 @@ async def init_db():
             )
         """)
         
-        # Проверяем, есть ли колонка is_read
+        # Проверяем и добавляем колонку is_read
         column_exists = await conn.fetchval("""
             SELECT EXISTS (
                 SELECT FROM information_schema.columns 
                 WHERE table_name = 'messages' AND column_name = 'is_read'
             )
         """)
-        
         if not column_exists:
             await conn.execute("ALTER TABLE messages ADD COLUMN is_read INTEGER DEFAULT 0")
             logger.info("Added is_read column to messages table")
+        
+        # Таблица стикеров
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS stickers (
+                id SERIAL PRIMARY KEY,
+                user_phone TEXT NOT NULL,
+                sticker_url TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_phone) REFERENCES users(phone) ON DELETE CASCADE
+            )
+        """)
         
         logger.info("Database initialized successfully")
     except Exception as e:
@@ -182,11 +184,9 @@ class DeleteMessage(BaseModel):
 
 @app.post("/auth/register")
 async def register(user: UserRegister):
-    """Регистрация нового пользователя"""
     try:
         conn = await get_db()
         
-        # Проверяем, существует ли пользователь
         existing = await conn.fetchval(
             "SELECT phone FROM users WHERE phone = $1",
             user.phone
@@ -195,7 +195,6 @@ async def register(user: UserRegister):
             await conn.close()
             return JSONResponse(status_code=400, content={"error": "Пользователь уже существует"})
         
-        # Проверяем уникальность username
         if user.username:
             existing_username = await conn.fetchval(
                 "SELECT phone FROM users WHERE username = $1",
@@ -205,16 +204,13 @@ async def register(user: UserRegister):
                 await conn.close()
                 return JSONResponse(status_code=400, content={"error": "Username уже занят"})
         
-        # Хешируем пароль
         hashed_password = hash_password(user.password)
         
-        # Создаем пользователя
         await conn.execute("""
             INSERT INTO users (phone, username, name, password) 
             VALUES ($1, $2, $3, $4)
         """, user.phone, user.username, user.name, hashed_password)
         
-        # Создаем настройки приватности
         await conn.execute("""
             INSERT INTO privacy_settings (phone) VALUES ($1)
         """, user.phone)
@@ -230,11 +226,9 @@ async def register(user: UserRegister):
 
 @app.post("/auth/login")
 async def login(data: UserLogin):
-    """Вход по номеру и паролю"""
     try:
         conn = await get_db()
         
-        # Получаем пользователя
         user = await conn.fetchrow(
             "SELECT phone, password FROM users WHERE phone = $1",
             data.phone
@@ -245,11 +239,9 @@ async def login(data: UserLogin):
         if not user:
             return JSONResponse(status_code=404, content={"error": "Пользователь не найден"})
         
-        # Проверяем, есть ли пароль
         if user['password'] is None:
             return JSONResponse(status_code=401, content={"error": "NO_PASSWORD_SET"})
         
-        # Проверяем пароль
         if user['password'] != hash_password(data.password):
             return JSONResponse(status_code=401, content={"error": "Неверный пароль"})
         
@@ -261,12 +253,10 @@ async def login(data: UserLogin):
 
 @app.post("/set-password")
 async def set_password(data: SetPassword):
-    """Установка пароля для существующего пользователя"""
     try:
         phone = data.phone
         password = data.password
         
-        # Декодируем base64
         decoded = base64.b64decode(password).decode()
         hashed = hash_password(decoded)
         
@@ -287,7 +277,6 @@ async def set_password(data: SetPassword):
 
 @app.post("/auth/change-password")
 async def change_password(data: ChangePassword):
-    """Смена пароля"""
     try:
         conn = await get_db()
         
@@ -319,30 +308,10 @@ async def change_password(data: ChangePassword):
         logger.error(f"Error changing password: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-@app.get("/check-password/{phone}")
-async def check_password(phone: str):
-    """Проверка, установлен ли пароль у пользователя"""
-    try:
-        conn = await get_db()
-        
-        password = await conn.fetchval(
-            "SELECT password FROM users WHERE phone = $1",
-            phone
-        )
-        
-        await conn.close()
-        
-        return {"hasPassword": password is not None}
-        
-    except Exception as e:
-        logger.error(f"Error checking password: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
 # ============= ЭНДПОИНТЫ ПОЛЬЗОВАТЕЛЕЙ =============
 
 @app.get("/user/{phone}")
 async def get_user(phone: str):
-    """Получение информации о пользователе"""
     try:
         conn = await get_db()
         
@@ -370,11 +339,9 @@ async def get_user(phone: str):
 
 @app.put("/user/{phone}")
 async def update_user(phone: str, data: UpdateProfile):
-    """Обновление профиля пользователя"""
     try:
         conn = await get_db()
         
-        # Проверяем уникальность username
         if data.username:
             existing = await conn.fetchval(
                 "SELECT phone FROM users WHERE username = $1 AND phone != $2",
@@ -384,7 +351,6 @@ async def update_user(phone: str, data: UpdateProfile):
                 await conn.close()
                 return JSONResponse(status_code=400, content={"error": "Username already taken"})
         
-        # Обновляем поля
         updates = []
         values = []
         
@@ -413,23 +379,19 @@ async def update_user(phone: str, data: UpdateProfile):
 
 @app.post("/upload-avatar/{phone}")
 async def upload_avatar(phone: str, file: UploadFile = File(...)):
-    """Загрузка аватара"""
     try:
         if not file.content_type.startswith('image/'):
             return JSONResponse(status_code=400, content={"error": "File must be an image"})
         
-        # Читаем файл
         content = await file.read()
         
-        if len(content) > 5 * 1024 * 1024:  # 5MB
+        if len(content) > 5 * 1024 * 1024:
             return JSONResponse(status_code=400, content={"error": "File too large (max 5MB)"})
         
-        # Создаем имя файла
         file_extension = os.path.splitext(file.filename)[1]
         filename = create_safe_filename(phone, file_extension)
         file_path = os.path.join(AVATAR_DIR, filename)
         
-        # Удаляем старый аватар
         conn = await get_db()
         
         old = await conn.fetchval(
@@ -441,7 +403,6 @@ async def upload_avatar(phone: str, file: UploadFile = File(...)):
             if os.path.exists(old_path):
                 os.remove(old_path)
         
-        # Сохраняем новый
         with open(file_path, "wb") as buffer:
             buffer.write(content)
         
@@ -459,7 +420,6 @@ async def upload_avatar(phone: str, file: UploadFile = File(...)):
 
 @app.delete("/remove-avatar/{phone}")
 async def remove_avatar(phone: str):
-    """Удаление аватара"""
     try:
         conn = await get_db()
         
@@ -485,11 +445,59 @@ async def remove_avatar(phone: str):
         logger.error(f"Error removing avatar: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+# ============= СТИКЕРЫ =============
+
+@app.post("/upload-stickers/{phone}")
+async def upload_stickers(phone: str, stickers: List[UploadFile] = File(...)):
+    try:
+        conn = await get_db()
+        
+        for sticker in stickers:
+            if not sticker.content_type.startswith('image/'):
+                continue
+            
+            content = await sticker.read()
+            
+            filename = f"sticker_{phone}_{datetime.now().timestamp()}.png"
+            file_path = os.path.join(STICKER_DIR, filename)
+            
+            with open(file_path, "wb") as buffer:
+                buffer.write(content)
+            
+            await conn.execute("""
+                INSERT INTO stickers (user_phone, sticker_url)
+                VALUES ($1, $2)
+            """, phone, f"/stickers/{filename}")
+        
+        await conn.close()
+        
+        return {"ok": True}
+        
+    except Exception as e:
+        logger.error(f"Error uploading stickers: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/stickers/{phone}")
+async def get_stickers(phone: str):
+    try:
+        conn = await get_db()
+        
+        stickers = await conn.fetch("""
+            SELECT sticker_url FROM stickers WHERE user_phone = $1
+        """, phone)
+        
+        await conn.close()
+        
+        return {"stickers": [s['sticker_url'] for s in stickers]}
+        
+    except Exception as e:
+        logger.error(f"Error getting stickers: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 # ============= ПОИСК =============
 
 @app.post("/search")
 async def search_user(data: SearchUser):
-    """Поиск пользователя по точному username"""
     try:
         conn = await get_db()
         
@@ -518,7 +526,6 @@ async def search_user(data: SearchUser):
 
 @app.get("/search-users/{query}")
 async def search_users(query: str):
-    """Поиск пользователей по части username или имени"""
     try:
         if len(query) < 2:
             return {"users": []}
@@ -560,12 +567,9 @@ async def search_users(query: str):
 
 @app.get("/users/{me}")
 async def get_users(me: str):
-    """Получение списка чатов пользователя"""
     try:
-        print(f"Getting users for {me}")  # Для отладки
         conn = await get_db()
         
-        # Находим всех собеседников
         contacts = await conn.fetch("""
             SELECT DISTINCT
                 CASE WHEN sender = $1 THEN receiver ELSE sender END as contact
@@ -573,13 +577,10 @@ async def get_users(me: str):
             WHERE sender = $1 OR receiver = $1
         """, me)
         
-        print(f"Found contacts: {contacts}")  # Для отладки
-        
         result = []
         for contact in contacts:
             phone = contact['contact']
             
-            # Информация о собеседнике
             user_data = await conn.fetchrow(
                 "SELECT phone, username, name, avatar FROM users WHERE phone = $1",
                 phone
@@ -588,16 +589,12 @@ async def get_users(me: str):
             if not user_data:
                 continue
             
-            # Последнее сообщение
             last_msg = await conn.fetchrow("""
                 SELECT text FROM messages 
                 WHERE (sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1)
                 AND is_deleted = 0
                 ORDER BY timestamp DESC LIMIT 1
             """, me, phone)
-            
-            # Количество непрочитанных (временно 0, пока не добавим is_read)
-            unread = 0
             
             display_name = user_data['name'] or user_data['username'] or phone
             
@@ -609,31 +606,26 @@ async def get_users(me: str):
                 "avatar": f"/avatars/{user_data['avatar']}" if user_data['avatar'] else None,
                 "online": phone in clients,
                 "last": last_msg['text'] if last_msg else None,
-                "unread": unread
+                "unread": 0
             })
         
         await conn.close()
-        print(f"Returning {len(result)} chats")  # Для отладки
         return result
         
     except Exception as e:
-        print(f"Error in get_users: {e}")  # Для отладки
         logger.error(f"Error getting users for {me}: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/messages/{user1}/{user2}")
 async def get_messages(user1: str, user2: str):
-    """Получение истории сообщений между двумя пользователями"""
     try:
         conn = await get_db()
         
-        # Отмечаем как прочитанные
         await conn.execute("""
             UPDATE messages SET is_read = 1 
             WHERE sender = $1 AND receiver = $2
         """, user2, user1)
         
-        # Получаем сообщения
         messages = await conn.fetch("""
             SELECT id, sender, text, timestamp FROM messages
             WHERE (sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1)
@@ -651,11 +643,9 @@ async def get_messages(user1: str, user2: str):
 
 @app.delete("/message/{message_id}")
 async def delete_message(message_id: int, user: str):
-    """Удаление сообщения"""
     try:
         conn = await get_db()
         
-        # Проверяем, что пользователь - автор
         sender = await conn.fetchval(
             "SELECT sender FROM messages WHERE id = $1",
             message_id
@@ -684,7 +674,6 @@ async def delete_message(message_id: int, user: str):
 
 @app.delete("/chat/{user1}/{user2}")
 async def delete_chat(user1: str, user2: str):
-    """Удаление чата (всех сообщений между пользователями)"""
     try:
         conn = await get_db()
         
@@ -705,7 +694,6 @@ async def delete_chat(user1: str, user2: str):
 
 @app.get("/privacy-settings/{phone}")
 async def get_privacy_settings(phone: str):
-    """Получение настроек приватности"""
     try:
         conn = await get_db()
         
@@ -735,7 +723,6 @@ async def get_privacy_settings(phone: str):
 
 @app.post("/privacy-settings/{phone}")
 async def save_privacy_settings(phone: str, settings: PrivacySettings):
-    """Сохранение настроек приватности"""
     try:
         conn = await get_db()
         
@@ -758,7 +745,6 @@ async def save_privacy_settings(phone: str, settings: PrivacySettings):
 
 @app.websocket("/ws/{user}")
 async def websocket_endpoint(ws: WebSocket, user: str):
-    """WebSocket для реального времени"""
     await ws.accept()
     clients[user] = ws
     logger.info(f"User {user} connected. Total: {len(clients)}")
@@ -780,7 +766,6 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                     if not to or not text:
                         continue
 
-                    # Сохраняем в БД
                     conn = await get_db()
                     message_id = await conn.fetchval("""
                         INSERT INTO messages (sender, receiver, text) 
@@ -788,7 +773,6 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                     """, user, to, text)
                     await conn.close()
 
-                    # Отправляем получателю
                     if to in clients:
                         try:
                             await clients[to].send_json({
@@ -800,7 +784,6 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                         except:
                             clients.pop(to, None)
 
-                    # Подтверждение отправителю
                     await ws.send_json({
                         "action": "message_sent",
                         "id": message_id,
@@ -864,23 +847,11 @@ async def websocket_endpoint(ws: WebSocket, user: str):
 
 @app.get("/debug/users")
 async def debug_users():
-    """Отладка: показать всех пользователей"""
     try:
         conn = await get_db()
         users = await conn.fetch("SELECT phone, username, name FROM users")
         await conn.close()
         return {"users": [dict(u) for u in users]}
-    except Exception as e:
-        return {"error": str(e)}
-
-@app.get("/debug/messages")
-async def debug_messages():
-    """Отладка: показать все сообщения"""
-    try:
-        conn = await get_db()
-        messages = await conn.fetch("SELECT id, sender, receiver, text FROM messages LIMIT 10")
-        await conn.close()
-        return {"messages": [dict(m) for m in messages]}
     except Exception as e:
         return {"error": str(e)}
 
@@ -905,4 +876,3 @@ if __name__ == "__main__":
         port=port,
         reload=False
     )
-
