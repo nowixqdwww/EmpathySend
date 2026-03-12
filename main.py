@@ -219,31 +219,27 @@ async def register(user: UserRegister):
 
 @app.post("/auth/login")
 async def login(data: UserLogin):
-    """Вход по номеру и паролю"""
     try:
         conn = await get_db()
-        
-        # Получаем пользователя
         user = await conn.fetchrow(
             "SELECT phone, password FROM users WHERE phone = $1",
             data.phone
         )
-        
         await conn.close()
-        
+
         if not user:
             return JSONResponse(status_code=404, content={"error": "Пользователь не найден"})
-        
-        # Проверяем, есть ли пароль
-        if user['password'] is None:
+
+        # Важно: проверяем, есть ли пароль в базе (может быть None или пустая строка)
+        if user['password'] is None or user['password'] == '':
+            # Возвращаем 401, но с понятным для фронтенда кодом ошибки
             return JSONResponse(status_code=401, content={"error": "NO_PASSWORD_SET"})
-        
-        # Проверяем пароль
+
         if user['password'] != hash_password(data.password):
             return JSONResponse(status_code=401, content={"error": "Неверный пароль"})
-        
+
         return {"ok": True, "phone": user['phone']}
-        
+
     except Exception as e:
         logger.error(f"Error in /auth/login: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
@@ -868,3 +864,4 @@ if __name__ == "__main__":
         port=port,
         reload=False
     )
+
