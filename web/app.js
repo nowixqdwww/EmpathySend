@@ -1768,6 +1768,7 @@ window.addEventListener('beforeunload', () => {
     if (ws) ws.close(1000, 'Page closed')
 })
 
-setInterval(updateOnlineStatus, 5000)
+setInterval(updateOnlineStatus, 5000);
+
 
 
