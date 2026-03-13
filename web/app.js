@@ -390,6 +390,7 @@ function completeLogin() {
     loadUserProfile()
     connect()
     loadChats()
+    loadStickers() // Загружаем стикеры при входе
 }
 
 function openChangePassword() {
@@ -825,6 +826,7 @@ async function loadStickers() {
 // Переключение модального окна стикеров
 function toggleStickerModal() {
     const modal = document.getElementById('stickerModal')
+    const btn = document.getElementById('stickerBtn')
     
     if (modal.classList.contains('show')) {
         closeStickerModal()
@@ -845,20 +847,18 @@ function openStickerModal() {
         return
     }
     
+    // Загружаем свежие стикеры
+    loadStickers()
+    
     // Позиционируем модальное окно над кнопкой
     if (btn && inputArea) {
         const btnRect = btn.getBoundingClientRect()
         const inputRect = inputArea.getBoundingClientRect()
         
-        // Позиционируем справа от кнопки
         modal.style.bottom = (window.innerHeight - inputRect.top + 10) + 'px'
         modal.style.right = (window.innerWidth - btnRect.right + 10) + 'px'
     }
     
-    // Загружаем стикеры
-    loadStickers()
-    
-    // Показываем модальное окно
     modal.classList.add('show')
     btn.classList.add('active')
 }
@@ -911,7 +911,14 @@ function renderStickers() {
             userStickers.forEach(sticker => {
                 const div = document.createElement('div')
                 div.className = 'sticker-item'
-                div.innerHTML = `<img src="${sticker}" alt="sticker" onclick="sendSticker('${sticker}')">`
+                div.setAttribute('data-sticker-url', sticker)
+                div.onclick = () => sendSticker(sticker)
+                
+                const img = document.createElement('img')
+                img.src = sticker
+                img.alt = 'sticker'
+                div.appendChild(img)
+                
                 myStickersDiv.appendChild(div)
             })
         }
@@ -922,7 +929,14 @@ function renderStickers() {
         popularStickers.forEach(sticker => {
             const div = document.createElement('div')
             div.className = 'sticker-item'
-            div.innerHTML = `<img src="${sticker}" alt="sticker" onclick="sendSticker('${sticker}')">`
+            div.setAttribute('data-sticker-url', sticker)
+            div.onclick = () => sendSticker(sticker)
+            
+            const img = document.createElement('img')
+            img.src = sticker
+            img.alt = 'sticker'
+            div.appendChild(img)
+            
             popularStickersDiv.appendChild(div)
         })
     }
@@ -951,7 +965,11 @@ function addStickerMessage(user, stickerUrl) {
     const div = document.createElement('div')
     
     div.className = 'message sticker ' + (user === currentUser ? 'me' : 'other')
-    div.innerHTML = `<img src="${stickerUrl}" alt="sticker">`
+    
+    const img = document.createElement('img')
+    img.src = stickerUrl
+    img.alt = 'sticker'
+    div.appendChild(img)
     
     messagesDiv.appendChild(div)
     messagesDiv.scrollTop = messagesDiv.scrollHeight
@@ -966,7 +984,10 @@ function addMessage(user, text, messageId = null) {
     
     if (stickerMatch) {
         div.className = 'message sticker ' + (user === currentUser ? 'me' : 'other')
-        div.innerHTML = `<img src="${stickerMatch[1]}" alt="sticker">`
+        const img = document.createElement('img')
+        img.src = stickerMatch[1]
+        img.alt = 'sticker'
+        div.appendChild(img)
     } else {
         div.className = 'message ' + (user === currentUser ? 'me' : 'other')
         
@@ -1046,7 +1067,16 @@ async function uploadStickers() {
         }
         
         showToast('Стикеры загружены')
-        closeStickerModal()
+        
+        // Очищаем предпросмотр
+        document.getElementById('stickerPreview').innerHTML = ''
+        document.getElementById('stickerFiles').value = ''
+        
+        // Перезагружаем стикеры
+        await loadStickers()
+        
+        // Переключаемся на вкладку "Мои стикеры"
+        switchStickerTab('my')
         
     } catch (error) {
         console.error('Error uploading stickers:', error)
