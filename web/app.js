@@ -1105,6 +1105,157 @@ if (uploadArea) {
     })
 }
 
+// ============= РЕАКЦИИ =============
+
+let currentMessageId = null
+let reactionsPanelTimeout = null
+
+// Показать панель реакций
+function showReactionsPanel(event, messageId) {
+    event.preventDefault()
+    event.stopPropagation()
+    
+    currentMessageId = messageId
+    
+    const panel = document.getElementById('reactionsPanel')
+    const messageElement = event.currentTarget.closest('.message')
+    
+    if (!messageElement) return
+    
+    // Позиционируем панель над сообщением
+    const rect = messageElement.getBoundingClientRect()
+    panel.style.bottom = (window.innerHeight - rect.top + 10) + 'px'
+    panel.style.left = rect.left + 'px'
+    
+    panel.style.display = 'block'
+    
+    // Автоматически скрываем через 5 секунд
+    clearTimeout(reactionsPanelTimeout)
+    reactionsPanelTimeout = setTimeout(() => {
+        panel.style.display = 'none'
+    }, 5000)
+}
+
+// Добавить реакцию
+async function addReaction(reaction) {
+    if (!currentMessageId || !currentUser) return
+    
+    try {
+        const res = await fetch('/reaction/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message_id: currentMessageId,
+                user: currentUser,
+                reaction: reaction
+            })
+        })
+        
+        const data = await res.json()
+        
+        if (data.error) {
+            showToast(data.error)
+            return
+        }
+        
+        // Обновляем отображение реакций на сообщении
+        updateMessageReactions(currentMessageId, data.reactions)
+        
+    } catch (error) {
+        console.error('Error adding reaction:', error)
+        showToast('Ошибка при добавлении реакции')
+    }
+    
+    // Скрываем панель
+    document.getElementById('reactionsPanel').style.display = 'none'
+}
+
+// Обновить отображение реакций на сообщении
+function updateMessageReactions(messageId, reactions) {
+    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`)
+    if (!messageElement) return
+    
+    // Удаляем старые реакции
+    const oldReactions = messageElement.querySelector('.message-reactions')
+    if (oldReactions) oldReactions.remove()
+    
+    if (reactions.length === 0) return
+    
+    // Создаем контейнер для реакций
+    const reactionsDiv = document.createElement('div')
+    reactionsDiv.className = 'message-reactions'
+    
+    reactions.forEach(r => {
+        const badge = document.createElement('span')
+        badge.className = 'reaction-badge'
+        badge.onclick = (e) => {
+            e.stopPropagation()
+            // При клике на бейдж - добавляем/убираем реакцию
+            addReaction(r.reaction)
+        }
+        badge.innerHTML = `${r.reaction} <span class="count">${r.count}</span>`
+        reactionsDiv.appendChild(badge)
+    })
+    
+    messageElement.appendChild(reactionsDiv)
+}
+
+// Обновленная функция addMessage для поддержки реакций
+function addMessage(user, text, messageId = null) {
+    const messagesDiv = document.getElementById('messages')
+    const div = document.createElement('div')
+    
+    const stickerMatch = text.match(/\[STICKER\](.*?)\[\/STICKER\]/)
+    
+    if (stickerMatch) {
+        div.className = 'message sticker ' + (user === currentUser ? 'me' : 'other')
+        div.innerHTML = `<img src="${stickerMatch[1]}" alt="sticker">`
+    } else {
+        div.className = 'message ' + (user === currentUser ? 'me' : 'other')
+        
+        if (messageId) {
+            div.dataset.messageId = messageId
+        }
+        
+        const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+        
+        div.innerHTML = `
+            <div class="message-text">${escapeHtml(text)}</div>
+            <div class="message-time">${time}</div>
+            <button class="add-reaction-btn" onclick="showReactionsPanel(event, ${messageId})">😊</button>
+        `
+    }
+    
+    if (user === currentUser && messageId && !stickerMatch) {
+        div.addEventListener('contextmenu', (e) => {
+            e.preventDefault()
+            showContextMenu(e, 'message', { messageId, element: div })
+        })
+    }
+    
+    messagesDiv.appendChild(div)
+    messagesDiv.scrollTop = messagesDiv.scrollHeight
+    
+    // Загружаем реакции для сообщения
+    if (messageId) {
+        loadMessageReactions(messageId)
+    }
+}
+
+// Загрузить реакции для сообщения
+async function loadMessageReactions(messageId) {
+    try {
+        const res = await fetch(`/reactions/${messageId}`)
+        const data = await res.json()
+        
+        if (data.reactions && data.reactions.length > 0) {
+            updateMessageReactions(messageId, data.reactions)
+        }
+    } catch (error) {
+        console.error('Error loading reactions:', error)
+    }
+}
+
 // ============= ФУНКЦИИ ДЛЯ ЧАТОВ =============
 
 function createChatElement(chat) {
@@ -1921,3 +2072,6 @@ window.closeStickerModal = closeStickerModal
 window.switchStickerTab = switchStickerTab
 window.sendSticker = sendSticker
 window.uploadStickers = uploadStickers
+// Глобальные функции для HTML
+window.showReactionsPanel = showReactionsPanel
+window.addReaction = addReaction
