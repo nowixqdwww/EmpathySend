@@ -2,15 +2,13 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale-1.0, maximum-scale-1.0, user-scalable-no, viewport-fit=cover">
     <title>NonBlock Messenger</title>
     <link rel="stylesheet" href="/style.css">
     <!-- Cropper.js CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
     <!-- Font Awesome для линейных иконок -->
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v6.0.0-beta3/css/all.css">
-    <!-- Emoji Mart 3.0.1 локальные файлы -->
-    <link rel="stylesheet" href="/static/emoji-mart/emoji-mart.css">
     <link rel="apple-touch-icon" href="/icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -157,8 +155,8 @@
 
             <!-- Ввод сообщения -->
             <div class="input-area">
-                <button onclick="openEmojiStickerModal()" class="emoji-sticker-btn" id="emojiStickerBtn">
-                    <i class="fas fa-smile"></i>
+                <button onclick="toggleStickerModal()" class="sticker-btn" id="stickerBtn">
+                    <i class="fas fa-sticky-note"></i>
                 </button>
                 <input id="text" placeholder="Напишите сообщение..." class="message-input">
                 <button onclick="send()" class="send-btn">
@@ -169,50 +167,45 @@
     </div>
 </div>
 
-<!-- Модальное окно для эмодзи и стикеров (не на весь экран) -->
-<div id="emojiStickerModal" class="emoji-modal" style="display: none;">
-    <div class="emoji-modal-content">
-        <div class="emoji-modal-header">
-            <div class="emoji-sticker-tabs">
-                <button class="tab-btn active" onclick="switchTab('emoji')" id="tabEmojiBtn">
-                    <i class="fas fa-smile"></i> Эмодзи
-                </button>
-                <button class="tab-btn" onclick="switchTab('stickers')" id="tabStickersBtn">
-                    <i class="fas fa-sticky-note"></i> Стикеры
-                </button>
-                <button class="tab-btn" onclick="switchTab('upload')" id="tabUploadBtn">
-                    <i class="fas fa-upload"></i> Загрузить
-                </button>
-            </div>
-            <button class="emoji-close-btn" onclick="closeEmojiStickerModal()">
+<!-- Модальное окно для стикеров (вылезающее из кнопки) -->
+<div id="stickerModal" class="sticker-modal">
+    <div class="sticker-modal-content">
+        <div class="sticker-modal-header">
+            <h3><i class="fas fa-sticky-note"></i> Мои стикеры</h3>
+            <button class="sticker-close-btn" onclick="closeStickerModal()">
                 <i class="fas fa-times"></i>
             </button>
         </div>
-        <div class="emoji-modal-body">
-            <!-- Вкладка с эмодзи -->
-            <div id="emojiTab" class="tab-content active">
-                <div id="emoji-picker"></div>
+        <div class="sticker-modal-body">
+            <!-- Вкладки -->
+            <div class="sticker-tabs">
+                <button class="sticker-tab-btn active" onclick="switchStickerTab('my')" id="tabMyBtn">
+                    <i class="fas fa-folder"></i> Мои
+                </button>
+                <button class="sticker-tab-btn" onclick="switchStickerTab('popular')" id="tabPopularBtn">
+                    <i class="fas fa-fire"></i> Популярные
+                </button>
+                <button class="sticker-tab-btn" onclick="switchStickerTab('upload')" id="tabUploadBtn">
+                    <i class="fas fa-upload"></i> Загрузить
+                </button>
             </div>
             
-            <!-- Вкладка со стикерами -->
-            <div id="stickersTab" class="tab-content">
-                <div class="sticker-packs">
-                    <div class="sticker-pack">
-                        <h4>Мои стикеры</h4>
-                        <div class="sticker-grid" id="myStickers"></div>
-                    </div>
-                    <div class="sticker-pack">
-                        <h4>Популярные стикеры</h4>
-                        <div class="sticker-grid" id="popularStickers"></div>
-                    </div>
-                </div>
+            <!-- Мои стикеры -->
+            <div id="myStickersTab" class="sticker-tab-content active">
+                <div class="sticker-grid" id="myStickers"></div>
+                <p class="empty-stickers" id="emptyMyStickers" style="display: none;">У вас пока нет стикеров</p>
             </div>
             
-            <!-- Вкладка загрузки стикеров -->
-            <div id="uploadTab" class="tab-content">
+            <!-- Популярные стикеры -->
+            <div id="popularStickersTab" class="sticker-tab-content">
+                <div class="sticker-grid" id="popularStickers"></div>
+            </div>
+            
+            <!-- Загрузка стикеров -->
+            <div id="uploadStickersTab" class="sticker-tab-content">
                 <div class="sticker-upload">
                     <p>Загрузите стикеры из Telegram</p>
-                    <p class="info-text">Скачайте стикеры из Telegram и загрузите их сюда</p>
+                    <p class="info-text">Поддерживаются форматы PNG, WEBP, JPEG</p>
                     
                     <div class="upload-area" id="stickerUploadArea">
                         <i class="fas fa-cloud-upload-alt upload-icon"></i>
@@ -559,8 +552,6 @@
 
 <!-- Скрипты -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
-<!-- Emoji Mart 3.0.1 локальный файл -->
-<script src="/static/emoji-mart/emoji-mart.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>
