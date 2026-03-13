@@ -28,11 +28,7 @@ let currentAvatarFile = null
 let emojiPicker = null
 let userStickers = []
 let popularStickers = [
-    '/static/stickers/popular/1.svg',
-    '/static/stickers/popular/2.svg',
-    '/static/stickers/popular/3.svg',
-    '/static/stickers/popular/4.svg',
-    '/static/stickers/popular/5.svg'
+    '/static/stickers/popular/1.svg'
 ]
 
 // Глобальный объект для хранения онлайн статусов
@@ -41,6 +37,12 @@ window.clients = {}
 // Хранилище чатов и непрочитанных сообщений
 let chatsCache = {}
 let unreadCounts = {}
+
+// ============= ПРОВЕРКА ЗАГРУЗКИ EMOJIMART =============
+console.log('=== EmojiMart Debug ===');
+console.log('window.EmojiMart:', typeof window.EmojiMart);
+console.log('window keys with Emoji:', Object.keys(window).filter(k => k.includes('Emoji')));
+console.log('======================');
 
 // ============= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =============
 
@@ -824,8 +826,7 @@ async function loadStickers() {
 }
 
 // Открыть модальное окно с эмодзи и стикерами
-// Открыть модальное окно с эмодзи и стикерами
-async function openEmojiStickerModal() {
+function openEmojiStickerModal() {
     console.log('Opening emoji sticker modal')
     const modal = document.getElementById('emojiStickerModal')
     const chatBlock = document.getElementById('chatBlock')
@@ -846,7 +847,7 @@ async function openEmojiStickerModal() {
         chatBlock.classList.add('emoji-open')
     }
     
-    // Проверяем, загружена ли библиотека (используем window)
+    // Проверяем, загружена ли библиотека через window
     if (typeof window.EmojiMart === 'undefined') {
         console.error('EmojiMart not loaded, using simple picker')
         showToast('Используем простой набор эмодзи')
@@ -872,7 +873,11 @@ function createEmojiMartPicker() {
         console.log('Creating EmojiMart picker (v3.0.1)...')
         console.log('window.EmojiMart:', window.EmojiMart)
         
-        // Используем window.EmojiMart
+        // Проверяем, есть ли Picker в библиотеке
+        if (!window.EmojiMart || !window.EmojiMart.Picker) {
+            throw new Error('EmojiMart.Picker not found')
+        }
+        
         const picker = new window.EmojiMart.Picker({
             onSelect: (emoji) => {
                 console.log('Emoji selected:', emoji)
@@ -1930,4 +1935,3 @@ window.addEventListener('beforeunload', () => {
 })
 
 setInterval(updateOnlineStatus, 5000);
-
