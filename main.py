@@ -29,14 +29,19 @@ app.add_middleware(
 )
 
 # Создаем папки для файлов
-AVATAR_DIR = os.path.join(os.path.dirname(__file__), "avatars")
-STICKER_DIR = os.path.join(os.path.dirname(__file__), "stickers")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+AVATAR_DIR = os.path.join(BASE_DIR, "avatars")
+STICKER_DIR = os.path.join(BASE_DIR, "stickers")
+STATIC_DIR = os.path.join(BASE_DIR, "web", "static")
+
 os.makedirs(AVATAR_DIR, exist_ok=True)
 os.makedirs(STICKER_DIR, exist_ok=True)
+os.makedirs(STATIC_DIR, exist_ok=True)
 
 # Монтируем папки
 app.mount("/avatars", StaticFiles(directory=AVATAR_DIR), name="avatars")
 app.mount("/stickers", StaticFiles(directory=STICKER_DIR), name="stickers")
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # Подключение к PostgreSQL
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/messenger")
