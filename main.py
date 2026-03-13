@@ -122,6 +122,22 @@ async def init_db():
                 FOREIGN KEY (user_phone) REFERENCES users(phone) ON DELETE CASCADE
             )
         """)
+
+            # Таблица реакций
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS reactions (
+                id SERIAL PRIMARY KEY,
+                message_id INTEGER NOT NULL,
+                user_phone TEXT NOT NULL,
+                reaction TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+                FOREIGN KEY (user_phone) REFERENCES users(phone) ON DELETE CASCADE,
+                UNIQUE(message_id, user_phone, reaction)
+            )
+        """)
+        
+        logger.info("Reactions table created")
         
         logger.info("Database initialized successfully")
     except Exception as e:
@@ -610,6 +626,76 @@ async def get_users(me: str):
         logger.error(f"Error getting users for {me}: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+# Добавить реакцию
+@app.post("/reaction/add")
+async def add_reaction(data: dict):
+    try:
+        message_id = data.get("message_id")
+        user = data.get("user")
+        reaction = data.get("reaction")
+        
+        conn = await get_db()
+        
+        # Проверяем, есть ли уже такая реакция
+        existing = await conn.fetchval("""
+            SELECT id FROM reactions 
+            WHERE message_id = $1 AND user_phone = $2 AND reaction = $3
+        """, message_id, user, reaction)
+        
+        if existing:
+            # Если есть - удаляем (toggle)
+            await conn.execute("""
+                DELETE FROM reactions 
+                WHERE message_id = $1 AND user_phone = $2 AND reaction = $3
+            """, message_id, user, reaction)
+        else:
+            # Если нет - добавляем
+            await conn.execute("""
+                INSERT INTO reactions (message_id, user_phone, reaction)
+                VALUES ($1, $2, $3)
+            """, message_id, user, reaction)
+        
+        await conn.close()
+        
+        # Получаем обновленные реакции для сообщения
+        reactions = await get_message_reactions(message_id)
+        
+        return {"ok": True, "reactions": reactions}
+        
+    except Exception as e:
+        logger.error(f"Error adding reaction: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+# Получить реакции для сообщения
+@app.get("/reactions/{message_id}")
+async def get_reactions(message_id: int):
+    try:
+        reactions = await get_message_reactions(message_id)
+        return {"reactions": reactions}
+    except Exception as e:
+        logger.error(f"Error getting reactions: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+async def get_message_reactions(message_id: int):
+    conn = await get_db()
+    rows = await conn.fetch("""
+        SELECT reaction, COUNT(*) as count, 
+               array_agg(user_phone) as users
+        FROM reactions 
+        WHERE message_id = $1
+        GROUP BY reaction
+    """, message_id)
+    await conn.close()
+    
+    return [
+        {
+            "reaction": row['reaction'],
+            "count": row['count'],
+            "users": row['users']
+        }
+        for row in rows
+    ]
+
 @app.get("/messages/{user1}/{user2}")
 async def get_messages(user1: str, user2: str):
     try:
@@ -858,3 +944,4 @@ if __name__ == "__main__":
         port=port,
         reload=False
     )
+
