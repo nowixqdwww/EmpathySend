@@ -701,6 +701,11 @@ body {
     height: 100vh;
     width: 100%;
     overflow: hidden;
+    transition: margin-right 0.3s ease;
+}
+
+.chat-block.emoji-open {
+    margin-right: 400px;
 }
 
 .chat-header {
@@ -920,6 +925,255 @@ body {
 
 .send-btn:hover {
     background: #5a67d8;
+}
+
+/* Emoji modal - рядом с чатом */
+.emoji-modal {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    width: 380px;
+    max-width: calc(100vw - 40px);
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 5px 30px rgba(0,0,0,0.3);
+    z-index: 1000;
+    display: none;
+    animation: slideUp 0.2s ease;
+}
+
+.emoji-modal.show {
+    display: block;
+}
+
+.emoji-modal-content {
+    width: 100%;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.emoji-modal-header {
+    padding: 12px 15px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fa;
+}
+
+.emoji-close-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #666;
+    padding: 5px 10px;
+    border-radius: 50%;
+    transition: background 0.2s;
+}
+
+.emoji-close-btn:hover {
+    background: #f0f0f0;
+}
+
+.emoji-modal-body {
+    padding: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Simple emoji picker */
+.simple-emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    padding: 10px;
+    max-height: 350px;
+    overflow-y: auto;
+    background: white;
+    border-radius: 10px;
+}
+
+.simple-emoji {
+    font-size: 28px;
+    text-align: center;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.simple-emoji:hover {
+    background: #667eea;
+    transform: scale(1.2);
+    box-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+}
+
+/* Emoji Mart styles */
+#emoji-picker {
+    min-height: 350px;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.emoji-mart {
+    width: 100% !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-family: inherit !important;
+}
+
+.emoji-mart-bar {
+    display: none !important;
+}
+
+.emoji-mart-search {
+    padding: 10px !important;
+}
+
+.emoji-mart-search input {
+    width: 100% !important;
+    padding: 10px !important;
+    border: 1px solid #e0e0e0 !important;
+    border-radius: 8px !important;
+    font-size: 14px !important;
+}
+
+.emoji-mart-category-label {
+    background: white !important;
+    color: #333 !important;
+    font-weight: bold !important;
+    padding: 10px !important;
+}
+
+.emoji-mart-emoji {
+    cursor: pointer !important;
+    padding: 5px !important;
+}
+
+.emoji-mart-emoji:hover {
+    background: #f0f0f0 !important;
+    border-radius: 5px !important;
+}
+
+.emoji-mart-emoji span {
+    font-size: 24px !important;
+}
+
+/* Sticker styles */
+.sticker-packs {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.sticker-pack {
+    margin-bottom: 20px;
+}
+
+.sticker-pack h4 {
+    margin-bottom: 10px;
+    color: #333;
+    font-size: 14px;
+}
+
+.sticker-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    padding: 10px;
+}
+
+.sticker-item {
+    width: 80px;
+    height: 80px;
+    cursor: pointer;
+    border-radius: 10px;
+    overflow: hidden;
+    transition: transform 0.2s;
+    border: 2px solid transparent;
+}
+
+.sticker-item:hover {
+    transform: scale(1.1);
+    border-color: #667eea;
+}
+
+.sticker-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* Upload area */
+.sticker-upload {
+    text-align: center;
+}
+
+.info-text {
+    color: #999;
+    font-size: 12px;
+    margin-top: 5px;
+}
+
+.upload-area {
+    border: 2px dashed #ccc;
+    border-radius: 10px;
+    padding: 40px 20px;
+    margin: 20px 0;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.upload-area:hover {
+    border-color: #667eea;
+}
+
+.upload-area.dragover {
+    border-color: #667eea;
+    background: rgba(102, 126, 234, 0.05);
+}
+
+.upload-icon {
+    font-size: 48px;
+    color: #ccc;
+    margin-bottom: 10px;
+}
+
+.sticker-preview {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.preview-item {
+    position: relative;
+    width: 100px;
+    height: 100px;
+}
+
+.preview-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.preview-item .remove-btn {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 20px;
+    height: 20px;
+    background: #f87171;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
 }
 
 /* Modal (профиль) */
@@ -1437,208 +1691,6 @@ body {
     margin-top: 10px;
 }
 
-/* Emoji and Sticker Modal */
-.emoji-sticker-tabs {
-    display: flex;
-    gap: 10px;
-}
-
-.tab-btn {
-    padding: 10px 20px;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    cursor: pointer;
-    font-size: 14px;
-    color: #666;
-    transition: all 0.2s;
-}
-
-.tab-btn i {
-    margin-right: 5px;
-}
-
-.tab-btn.active {
-    color: #667eea;
-    border-bottom-color: #667eea;
-}
-
-.tab-content {
-    display: none;
-    padding: 20px 0;
-}
-
-.tab-content.active {
-    display: block;
-}
-
-/* Emoji Mart styles */
-#emoji-picker {
-    min-height: 350px;
-    max-height: 400px;
-    overflow-y: auto;
-}
-
-/* Переопределяем стили Emoji Mart для лучшей интеграции */
-.emoji-mart {
-    width: 100% !important;
-    border: none !important;
-    border-radius: 10px !important;
-    font-family: inherit !important;
-}
-
-.emoji-mart-bar {
-    display: none !important;
-}
-
-.emoji-mart-search {
-    padding: 10px !important;
-}
-
-.emoji-mart-search input {
-    width: 100% !important;
-    padding: 10px !important;
-    border: 1px solid #e0e0e0 !important;
-    border-radius: 8px !important;
-    font-size: 14px !important;
-}
-
-.emoji-mart-category-label {
-    background: white !important;
-    color: #333 !important;
-    font-weight: bold !important;
-    padding: 10px !important;
-}
-
-.emoji-mart-emoji {
-    cursor: pointer !important;
-    padding: 5px !important;
-}
-
-.emoji-mart-emoji:hover {
-    background: #f0f0f0 !important;
-    border-radius: 5px !important;
-}
-
-.emoji-mart-emoji span {
-    font-size: 24px !important;
-}
-
-/* Sticker styles */
-.sticker-packs {
-    max-height: 400px;
-    overflow-y: auto;
-}
-
-.sticker-pack {
-    margin-bottom: 20px;
-}
-
-.sticker-pack h4 {
-    margin-bottom: 10px;
-    color: #333;
-    font-size: 14px;
-}
-
-.sticker-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    padding: 10px;
-}
-
-.sticker-item {
-    width: 80px;
-    height: 80px;
-    cursor: pointer;
-    border-radius: 10px;
-    overflow: hidden;
-    transition: transform 0.2s;
-    border: 2px solid transparent;
-}
-
-.sticker-item:hover {
-    transform: scale(1.1);
-    border-color: #667eea;
-}
-
-.sticker-item img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-/* Upload area */
-.sticker-upload {
-    text-align: center;
-}
-
-.info-text {
-    color: #999;
-    font-size: 12px;
-    margin-top: 5px;
-}
-
-.upload-area {
-    border: 2px dashed #ccc;
-    border-radius: 10px;
-    padding: 40px 20px;
-    margin: 20px 0;
-    cursor: pointer;
-    transition: border-color 0.2s;
-}
-
-.upload-area:hover {
-    border-color: #667eea;
-}
-
-.upload-area.dragover {
-    border-color: #667eea;
-    background: rgba(102, 126, 234, 0.05);
-}
-
-.upload-icon {
-    font-size: 48px;
-    color: #ccc;
-    margin-bottom: 10px;
-}
-
-.sticker-preview {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    margin-top: 20px;
-}
-
-.preview-item {
-    position: relative;
-    width: 100px;
-    height: 100px;
-}
-
-.preview-item img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-}
-
-.preview-item .remove-btn {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    width: 20px;
-    height: 20px;
-    background: #f87171;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-}
-
 /* Mobile styles */
 @media (max-width: 768px) {
     .sidebar {
@@ -1680,6 +1732,10 @@ body {
     
     .chat-area {
         width: 100%;
+    }
+    
+    .chat-block.emoji-open {
+        margin-right: 0;
     }
     
     /* Mobile avatar sizes */
@@ -1748,110 +1804,31 @@ body {
     /* Mobile input area fix */
     .input-area {
         padding: 10px 15px;
-        background: white;
-        border-top: 1px solid #e0e0e0;
-        position: sticky;
-        bottom: 0;
-        left: 0;
-        right: 0;
-        z-index: 10;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-    }
-    
-    .chat-block {
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
     }
     
     .messages {
-        flex: 1;
-        overflow-y: auto;
         padding: 15px 15px 10px 15px;
-        padding-bottom: env(safe-area-inset-bottom, 10px);
-        min-height: 0;
     }
     
     .message-input {
         font-size: 16px;
-        padding: 12px 15px;
-        border-radius: 25px;
-        background: #f5f5f5;
     }
     
-    .send-btn {
-        padding: 12px 20px;
-        border-radius: 25px;
-    }
-    
-    /* Mobile search results */
-    .search-results {
-        position: fixed;
-        top: auto;
-        left: 10px;
+    /* Mobile emoji modal */
+    .emoji-modal {
+        bottom: 70px;
         right: 10px;
-        max-height: 50vh;
+        left: 10px;
+        width: auto;
     }
     
-    .search-result-item {
-        padding: 15px;
+    .simple-emoji-grid {
+        grid-template-columns: repeat(5, 1fr);
     }
     
-    .search-result-avatar {
-        width: 40px;
-        height: 40px;
-        min-width: 40px;
-        min-height: 40px;
-    }
-    
-    /* Mobile settings */
-    .settings-item {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-    }
-    
-    .settings-select,
-    .settings-button {
-        width: 100%;
-    }
-    
-    .settings-section {
-        margin-bottom: 20px;
-    }
-    
-    /* Mobile avatar editor */
-    .avatar-editor-container {
-        height: 300px;
-    }
-    
-    .zoom-btn, .rotate-btn {
-        width: 50px;
-        height: 50px;
-    }
-    
-    .zoom-btn i, .rotate-btn i {
+    .simple-emoji {
         font-size: 24px;
-    }
-    
-    .empty-icon {
-        font-size: 48px;
-    }
-    
-    .send-btn i {
-        font-size: 16px;
-    }
-    
-    /* Mobile emoji and sticker */
-    .emoji-sticker-tabs {
-        flex-wrap: wrap;
-    }
-    
-    .tab-btn {
-        flex: 1;
-        padding: 8px;
-        font-size: 13px;
+        padding: 6px;
     }
     
     .sticker-grid {
@@ -1861,10 +1838,6 @@ body {
     .sticker-item {
         width: 70px;
         height: 70px;
-    }
-    
-    .emoji-mart-emoji span {
-        font-size: 20px !important;
     }
 }
 
@@ -1939,6 +1912,10 @@ body {
         width: 60px;
         height: 60px;
     }
+    
+    .simple-emoji-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
 }
 
 /* Landscape mode */
@@ -1984,7 +1961,7 @@ body {
         height: 200px;
     }
     
-    #emoji-picker {
+    .emoji-modal-body {
         max-height: 250px;
     }
 }
@@ -2018,7 +1995,8 @@ body {
     .rotate-btn,
     .emoji-sticker-btn,
     .tab-btn,
-    .sticker-item {
+    .sticker-item,
+    .simple-emoji {
         min-height: 44px;
     }
 
@@ -2066,55 +2044,6 @@ body {
     scrollbar-color: #888 #f1f1f1;
 }
 
-/* Индикация долгого нажатия */
-.message.long-press {
-    background-color: rgba(0,0,0,0.05);
-    transition: background-color 0.2s;
-}
-
-.message.me.long-press {
-    background-color: #5a67d8;
-}
-
-/* Privacy badges */
-.privacy-badge {
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 12px;
-    background: #f0f0f0;
-    color: #666;
-    margin-left: 8px;
-}
-
-.privacy-badge.public {
-    background: #e3f2fd;
-    color: #1976d2;
-}
-
-.privacy-badge.private {
-    background: #ffebee;
-    color: #c62828;
-}
-
-/* Password visibility toggle */
-.password-input-wrapper {
-    position: relative;
-    width: 100%;
-}
-
-.password-toggle {
-    position: absolute;
-    right: 15px;
-    top: 50%;
-    transform: translateY(-50%);
-    cursor: pointer;
-    color: #999;
-}
-
-.password-toggle:hover {
-    color: #667eea;
-}
-
 /* Cropper.js custom styles */
 .cropper-view-box,
 .cropper-face {
@@ -2144,68 +2073,4 @@ body {
 /* Стили для иконок */
 .fas, .far, .fab {
     pointer-events: none;
-}
-
-/* Emoji modal - рядом с чатом */
-.emoji-modal {
-    position: absolute;
-    bottom: 80px;
-    right: 20px;
-    width: 350px;
-    max-width: 90vw;
-    background: white;
-    border-radius: 15px;
-    box-shadow: 0 5px 30px rgba(0,0,0,0.3);
-    z-index: 1000;
-    display: none;
-    animation: slideUp 0.2s ease;
-}
-
-.emoji-modal.show {
-    display: block;
-}
-
-.emoji-modal-content {
-    width: 100%;
-    border-radius: 15px;
-    overflow: hidden;
-}
-
-.emoji-modal-header {
-    padding: 15px;
-    border-bottom: 1px solid #e0e0e0;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: #f8f9fa;
-}
-
-.emoji-close-btn {
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    color: #666;
-    padding: 5px 10px;
-    border-radius: 50%;
-}
-
-.emoji-close-btn:hover {
-    background: #f0f0f0;
-}
-
-.emoji-modal-body {
-    padding: 15px;
-    max-height: 400px;
-    overflow-y: auto;
-}
-
-/* Для мобильных */
-@media (max-width: 768px) {
-    .emoji-modal {
-        bottom: 70px;
-        right: 10px;
-        left: 10px;
-        width: auto;
-    }
 }
