@@ -2075,3 +2075,150 @@ body {
 .fas, .far, .fab {
     pointer-events: none;
 }
+
+/* ============= РЕАКЦИИ ============= */
+
+/* Панель реакций */
+.reactions-panel {
+    position: absolute;
+    background: white;
+    border-radius: 40px;
+    box-shadow: 0 5px 25px rgba(0,0,0,0.2);
+    padding: 8px;
+    z-index: 10000;
+    animation: scaleIn 0.2s ease;
+    transform-origin: bottom left;
+}
+
+@keyframes scaleIn {
+    from {
+        transform: scale(0);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.reactions-list {
+    display: flex;
+    gap: 5px;
+}
+
+.reaction-btn {
+    width: 40px;
+    height: 40px;
+    border: none;
+    border-radius: 50%;
+    background: none;
+    font-size: 22px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.reaction-btn:hover {
+    background: #f0f0f0;
+    transform: scale(1.2);
+}
+
+.reaction-btn:active {
+    transform: scale(0.9);
+}
+
+/* Бейдж с реакциями на сообщении */
+.message-reactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 5px;
+    padding: 2px 0;
+}
+
+.reaction-badge {
+    background: rgba(255,255,255,0.9);
+    border-radius: 20px;
+    padding: 3px 8px;
+    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    transition: transform 0.2s;
+}
+
+.reaction-badge:hover {
+    transform: scale(1.05);
+    background: white;
+}
+
+.reaction-badge .count {
+    font-size: 12px;
+    color: #666;
+    font-weight: 500;
+}
+
+/* Для своих сообщений */
+.message.me .reaction-badge {
+    background: rgba(255,255,255,0.2);
+    border-color: rgba(255,255,255,0.3);
+}
+
+.message.me .reaction-badge .count {
+    color: rgba(255,255,255,0.9);
+}
+
+.message.me .reaction-badge:hover {
+    background: rgba(255,255,255,0.3);
+}
+
+/* Кнопка добавления реакции */
+.add-reaction-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: 1px solid rgba(0,0,0,0.1);
+    background: white;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.2s, transform 0.2s;
+    margin-left: 4px;
+}
+
+.message:hover .add-reaction-btn {
+    opacity: 1;
+}
+
+.add-reaction-btn:hover {
+    transform: scale(1.1);
+    background: #f0f0f0;
+}
+
+/* Мобильные */
+@media (max-width: 768px) {
+    .reactions-panel {
+        border-radius: 30px;
+        padding: 6px;
+    }
+    
+    .reaction-btn {
+        width: 44px;
+        height: 44px;
+        font-size: 24px;
+    }
+    
+    .add-reaction-btn {
+        opacity: 1;
+        width: 28px;
+        height: 28px;
+    }
+}
