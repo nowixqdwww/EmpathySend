@@ -932,51 +932,84 @@ body {
 
 /* ============= СТИКЕРЫ ============= */
 
-/* Модальное окно стикеров (вылезающее) */
+/* Стикер в чате */
+.message.sticker {
+    background: none !important;
+    padding: 4px 8px;
+    box-shadow: none !important;
+}
+
+.message.sticker img {
+    width: 160px;
+    height: 160px;
+    object-fit: contain;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s;
+    display: block;
+    filter: drop-shadow(0 4px 12px rgba(0,0,0,0.12));
+    animation: stickerPop 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.message.sticker img:hover {
+    transform: scale(1.08) rotate(-2deg);
+    filter: drop-shadow(0 8px 20px rgba(0,0,0,0.2));
+}
+
+@keyframes stickerPop {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+/* Модальное окно стикеров */
 .sticker-modal {
-    position: absolute;
+    position: fixed;
     bottom: 80px;
-    right: 10px;
-    width: 350px;
-    max-width: calc(100vw - 30px);
+    right: 16px;
+    width: 360px;
+    max-width: calc(100vw - 24px);
     background: white;
-    border-radius: 15px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
+    border-radius: 20px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18), 0 4px 16px rgba(0,0,0,0.1);
+    z-index: 1100;
     opacity: 0;
-    transform: scale(0.9);
+    transform: scale(0.88) translateY(12px);
     transform-origin: bottom right;
-    transition: opacity 0.2s, transform 0.2s;
+    transition: opacity 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+                transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
     pointer-events: none;
     visibility: hidden;
+    will-change: transform, opacity;
 }
 
 .sticker-modal.show {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
     pointer-events: all;
     visibility: visible;
 }
 
 .sticker-modal-content {
     width: 100%;
-    border-radius: 15px;
+    border-radius: 20px;
     overflow: hidden;
 }
 
 .sticker-modal-header {
-    padding: 15px;
-    border-bottom: 1px solid #e0e0e0;
+    padding: 14px 16px;
+    border-bottom: 1px solid #f0f0f0;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #f8f9fa;
+    background: linear-gradient(135deg, #f8f9ff 0%, #f0f2ff 100%);
 }
 
 .sticker-modal-header h3 {
-    font-size: 16px;
+    font-size: 15px;
     color: #333;
     margin: 0;
+    font-weight: 600;
 }
 
 .sticker-modal-header h3 i {
@@ -987,60 +1020,83 @@ body {
 .sticker-close-btn {
     background: none;
     border: none;
-    font-size: 18px;
+    font-size: 16px;
     cursor: pointer;
-    color: #666;
-    padding: 5px 8px;
+    color: #999;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
-    transition: background 0.2s;
+    transition: background 0.2s, color 0.2s;
+    display: flex; align-items: center; justify-content: center;
 }
 
 .sticker-close-btn:hover {
     background: #f0f0f0;
+    color: #333;
 }
 
 .sticker-modal-body {
-    padding: 15px;
-    max-height: 400px;
+    padding: 12px;
+    max-height: 380px;
     overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Вкладки стикеров */
 .sticker-tabs {
     display: flex;
-    gap: 5px;
-    margin-bottom: 15px;
-    border-bottom: 1px solid #e0e0e0;
-    padding-bottom: 10px;
+    gap: 6px;
+    margin-bottom: 12px;
+    background: #f5f6fa;
+    border-radius: 12px;
+    padding: 4px;
 }
 
 .sticker-tab-btn {
     flex: 1;
-    padding: 8px 12px;
+    padding: 8px 6px;
     background: none;
     border: none;
-    border-radius: 8px;
+    border-radius: 9px;
     cursor: pointer;
-    font-size: 14px;
-    color: #666;
+    font-size: 12px;
+    font-weight: 500;
+    color: #888;
     transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
+    gap: 4px;
+    position: relative;
+    white-space: nowrap;
 }
 
 .sticker-tab-btn i {
-    font-size: 16px;
+    font-size: 13px;
 }
 
 .sticker-tab-btn:hover {
-    background: #f0f0f0;
+    color: #667eea;
+    background: rgba(102, 126, 234, 0.08);
 }
 
 .sticker-tab-btn.active {
+    background: white;
+    color: #667eea;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Счётчик стикеров на вкладке */
+.sticker-count {
     background: #667eea;
     color: white;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    min-width: 16px;
+    text-align: center;
+    line-height: 1.4;
 }
 
 .sticker-tab-content {
@@ -1049,48 +1105,119 @@ body {
 
 .sticker-tab-content.active {
     display: block;
+    animation: tabFadeIn 0.18s ease;
+}
+
+@keyframes tabFadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* Сетка стикеров */
 .sticker-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    padding: 5px;
+    gap: 8px;
+    padding: 4px;
 }
 
 .sticker-item {
     width: 100%;
     aspect-ratio: 1/1;
     cursor: pointer;
-    border-radius: 10px;
-    overflow: hidden;
-    transition: transform 0.2s, box-shadow 0.2s;
+    border-radius: 12px;
+    overflow: visible;
+    transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
     border: 2px solid transparent;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #f8f9fa;
+    background: #f5f6fa;
+    position: relative;
 }
 
 .sticker-item:hover {
-    transform: scale(1.05);
+    transform: scale(1.12);
     border-color: #667eea;
-    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+}
+
+.sticker-item:active {
+    transform: scale(0.94);
 }
 
 .sticker-item img {
-    width: 100%;
-    height: 100%;
+    width: 85%;
+    height: 85%;
     object-fit: contain;
+    pointer-events: none;
+}
+
+/* Кнопка удаления стикера */
+.sticker-delete-btn {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    width: 20px;
+    height: 20px;
+    background: #ff4757;
+    color: white;
+    border: 2px solid white;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 9px;
+    font-weight: 700;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    transition: transform 0.15s, background 0.15s;
+    line-height: 1;
+}
+
+.sticker-item:hover .sticker-delete-btn {
+    display: flex;
+}
+
+.sticker-delete-btn:hover {
+    background: #e84040;
+    transform: scale(1.2);
+}
+
+/* Анимация появления стикера в панели */
+@keyframes stickerItemIn {
+    from { opacity: 0; transform: scale(0.7); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.sticker-animate-in {
+    animation: stickerItemIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Анимация удаления */
+@keyframes stickerItemOut {
+    to { opacity: 0; transform: scale(0.5); }
+}
+
+.sticker-removing {
+    animation: stickerItemOut 0.25s ease forwards;
+    pointer-events: none;
 }
 
 /* Пустые стикеры */
 .empty-stickers {
-    text-align: center;
-    padding: 30px;
-    color: #999;
-    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px 20px;
+    color: #bbb;
+    font-size: 13px;
+    gap: 8px;
+}
+
+.empty-stickers::before {
+    content: '🎭';
+    font-size: 36px;
 }
 
 /* Область загрузки */
@@ -1099,61 +1226,76 @@ body {
 }
 
 .info-text {
-    color: #999;
+    color: #aaa;
     font-size: 12px;
-    margin-top: 5px;
-    margin-bottom: 15px;
+    margin-top: 4px;
+    margin-bottom: 12px;
+    line-height: 1.5;
 }
 
 .upload-area {
-    border: 2px dashed #ccc;
-    border-radius: 10px;
-    padding: 30px 20px;
-    margin: 15px 0;
+    border: 2px dashed #d0d5e8;
+    border-radius: 14px;
+    padding: 28px 16px;
+    margin: 12px 0;
     cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
+    transition: border-color 0.2s, background 0.2s, transform 0.15s;
 }
 
 .upload-area:hover {
     border-color: #667eea;
-    background: rgba(102, 126, 234, 0.05);
+    background: rgba(102, 126, 234, 0.04);
+    transform: scale(1.01);
 }
 
 .upload-area.dragover {
     border-color: #667eea;
     background: rgba(102, 126, 234, 0.1);
+    transform: scale(1.02);
 }
 
 .upload-icon {
-    font-size: 48px;
-    color: #ccc;
-    margin-bottom: 10px;
+    font-size: 40px;
+    color: #c0c8e8;
+    margin-bottom: 8px;
+}
+
+.upload-area p {
+    color: #999;
+    font-size: 13px;
+    margin: 6px 0;
 }
 
 .upload-btn {
-    padding: 10px 20px;
+    padding: 10px 18px;
     background: #667eea;
     color: white;
     border: none;
-    border-radius: 8px;
-    font-size: 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background 0.2s, transform 0.15s;
+    margin-top: 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .upload-btn:hover {
     background: #5a67d8;
+    transform: scale(1.03);
 }
 
 /* Предпросмотр стикеров */
 .sticker-preview {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    margin: 15px 0;
-    max-height: 200px;
+    gap: 8px;
+    margin: 12px 0;
+    max-height: 160px;
     overflow-y: auto;
-    padding: 5px;
+    padding: 4px;
 }
 
 .preview-item {
@@ -1829,22 +1971,36 @@ body {
     
     /* Mobile sticker modal */
     .sticker-modal {
-        bottom: 70px;
-        right: 5px;
-        left: 5px;
+        bottom: 72px;
+        right: 8px;
+        left: 8px;
         width: auto;
+        max-width: none;
+        border-radius: 18px;
+        transform-origin: bottom center;
     }
     
     .sticker-grid {
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(4, 1fr);
+        gap: 6px;
     }
     
     .sticker-tab-btn {
-        font-size: 13px;
+        font-size: 11px;
+        padding: 7px 4px;
     }
     
     .sticker-tab-btn i {
-        font-size: 14px;
+        font-size: 12px;
+    }
+    
+    .sticker-modal-body {
+        max-height: 55vh;
+    }
+    
+    .message.sticker img {
+        width: 140px;
+        height: 140px;
     }
 }
 
@@ -1916,7 +2072,12 @@ body {
     }
     
     .sticker-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .message.sticker img {
+        width: 120px;
+        height: 120px;
     }
 }
 
@@ -2004,13 +2165,6 @@ body {
     .message-input {
         font-size: 16px;
     }
-}
-
-/* No animations */
-.chatItem, .unread-badge, .chat-avatar, .chat-name, .chat-last-message,
-.profile-avatar, .chat-user-avatar, .profile-view-avatar, .avatar-preview,
-.message {
-    transition: none;
 }
 
 /* Запрещаем выделение на мобильных */
