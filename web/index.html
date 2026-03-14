@@ -179,11 +179,11 @@
     </div>
 </div>
 
-<!-- Модальное окно для стикеров (вылезающее из кнопки) -->
+<!-- Модальное окно для стикеров -->
 <div id="stickerModal" class="sticker-modal">
     <div class="sticker-modal-content">
         <div class="sticker-modal-header">
-            <h3><i class="fas fa-sticky-note"></i> Мои стикеры</h3>
+            <h3><i class="fas fa-face-smile"></i> Стикеры</h3>
             <button class="sticker-close-btn" onclick="closeStickerModal()">
                 <i class="fas fa-times"></i>
             </button>
@@ -192,20 +192,20 @@
             <!-- Вкладки -->
             <div class="sticker-tabs">
                 <button class="sticker-tab-btn active" onclick="switchStickerTab('my')" id="tabMyBtn">
-                    <i class="fas fa-folder"></i> Мои
+                    <i class="fas fa-star"></i> Мои
                 </button>
                 <button class="sticker-tab-btn" onclick="switchStickerTab('popular')" id="tabPopularBtn">
                     <i class="fas fa-fire"></i> Популярные
                 </button>
                 <button class="sticker-tab-btn" onclick="switchStickerTab('upload')" id="tabUploadBtn">
-                    <i class="fas fa-upload"></i> Загрузить
+                    <i class="fas fa-plus"></i> Добавить
                 </button>
             </div>
             
             <!-- Мои стикеры -->
             <div id="myStickersTab" class="sticker-tab-content active">
                 <div class="sticker-grid" id="myStickers"></div>
-                <p class="empty-stickers" id="emptyMyStickers" style="display: none;">У вас пока нет стикеров</p>
+                <p class="empty-stickers" id="emptyMyStickers" style="display: none;">Нет стикеров — добавьте во вкладке «Добавить»</p>
             </div>
             
             <!-- Популярные стикеры -->
@@ -216,21 +216,21 @@
             <!-- Загрузка стикеров -->
             <div id="uploadStickersTab" class="sticker-tab-content">
                 <div class="sticker-upload">
-                    <p>Загрузите стикеры из Telegram</p>
-                    <p class="info-text">Поддерживаются форматы PNG, WEBP, JPEG</p>
+                    <p style="font-weight:600; color:#333; font-size:14px; margin-bottom:4px;">Добавить стикеры</p>
+                    <p class="info-text">PNG, WEBP, GIF · До 512×512 · Из Telegram: @Stickers → «Экспорт пака»</p>
                     
                     <div class="upload-area" id="stickerUploadArea">
                         <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                        <p>Перетащите файлы сюда или нажмите для выбора</p>
-                        <input type="file" id="stickerFiles" accept="image/*" multiple style="display: none;">
-                        <button onclick="document.getElementById('stickerFiles').click()" class="upload-btn">
+                        <p>Перетащите файлы сюда</p>
+                        <input type="file" id="stickerFiles" accept="image/*,.webp,.gif" multiple style="display: none;">
+                        <button onclick="document.getElementById('stickerFiles').click()" class="upload-btn" style="margin-top:0;">
                             <i class="fas fa-folder-open"></i> Выбрать файлы
                         </button>
                     </div>
                     
                     <div id="stickerPreview" class="sticker-preview"></div>
                     
-                    <button onclick="uploadStickers()" class="login-btn" style="margin-top: 20px;">
+                    <button onclick="uploadStickers()" class="login-btn" style="margin-top: 16px; padding: 12px;">
                         <i class="fas fa-save"></i> Сохранить стикеры
                     </button>
                 </div>
@@ -567,4 +567,3 @@
 <script src="/app.js"></script>
 </body>
 </html>
-
