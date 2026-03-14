@@ -97,10 +97,7 @@ function hasClass(element, className) {
 }
 
 function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar')
-    const overlay = document.getElementById('sidebarOverlay')
-    sidebar.classList.toggle('open')
-    if (overlay) overlay.classList.toggle('show', sidebar.classList.contains('open'))
+    document.getElementById('sidebar').classList.toggle('open')
 }
 
 function closeChat(event) {
@@ -109,8 +106,6 @@ function closeChat(event) {
     document.getElementById('emptyChat').style.display = 'flex'
     document.getElementById('chatBlock').style.display = 'none'
     document.getElementById('sidebar').classList.add('open')
-    const overlay = document.getElementById('sidebarOverlay')
-    if (overlay) overlay.classList.add('show')
 }
 
 // ============= ФУНКЦИИ ДЛЯ СТАТУСОВ =============
@@ -1418,8 +1413,6 @@ function openChat(phone, displayName) {
     
     if (window.innerWidth <= 768) {
         document.getElementById('sidebar').classList.remove('open')
-        const overlay = document.getElementById('sidebarOverlay')
-        if (overlay) overlay.classList.remove('show')
     }
     
     loadMessages()
@@ -1527,55 +1520,88 @@ function hideContextMenus() {
 }
 
 async function deleteMessage() {
-    if (!selectedMessageId || !currentChat) return
+    if (!selectedMessageId || !selectedMessageElement) return
+    
+    const elementToRemove = selectedMessageElement
+    const messageId = selectedMessageId
+    
+    hideContextMenus()
+    
+    // Optimistic UI — сразу анимируем исчезновение, не ждём сервер
+    elementToRemove.style.transition = 'transform 0.2s ease, opacity 0.2s ease'
+    elementToRemove.style.transform = 'scale(0.85)'
+    elementToRemove.style.opacity = '0'
+    
+    setTimeout(() => elementToRemove.remove(), 200)
     
     try {
-        const res = await fetch(`/message/${selectedMessageId}?user=${currentUser}`, {
+        const res = await fetch(`/message/${messageId}?user=${encodeURIComponent(currentUser)}`, {
             method: 'DELETE'
         })
         
-        if (res.ok && selectedMessageElement) {
-            selectedMessageElement.remove()
-            showToast('Сообщение удалено')
+        const data = await res.json()
+        
+        if (!res.ok) {
+            // Откатываем — показываем обратно
+            elementToRemove.style.transform = ''
+            elementToRemove.style.opacity = ''
+            // Если элемент уже удалён из DOM — возвращаем
+            if (!elementToRemove.parentElement) {
+                document.getElementById('messages').appendChild(elementToRemove)
+            }
+            showToast(data.error || 'Ошибка при удалении')
         }
         
     } catch (error) {
         console.error('Error deleting message:', error)
-        showToast('Ошибка при удалении')
+        showToast('Нет соединения с сервером')
     }
-    
-    hideContextMenus()
 }
 
 async function deleteChat() {
     if (!selectedChatPhone) return
     
-    if (!confirm('Удалить этот чат?')) return
+    const chatPhone = selectedChatPhone
+    const chatElement = document.getElementById(`chat-${cleanPhone(chatPhone)}`)
+    const wasCurrentChat = currentChat === chatPhone
+    
+    hideContextMenus()
+    
+    // Optimistic UI — сразу скрываем элемент в списке
+    if (chatElement) {
+        chatElement.style.transition = 'transform 0.2s ease, opacity 0.2s ease, max-height 0.3s ease'
+        chatElement.style.opacity = '0'
+        chatElement.style.transform = 'translateX(-20px)'
+        chatElement.style.maxHeight = chatElement.offsetHeight + 'px'
+        setTimeout(() => {
+            chatElement.style.maxHeight = '0'
+            chatElement.style.padding = '0'
+            chatElement.style.margin = '0'
+        }, 180)
+        setTimeout(() => chatElement.remove(), 400)
+    }
+    
+    // Если этот чат открыт — сразу закрываем
+    if (wasCurrentChat) {
+        currentChat = null
+        document.getElementById('messages').innerHTML = ''
+        document.getElementById('emptyChat').style.display = 'flex'
+        document.getElementById('chatBlock').style.display = 'none'
+        if (window.innerWidth <= 768) {
+            document.getElementById('sidebar').classList.add('open')
+            const overlay = document.getElementById('sidebarOverlay')
+            if (overlay) overlay.classList.add('show')
+        }
+    }
     
     try {
-        const res = await fetch(`/chat/${currentUser}/${selectedChatPhone}`, {
+        await fetch(`/chat/${encodeURIComponent(currentUser)}/${encodeURIComponent(chatPhone)}`, {
             method: 'DELETE'
         })
-        
-        if (res.ok) {
-            const element = document.getElementById(`chat-${cleanPhone(selectedChatPhone)}`)
-            if (element) element.remove()
-            
-            if (currentChat === selectedChatPhone) {
-                currentChat = null
-                document.getElementById('emptyChat').style.display = 'flex'
-                document.getElementById('chatBlock').style.display = 'none'
-            }
-            
-            showToast('Чат удален')
-        }
-        
     } catch (error) {
         console.error('Error deleting chat:', error)
         showToast('Ошибка при удалении')
     }
-    
-    hideContextMenus()
 }
 
 function muteChat() {
@@ -1669,6 +1695,17 @@ function connect() {
                 data.messages.forEach(m => {
                     addMessage(m[1], m[2], m[0])
                 })
+            }
+
+            // Удаление сообщения (инициировано другим пользователем)
+            if (data.action === 'message_deleted') {
+                const el = document.querySelector(`[data-message-id="${data.id}"]`)
+                if (el) {
+                    el.style.transition = 'transform 0.2s ease, opacity 0.2s ease'
+                    el.style.transform = 'scale(0.85)'
+                    el.style.opacity = '0'
+                    setTimeout(() => el.remove(), 200)
+                }
             }
 
             if (data.action === 'typing') {
