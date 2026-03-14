@@ -5,69 +5,60 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>NonBlock Messenger</title>
     <link rel="stylesheet" href="/style.css">
-    <!-- Cropper.js CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
-    <!-- Font Awesome для линейных иконок -->
     <link rel="stylesheet" href="https://use.fontawesome.com/releases/v6.0.0-beta3/css/all.css">
     <link rel="apple-touch-icon" href="/icon.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#2AABEE">
 </head>
 <body>
-
+ 
 <!-- Экран входа -->
 <div id="loginScreen">
     <div class="login-container">
         <h1>NonBlock</h1>
-        <p>Введите номер телефона и пароль</p>
+        <p>Войдите, чтобы продолжить</p>
         <input id="loginPhone" type="tel" placeholder="+7 (999) 999-99-99" class="login-input">
-        <input id="loginPassword" type="password" placeholder="Пароль" class="login-input" style="margin-top: 10px;">
-        <button onclick="login()" class="login-btn">
-            <i class="fas fa-sign-in-alt"></i> Войти
-        </button>
-        <p style="margin-top: 20px; color: #666;">
-            Нет аккаунта? 
-            <a href="#" onclick="showRegisterForm()" style="color: #667eea;">Зарегистрироваться</a>
+        <input id="loginPassword" type="password" placeholder="Пароль" class="login-input">
+        <button onclick="login()" class="login-btn">Войти</button>
+        <p style="margin-top:18px; color:#8E8E93; font-size:14px;">
+            Нет аккаунта?
+            <a href="#" onclick="showRegisterForm()" style="color:#2AABEE; font-weight:600; text-decoration:none;"> Зарегистрироваться</a>
         </p>
     </div>
 </div>
-
+ 
 <!-- Экран регистрации -->
-<div id="registerScreen" style="display: none;">
+<div id="registerScreen" style="display:none;">
     <div class="login-container">
         <h1>Регистрация</h1>
         <input id="registerPhone" type="tel" placeholder="+7 (999) 999-99-99" class="login-input">
-        <input id="registerUsername" type="text" placeholder="Username (начинается с @)" class="login-input" style="margin-top: 10px;">
-        <input id="registerName" type="text" placeholder="Имя (необязательно)" class="login-input" style="margin-top: 10px;">
-        <input id="registerPassword" type="password" placeholder="Пароль" class="login-input" style="margin-top: 10px;" oninput="checkPasswordStrength(this.value)">
-        <input id="registerConfirm" type="password" placeholder="Подтвердите пароль" class="login-input" style="margin-top: 10px;">
-        
-        <!-- Индикатор силы пароля -->
-        <div class="password-strength">
-            <div class="strength-bar" id="strengthBar"></div>
-        </div>
-        
-        <!-- Требования к паролю -->
+        <input id="registerUsername" type="text" placeholder="Username (начинается с @)" class="login-input">
+        <input id="registerName" type="text" placeholder="Имя (необязательно)" class="login-input">
+        <input id="registerPassword" type="password" placeholder="Пароль" class="login-input" oninput="checkPasswordStrength(this.value)">
+        <input id="registerConfirm" type="password" placeholder="Подтвердите пароль" class="login-input">
+        <div class="password-strength"><div class="strength-bar" id="strengthBar"></div></div>
         <div class="password-requirements">
             <p class="requirement" id="reqLength">❌ Минимум 6 символов</p>
             <p class="requirement" id="reqNumber">❌ Хотя бы одна цифра</p>
             <p class="requirement" id="reqLetter">❌ Хотя бы одна буква</p>
         </div>
-        
-        <button onclick="register()" class="login-btn" id="registerBtn">
-            <i class="fas fa-user-plus"></i> Зарегистрироваться
-        </button>
-        <p style="margin-top: 20px; color: #666;">
-            Уже есть аккаунт? 
-            <a href="#" onclick="showLoginForm()" style="color: #667eea;">Войти</a>
+        <button onclick="register()" class="login-btn" id="registerBtn">Зарегистрироваться</button>
+        <p style="margin-top:18px; color:#8E8E93; font-size:14px;">
+            Есть аккаунт?
+            <a href="#" onclick="showLoginForm()" style="color:#2AABEE; font-weight:600; text-decoration:none;"> Войти</a>
         </p>
     </div>
 </div>
-
+ 
 <!-- Основное приложение -->
 <div class="app" id="app">
-    
-    <!-- Левый сайдбар (список чатов) -->
+ 
+    <!-- Overlay для сайдбара на мобильных -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+ 
+    <!-- Сайдбар -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar()">
@@ -76,13 +67,13 @@
             <h3>NonBlock</h3>
             <div class="header-actions">
                 <button class="settings-btn" onclick="openSettings()">
-                    <i class="fas fa-cog"></i>
+                    <i class="fas fa-gear"></i>
                 </button>
                 <span class="online-status"></span>
             </div>
         </div>
-
-        <!-- Профиль пользователя -->
+ 
+        <!-- Профиль -->
         <div class="profile-section">
             <div class="profile-header" onclick="openMyProfile()">
                 <div class="profile-avatar" id="myAvatar">
@@ -97,41 +88,41 @@
                 </div>
             </div>
         </div>
-
-        <!-- Поиск с автодополнением -->
+ 
+        <!-- Поиск -->
         <div class="search-section">
             <div class="search-container">
-                <i class="fas fa-search search-icon"></i>
-                <input id="searchUser" placeholder="Поиск по username или имени" class="search-input" autocomplete="off">
-                <div id="searchResults" class="search-results" style="display: none;"></div>
+                <i class="fas fa-magnifying-glass search-icon"></i>
+                <input id="searchUser" placeholder="Поиск" class="search-input" autocomplete="off">
+                <div id="searchResults" class="search-results" style="display:none;"></div>
             </div>
         </div>
-
-        <!-- Список чатов -->
+ 
+        <!-- Чаты -->
         <div class="chats-header">
             <span>Чаты</span>
             <span class="chats-count" id="chatsCount">0</span>
         </div>
         <div id="chatList" class="chat-list"></div>
     </div>
-
-    <!-- Правая часть (чат) -->
+ 
+    <!-- Правая область -->
     <div class="chat-area">
-        <!-- Пустой чат -->
+        <!-- Пустой экран -->
         <div id="emptyChat" class="empty-chat">
             <div class="empty-chat-content">
                 <i class="fas fa-comment-dots empty-icon"></i>
                 <h3>Выберите чат</h3>
-                <p>Начните общение с другом</p>
+                <p>Найдите друга через поиск и начните общаться</p>
             </div>
         </div>
-
+ 
         <!-- Активный чат -->
         <div id="chatBlock" class="chat-block">
-            <!-- Шапка чата с профилем собеседника -->
+            <!-- Шапка -->
             <div class="chat-header" id="chatHeader" onclick="openChatProfile()">
                 <button class="back-btn" onclick="closeChat(event)">
-                    <i class="fas fa-arrow-left"></i>
+                    <i class="fas fa-chevron-left"></i>
                 </button>
                 <div class="chat-user-info">
                     <div class="chat-user-avatar" id="chatAvatar">
@@ -139,26 +130,25 @@
                     </div>
                     <div class="chat-user-details">
                         <span class="chat-user-name" id="chatUserName">Загрузка...</span>
-                        <span class="chat-user-phone" id="chatUserPhone"></span>
                         <span class="chat-user-status" id="chatUserStatus">offline</span>
                     </div>
                 </div>
                 <div class="chat-actions">
-                    <button class="action-btn" onclick="openChatProfile()">
-                        <i class="fas fa-user"></i>
+                    <button class="action-btn" onclick="openChatProfile(); event.stopPropagation()">
+                        <i class="fas fa-ellipsis-vertical"></i>
                     </button>
                 </div>
             </div>
-
+ 
             <!-- Сообщения -->
             <div id="messages" class="messages"></div>
-
-            <!-- Ввод сообщения -->
+ 
+            <!-- Панель ввода (плавающая) -->
             <div class="input-area">
                 <button onclick="toggleStickerModal()" class="sticker-btn" id="stickerBtn">
-                    <i class="fas fa-sticky-note"></i>
+                    <i class="fas fa-face-smile"></i>
                 </button>
-                <input id="text" placeholder="Напишите сообщение..." class="message-input">
+                <input id="text" placeholder="Сообщение" class="message-input">
                 <button onclick="send()" class="send-btn">
                     <i class="fas fa-paper-plane"></i>
                 </button>
@@ -166,8 +156,9 @@
         </div>
     </div>
 </div>
-
-<div id="reactionsPanel" class="reactions-panel" style="display: none;">
+ 
+<!-- Реакции -->
+<div id="reactionsPanel" class="reactions-panel" style="display:none;">
     <div class="reactions-list">
         <button class="reaction-btn" onclick="addReaction('👍')">👍</button>
         <button class="reaction-btn" onclick="addReaction('❤️')">❤️</button>
@@ -178,133 +169,107 @@
         <button class="reaction-btn" onclick="addReaction('👎')">👎</button>
     </div>
 </div>
-
-<!-- Модальное окно для стикеров -->
+ 
+<!-- Стикеры -->
 <div id="stickerModal" class="sticker-modal">
     <div class="sticker-modal-content">
         <div class="sticker-modal-header">
             <h3><i class="fas fa-face-smile"></i> Стикеры</h3>
             <button class="sticker-close-btn" onclick="closeStickerModal()">
-                <i class="fas fa-times"></i>
+                <i class="fas fa-xmark"></i>
             </button>
         </div>
         <div class="sticker-modal-body">
-            <!-- Вкладки -->
             <div class="sticker-tabs">
                 <button class="sticker-tab-btn active" onclick="switchStickerTab('my')" id="tabMyBtn">
                     <i class="fas fa-star"></i> Мои
                 </button>
                 <button class="sticker-tab-btn" onclick="switchStickerTab('popular')" id="tabPopularBtn">
-                    <i class="fas fa-fire"></i> Популярные
+                    <i class="fas fa-fire"></i> Топ
                 </button>
                 <button class="sticker-tab-btn" onclick="switchStickerTab('upload')" id="tabUploadBtn">
                     <i class="fas fa-plus"></i> Добавить
                 </button>
             </div>
-            
-            <!-- Мои стикеры -->
             <div id="myStickersTab" class="sticker-tab-content active">
                 <div class="sticker-grid" id="myStickers"></div>
-                <p class="empty-stickers" id="emptyMyStickers" style="display: none;">Нет стикеров — добавьте во вкладке «Добавить»</p>
+                <p class="empty-stickers" id="emptyMyStickers" style="display:none;">Добавьте стикеры во вкладке «Добавить»</p>
             </div>
-            
-            <!-- Популярные стикеры -->
             <div id="popularStickersTab" class="sticker-tab-content">
                 <div class="sticker-grid" id="popularStickers"></div>
             </div>
-            
-            <!-- Загрузка стикеров -->
             <div id="uploadStickersTab" class="sticker-tab-content">
                 <div class="sticker-upload">
-                    <p style="font-weight:600; color:#333; font-size:14px; margin-bottom:4px;">Добавить стикеры</p>
-                    <p class="info-text">PNG, WEBP, GIF · До 512×512 · Из Telegram: @Stickers → «Экспорт пака»</p>
-                    
+                    <p style="font-weight:600;color:#000;font-size:14px;margin-bottom:4px;">Добавить стикеры</p>
+                    <p class="info-text">PNG, WEBP, GIF · Из Telegram: @Stickers → «Экспорт пака»</p>
                     <div class="upload-area" id="stickerUploadArea">
-                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                        <i class="fas fa-cloud-arrow-up upload-icon"></i>
                         <p>Перетащите файлы сюда</p>
-                        <input type="file" id="stickerFiles" accept="image/*,.webp,.gif" multiple style="display: none;">
+                        <input type="file" id="stickerFiles" accept="image/*,.webp,.gif" multiple style="display:none;">
                         <button onclick="document.getElementById('stickerFiles').click()" class="upload-btn" style="margin-top:0;">
                             <i class="fas fa-folder-open"></i> Выбрать файлы
                         </button>
                     </div>
-                    
                     <div id="stickerPreview" class="sticker-preview"></div>
-                    
-                    <button onclick="uploadStickers()" class="login-btn" style="margin-top: 16px; padding: 12px;">
-                        <i class="fas fa-save"></i> Сохранить стикеры
+                    <button onclick="uploadStickers()" class="login-btn" style="margin-top:16px;padding:12px;">
+                        <i class="fas fa-floppy-disk"></i> Сохранить стикеры
                     </button>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<!-- Модальное окно профиля (как в Telegram) -->
+ 
+<!-- Профиль -->
 <div id="profileModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
             <h2>Профиль</h2>
-            <button class="close-btn" onclick="closeModal()">
-                <i class="fas fa-times"></i>
-            </button>
+            <button class="close-btn" onclick="closeModal()"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body">
-            <!-- Просмотр профиля -->
             <div class="profile-view" id="profileView">
                 <div class="profile-view-avatar" id="modalAvatar">
                     <span id="modalAvatarText"><i class="fas fa-user"></i></span>
                 </div>
-                
                 <div class="profile-view-field">
                     <label>Имя</label>
                     <div class="field-value" id="modalName"></div>
                 </div>
-
                 <div class="profile-view-field">
                     <label>Username</label>
                     <div class="field-value" id="modalUsername"></div>
                 </div>
-
                 <div class="profile-view-field">
                     <label>О себе</label>
                     <div class="field-value" id="modalBio"></div>
                 </div>
-
                 <div class="profile-view-field">
                     <label>Телефон</label>
                     <div class="field-value" id="modalPhone"></div>
                 </div>
-
                 <div class="profile-view-field">
                     <label>Статус</label>
                     <div class="field-value" id="modalStatus"></div>
                 </div>
-
-                <div id="modalActions" class="profile-actions">
-                    <!-- Действия будут добавляться динамически -->
-                </div>
+                <div id="modalActions" class="profile-actions"></div>
             </div>
-
-            <!-- Редактирование профиля (для своего профиля) -->
-            <div class="profile-edit" id="profileEdit" style="display: none;">
-                <!-- Блок загрузки аватара -->
+            <div class="profile-edit" id="profileEdit" style="display:none;">
                 <div class="edit-field avatar-upload">
                     <label>Аватар</label>
                     <div class="avatar-preview" id="avatarPreview">
                         <span id="previewAvatarText"><i class="fas fa-user"></i></span>
                     </div>
                     <div class="upload-controls">
-                        <input type="file" id="avatarInput" accept="image/*" style="display: none;">
+                        <input type="file" id="avatarInput" accept="image/*" style="display:none;">
                         <button onclick="document.getElementById('avatarInput').click()" class="upload-btn">
-                            <i class="fas fa-camera"></i> Выбрать фото
+                            <i class="fas fa-camera"></i> Фото
                         </button>
                         <button onclick="removeAvatar()" class="remove-avatar-btn">
-                            <i class="fas fa-trash-alt"></i> Удалить
+                            <i class="fas fa-trash"></i> Удалить
                         </button>
                     </div>
                 </div>
-
-                <!-- Поля для редактирования -->
                 <div class="edit-field">
                     <label>Имя</label>
                     <input type="text" id="editName" placeholder="Введите имя">
@@ -313,243 +278,208 @@
                     <label>Username</label>
                     <input type="text" id="editUsername" placeholder="@username">
                 </div>
-                
                 <div class="edit-field">
                     <label>О себе</label>
                     <textarea id="editBio" placeholder="Расскажите о себе..." rows="3" class="bio-textarea"></textarea>
                 </div>
-
-                <!-- Кнопки действий -->
                 <div class="edit-actions">
-                    <button onclick="saveProfile()" class="save-profile-btn">
-                        <i class="fas fa-check"></i> Сохранить
-                    </button>
-                    <button onclick="cancelEdit()" class="cancel-profile-btn">
-                        <i class="fas fa-times"></i> Отмена
-                    </button>
+                    <button onclick="saveProfile()" class="save-profile-btn"><i class="fas fa-check"></i> Сохранить</button>
+                    <button onclick="cancelEdit()" class="cancel-profile-btn"><i class="fas fa-xmark"></i> Отмена</button>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<!-- Модальное окно настроек -->
-<div id="settingsModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
+ 
+<!-- Настройки -->
+<div id="settingsModal" class="modal settings-modal">
+    <div class="modal-content settings-modal-content">
+        <div class="modal-header settings-modal-header">
             <h2>Настройки</h2>
-            <button class="close-btn" onclick="closeSettings()">
-                <i class="fas fa-times"></i>
-            </button>
+            <button class="close-btn" onclick="closeSettings()"><i class="fas fa-xmark"></i></button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body settings-body">
             <div class="settings-section">
-                <h3><i class="fas fa-shield-alt"></i> Конфиденциальность</h3>
-                
-                <div class="settings-item">
-                    <div class="settings-item-info">
-                        <div class="settings-item-title">Номер телефона</div>
-                        <div class="settings-item-description">Кто может видеть ваш номер</div>
+                <h3><i class="fas fa-shield-halved"></i> Конфиденциальность</h3>
+                <div class="settings-group">
+                    <div class="settings-item">
+                        <div class="settings-item-info">
+                            <div class="settings-item-title">Номер телефона</div>
+                            <div class="settings-item-description">Кто может видеть ваш номер</div>
+                        </div>
+                        <select id="phonePrivacy" class="settings-select" onchange="savePhonePrivacy()">
+                            <option value="everyone">Все</option>
+                            <option value="contacts">Контакты</option>
+                            <option value="nobody">Никто</option>
+                        </select>
                     </div>
-                    <select id="phonePrivacy" class="settings-select" onchange="savePhonePrivacy()">
-                        <option value="everyone">Все</option>
-                        <option value="contacts">Мои контакты</option>
-                        <option value="nobody">Никто</option>
-                    </select>
-                </div>
-
-                <div class="settings-item">
-                    <div class="settings-item-info">
-                        <div class="settings-item-title">Статус "онлайн"</div>
-                        <div class="settings-item-description">Кто может видеть, когда вы в сети</div>
+                    <div class="settings-item">
+                        <div class="settings-item-info">
+                            <div class="settings-item-title">Статус «онлайн»</div>
+                            <div class="settings-item-description">Кто видит, когда вы в сети</div>
+                        </div>
+                        <select id="onlinePrivacy" class="settings-select" onchange="saveOnlinePrivacy()">
+                            <option value="everyone">Все</option>
+                            <option value="contacts">Контакты</option>
+                            <option value="nobody">Никто</option>
+                        </select>
                     </div>
-                    <select id="onlinePrivacy" class="settings-select" onchange="saveOnlinePrivacy()">
-                        <option value="everyone">Все</option>
-                        <option value="contacts">Мои контакты</option>
-                        <option value="nobody">Никто</option>
-                    </select>
-                </div>
-
-                <div class="settings-item">
-                    <div class="settings-item-info">
-                        <div class="settings-item-title">Фото профиля</div>
-                        <div class="settings-item-description">Кто может видеть ваше фото</div>
+                    <div class="settings-item">
+                        <div class="settings-item-info">
+                            <div class="settings-item-title">Фото профиля</div>
+                            <div class="settings-item-description">Кто видит ваш аватар</div>
+                        </div>
+                        <select id="avatarPrivacy" class="settings-select" onchange="saveAvatarPrivacy()">
+                            <option value="everyone">Все</option>
+                            <option value="contacts">Контакты</option>
+                            <option value="nobody">Никто</option>
+                        </select>
                     </div>
-                    <select id="avatarPrivacy" class="settings-select" onchange="saveAvatarPrivacy()">
-                        <option value="everyone">Все</option>
-                        <option value="contacts">Мои контакты</option>
-                        <option value="nobody">Никто</option>
-                    </select>
                 </div>
             </div>
-
             <div class="settings-section">
                 <h3><i class="fas fa-lock"></i> Безопасность</h3>
-                
-                <div class="settings-item">
-                    <div class="settings-item-info">
-                        <div class="settings-item-title">Пароль</div>
-                        <div class="settings-item-description">Изменить пароль для входа</div>
+                <div class="settings-group">
+                    <div class="settings-item">
+                        <div class="settings-item-info">
+                            <div class="settings-item-title">Пароль</div>
+                            <div class="settings-item-description">Изменить пароль для входа</div>
+                        </div>
+                        <button class="settings-button" onclick="openChangePassword()">
+                            <i class="fas fa-key"></i> Сменить
+                        </button>
                     </div>
-                    <button class="settings-button" onclick="openChangePassword()">
-                        <i class="fas fa-key"></i> Сменить
-                    </button>
-                </div>
-                
-                <div class="settings-item">
-                    <div class="settings-item-info">
-                        <div class="settings-item-title">Блокировка</div>
-                        <div class="settings-item-description">Заблокированные пользователи</div>
+                    <div class="settings-item">
+                        <div class="settings-item-info">
+                            <div class="settings-item-title">Блокировка</div>
+                            <div class="settings-item-description">Заблокированные пользователи</div>
+                        </div>
+                        <button class="settings-button" onclick="openBlockedUsers()">
+                            <i class="fas fa-ban"></i> Список
+                        </button>
                     </div>
-                    <button class="settings-button" onclick="openBlockedUsers()">
-                        <i class="fas fa-ban"></i> Управление
-                    </button>
-                </div>
-
-                <div class="settings-item">
-                    <div class="settings-item-info">
-                        <div class="settings-item-title">Активные сессии</div>
-                        <div class="settings-item-description">Устройства, где выполнен вход</div>
+                    <div class="settings-item">
+                        <div class="settings-item-info">
+                            <div class="settings-item-title">Активные сессии</div>
+                            <div class="settings-item-description">Устройства с активным входом</div>
+                        </div>
+                        <button class="settings-button" onclick="openSessions()">
+                            <i class="fas fa-mobile-screen"></i> Список
+                        </button>
                     </div>
-                    <button class="settings-button" onclick="openSessions()">
-                        <i class="fas fa-mobile-alt"></i> Управление
-                    </button>
                 </div>
             </div>
-
             <div class="settings-section">
-                <h3><i class="fas fa-database"></i> Данные и хранилище</h3>
-                
-                <div class="settings-item">
-                    <div class="settings-item-info">
-                        <div class="settings-item-title">Очистить все чаты</div>
-                        <div class="settings-item-description">Удалить историю всех сообщений</div>
+                <h3><i class="fas fa-hard-drive"></i> Данные и хранилище</h3>
+                <div class="settings-group">
+                    <div class="settings-item">
+                        <div class="settings-item-info">
+                            <div class="settings-item-title">Очистить все чаты</div>
+                            <div class="settings-item-description">Удалить историю сообщений</div>
+                        </div>
+                        <button class="settings-button danger" onclick="clearAllChats()">
+                            <i class="fas fa-trash"></i> Очистить
+                        </button>
                     </div>
-                    <button class="settings-button danger" onclick="clearAllChats()">
-                        <i class="fas fa-trash-alt"></i> Очистить
-                    </button>
-                </div>
-
-                <div class="settings-item">
-                    <div class="settings-item-info">
-                        <div class="settings-item-title">Экспорт данных</div>
-                        <div class="settings-item-description">Скачать все свои данные</div>
+                    <div class="settings-item">
+                        <div class="settings-item-info">
+                            <div class="settings-item-title">Экспорт данных</div>
+                            <div class="settings-item-description">Скачать все свои данные</div>
+                        </div>
+                        <button class="settings-button" onclick="exportData()">
+                            <i class="fas fa-download"></i> Экспорт
+                        </button>
                     </div>
-                    <button class="settings-button" onclick="exportData()">
-                        <i class="fas fa-download"></i> Экспорт
-                    </button>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<!-- Модальное окно для смены пароля -->
+ 
+<!-- Смена пароля -->
 <div id="changePasswordModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
             <h2>Смена пароля</h2>
-            <button class="close-btn" onclick="closeChangePassword()">
-                <i class="fas fa-times"></i>
-            </button>
+            <button class="close-btn" onclick="closeChangePassword()"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body">
             <input type="password" id="currentPassword" placeholder="Текущий пароль" class="login-input">
-            <input type="password" id="newPasswordChange" placeholder="Новый пароль" class="login-input" style="margin-top: 10px;">
-            <input type="password" id="confirmPasswordChange" placeholder="Подтвердите новый пароль" class="login-input" style="margin-top: 10px;">
-            
-            <!-- Индикатор силы пароля для смены -->
-            <div class="password-strength">
-                <div class="strength-bar" id="changeStrengthBar"></div>
-            </div>
-            
-            <button onclick="changePassword()" class="login-btn" style="margin-top: 20px;">
+            <input type="password" id="newPasswordChange" placeholder="Новый пароль" class="login-input">
+            <input type="password" id="confirmPasswordChange" placeholder="Подтвердите пароль" class="login-input">
+            <div class="password-strength"><div class="strength-bar" id="changeStrengthBar"></div></div>
+            <button onclick="changePassword()" class="login-btn" style="margin-top:16px;">
                 <i class="fas fa-key"></i> Сменить пароль
             </button>
         </div>
     </div>
 </div>
-
-<!-- Модальное окно для создания пароля (при первом входе) -->
+ 
+<!-- Создание пароля (первый вход) -->
 <div id="passwordSetupModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
             <h2>Создание пароля</h2>
-            <button class="close-btn" onclick="closePasswordSetup()">
-                <i class="fas fa-times"></i>
-            </button>
+            <button class="close-btn" onclick="closePasswordSetup()"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body">
-            <p>Придумайте пароль для входа в аккаунт</p>
+            <p style="color:#8E8E93;font-size:14px;margin-bottom:16px;">Придумайте пароль для входа</p>
             <input type="password" id="newPassword" placeholder="Пароль" class="login-input" oninput="checkPasswordStrength(this.value)">
-            <input type="password" id="confirmPassword" placeholder="Подтвердите пароль" class="login-input" style="margin-top: 10px;">
-            
-            <!-- Индикатор силы пароля -->
-            <div class="password-strength">
-                <div class="strength-bar" id="strengthBar"></div>
-            </div>
-            
-            <!-- Требования к паролю -->
+            <input type="password" id="confirmPassword" placeholder="Подтвердите пароль" class="login-input">
+            <div class="password-strength"><div class="strength-bar" id="strengthBar2"></div></div>
             <div class="password-requirements">
-                <p class="requirement" id="reqLength">❌ Минимум 6 символов</p>
-                <p class="requirement" id="reqNumber">❌ Хотя бы одна цифра</p>
-                <p class="requirement" id="reqLetter">❌ Хотя бы одна буква</p>
+                <p class="requirement" id="reqLength2">❌ Минимум 6 символов</p>
+                <p class="requirement" id="reqNumber2">❌ Хотя бы одна цифра</p>
+                <p class="requirement" id="reqLetter2">❌ Хотя бы одна буква</p>
             </div>
-            
-            <button onclick="savePasswordForExisting()" class="login-btn" id="savePasswordBtn" disabled>
-                <i class="fas fa-check"></i> Сохранить пароль
+            <button onclick="savePasswordForExisting()" class="login-btn" id="savePasswordBtn" disabled style="margin-top:16px;">
+                <i class="fas fa-check"></i> Сохранить
             </button>
         </div>
     </div>
 </div>
-
-<!-- Модальное окно для редактирования аватара -->
+ 
+<!-- Редактор аватара -->
 <div id="avatarEditorModal" class="modal">
     <div class="modal-content avatar-editor-content">
         <div class="modal-header">
-            <h2>Редактировать аватар</h2>
-            <button class="close-btn" onclick="closeAvatarEditor()">
-                <i class="fas fa-times"></i>
-            </button>
+            <h2>Фото профиля</h2>
+            <button class="close-btn" onclick="closeAvatarEditor()"><i class="fas fa-xmark"></i></button>
         </div>
         <div class="modal-body">
             <div class="avatar-editor-container">
-                <img id="avatarImage" src="" alt="Avatar for editing">
+                <img id="avatarImage" src="" alt="Avatar">
             </div>
             <div class="avatar-editor-controls">
                 <div class="zoom-controls">
-                    <button onclick="zoomOut()" class="zoom-btn"><i class="fas fa-search-minus"></i></button>
+                    <button onclick="zoomOut()" class="zoom-btn"><i class="fas fa-magnifying-glass-minus"></i></button>
                     <span id="zoomLevel">100%</span>
-                    <button onclick="zoomIn()" class="zoom-btn"><i class="fas fa-search-plus"></i></button>
+                    <button onclick="zoomIn()" class="zoom-btn"><i class="fas fa-magnifying-glass-plus"></i></button>
                 </div>
                 <div class="rotate-controls">
-                    <button onclick="rotateLeft()" class="rotate-btn"><i class="fas fa-undo-alt"></i></button>
-                    <button onclick="rotateRight()" class="rotate-btn"><i class="fas fa-redo-alt"></i></button>
+                    <button onclick="rotateLeft()" class="rotate-btn"><i class="fas fa-rotate-left"></i></button>
+                    <button onclick="rotateRight()" class="rotate-btn"><i class="fas fa-rotate-right"></i></button>
                 </div>
                 <div class="editor-actions">
-                    <button onclick="saveCroppedAvatar()" class="save-profile-btn">
-                        <i class="fas fa-check"></i> Сохранить
-                    </button>
-                    <button onclick="closeAvatarEditor()" class="cancel-profile-btn">
-                        <i class="fas fa-times"></i> Отмена
-                    </button>
+                    <button onclick="saveCroppedAvatar()" class="save-profile-btn"><i class="fas fa-check"></i> Готово</button>
+                    <button onclick="closeAvatarEditor()" class="cancel-profile-btn"><i class="fas fa-xmark"></i> Отмена</button>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<!-- Контекстное меню для сообщений -->
-<div id="messageContextMenu" class="context-menu" style="display: none;">
+ 
+<!-- Контекстное меню сообщений -->
+<div id="messageContextMenu" class="context-menu" style="display:none;">
     <div class="context-menu-item delete" onclick="deleteMessage()">
-        <i class="fas fa-trash-alt"></i> Удалить сообщение
+        <i class="fas fa-trash"></i> Удалить
     </div>
 </div>
-
-<!-- Контекстное меню для чатов -->
-<div id="chatContextMenu" class="context-menu" style="display: none;">
+ 
+<!-- Контекстное меню чатов -->
+<div id="chatContextMenu" class="context-menu" style="display:none;">
     <div class="context-menu-item delete" onclick="deleteChat()">
-        <i class="fas fa-trash-alt"></i> Удалить чат
+        <i class="fas fa-trash"></i> Удалить чат
     </div>
     <div class="context-menu-item" onclick="muteChat()">
         <i class="fas fa-bell-slash"></i> Заглушить
@@ -558,11 +488,10 @@
         <i class="fas fa-eraser"></i> Очистить историю
     </div>
 </div>
-
-<!-- Уведомления -->
+ 
+<!-- Toast -->
 <div id="toast" class="toast"></div>
-
-<!-- Скрипты -->
+ 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
 <script src="/app.js"></script>
 </body>
