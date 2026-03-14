@@ -97,7 +97,10 @@ function hasClass(element, className) {
 }
 
 function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('open')
+    const sidebar = document.getElementById('sidebar')
+    const overlay = document.getElementById('sidebarOverlay')
+    sidebar.classList.toggle('open')
+    if (overlay) overlay.classList.toggle('show', sidebar.classList.contains('open'))
 }
 
 function closeChat(event) {
@@ -106,6 +109,8 @@ function closeChat(event) {
     document.getElementById('emptyChat').style.display = 'flex'
     document.getElementById('chatBlock').style.display = 'none'
     document.getElementById('sidebar').classList.add('open')
+    const overlay = document.getElementById('sidebarOverlay')
+    if (overlay) overlay.classList.add('show')
 }
 
 // ============= ФУНКЦИИ ДЛЯ СТАТУСОВ =============
@@ -815,10 +820,7 @@ async function loadStickers() {
         const res = await fetch(`/stickers/${currentUser}`)
         if (res.ok) {
             const data = await res.json()
-            // Поддержка нового формата [{id, url}] и старого [url]
-            userStickers = (data.stickers || []).map(s => 
-                typeof s === 'string' ? { id: null, url: s } : s
-            )
+            userStickers = data.stickers || []
             renderStickers()
         }
     } catch (error) {
@@ -840,38 +842,30 @@ function toggleStickerModal() {
 
 // Открыть модальное окно стикеров
 function openStickerModal() {
+    console.log('Opening sticker modal')
     const modal = document.getElementById('stickerModal')
     const btn = document.getElementById('stickerBtn')
+    const inputArea = document.querySelector('.input-area')
     
-    if (!modal) return
+    if (!modal) {
+        console.error('Modal not found')
+        return
+    }
     
     // Загружаем свежие стикеры
     loadStickers()
     
-    // Позиционируем модалку над панелью ввода
-    const inputArea = document.querySelector('.input-area')
-    if (inputArea && btn) {
-        const inputRect = inputArea.getBoundingClientRect()
+    // Позиционируем модальное окно над кнопкой
+    if (btn && inputArea) {
         const btnRect = btn.getBoundingClientRect()
-        const modalW = Math.min(360, window.innerWidth - 24)
+        const inputRect = inputArea.getBoundingClientRect()
         
-        // Снизу — высота от низа экрана до верха input-area + отступ
-        modal.style.bottom = (window.innerHeight - inputRect.top + 8) + 'px'
-        
-        // По горизонтали выравниваем по правому краю кнопки
-        const rightOffset = window.innerWidth - btnRect.right
-        modal.style.right = Math.max(8, rightOffset - 8) + 'px'
-        modal.style.left = ''
-        
-        // На мобилке растягиваем на всю ширину
-        if (window.innerWidth <= 768) {
-            modal.style.right = '8px'
-            modal.style.left = '8px'
-        }
+        modal.style.bottom = (window.innerHeight - inputRect.top + 10) + 'px'
+        modal.style.right = (window.innerWidth - btnRect.right + 10) + 'px'
     }
     
     modal.classList.add('show')
-    if (btn) btn.classList.add('active')
+    btn.classList.add('active')
 }
 
 // Закрыть модальное окно стикеров
@@ -911,56 +905,25 @@ function renderStickers() {
     const myStickersDiv = document.getElementById('myStickers')
     const popularStickersDiv = document.getElementById('popularStickers')
     const emptyMyStickers = document.getElementById('emptyMyStickers')
-    const myTabBtn = document.getElementById('tabMyBtn')
     
     if (myStickersDiv) {
         myStickersDiv.innerHTML = ''
         
-        // Обновляем счётчик на вкладке
-        if (myTabBtn) {
-            const countBadge = myTabBtn.querySelector('.sticker-count')
-            if (countBadge) countBadge.remove()
-            if (userStickers.length > 0) {
-                const badge = document.createElement('span')
-                badge.className = 'sticker-count'
-                badge.textContent = userStickers.length
-                myTabBtn.appendChild(badge)
-            }
-        }
-        
         if (userStickers.length === 0) {
-            if (emptyMyStickers) emptyMyStickers.style.display = 'flex'
+            if (emptyMyStickers) emptyMyStickers.style.display = 'block'
         } else {
             if (emptyMyStickers) emptyMyStickers.style.display = 'none'
-            userStickers.forEach((sticker, index) => {
-                const url = sticker.url || sticker
-                const id = sticker.id || null
+            userStickers.forEach(sticker => {
                 const div = document.createElement('div')
                 div.className = 'sticker-item'
-                div.setAttribute('data-sticker-url', url)
-                div.style.animationDelay = `${index * 30}ms`
-                div.classList.add('sticker-animate-in')
+                div.setAttribute('data-sticker-url', sticker)
+                div.onclick = () => sendSticker(sticker)
                 
                 const img = document.createElement('img')
-                img.src = url
+                img.src = sticker
                 img.alt = 'sticker'
-                img.loading = 'lazy'
-                img.onclick = () => sendSticker(url)
-                
-                // Кнопка удаления
-                if (id) {
-                    const delBtn = document.createElement('button')
-                    delBtn.className = 'sticker-delete-btn'
-                    delBtn.innerHTML = '✕'
-                    delBtn.title = 'Удалить стикер'
-                    delBtn.onclick = (e) => {
-                        e.stopPropagation()
-                        deleteSticker(id, div)
-                    }
-                    div.appendChild(delBtn)
-                }
-                
                 div.appendChild(img)
+                
                 myStickersDiv.appendChild(div)
             })
         }
@@ -968,61 +931,19 @@ function renderStickers() {
     
     if (popularStickersDiv) {
         popularStickersDiv.innerHTML = ''
-        popularStickers.forEach((sticker, index) => {
+        popularStickers.forEach(sticker => {
             const div = document.createElement('div')
             div.className = 'sticker-item'
-            div.style.animationDelay = `${index * 30}ms`
-            div.classList.add('sticker-animate-in')
             div.setAttribute('data-sticker-url', sticker)
             div.onclick = () => sendSticker(sticker)
             
             const img = document.createElement('img')
             img.src = sticker
             img.alt = 'sticker'
-            img.loading = 'lazy'
             div.appendChild(img)
             
             popularStickersDiv.appendChild(div)
         })
-    }
-}
-
-// Удалить стикер из коллекции
-async function deleteSticker(stickerId, element) {
-    try {
-        element.classList.add('sticker-removing')
-        
-        const res = await fetch(`/stickers/${currentUser}/${stickerId}`, {
-            method: 'DELETE'
-        })
-        
-        if (res.ok) {
-            setTimeout(() => {
-                element.remove()
-                userStickers = userStickers.filter(s => s.id !== stickerId)
-                // Обновить счётчик
-                const myTabBtn = document.getElementById('tabMyBtn')
-                if (myTabBtn) {
-                    const countBadge = myTabBtn.querySelector('.sticker-count')
-                    if (countBadge) {
-                        if (userStickers.length === 0) {
-                            countBadge.remove()
-                            const emptyMyStickers = document.getElementById('emptyMyStickers')
-                            if (emptyMyStickers) emptyMyStickers.style.display = 'flex'
-                        } else {
-                            countBadge.textContent = userStickers.length
-                        }
-                    }
-                }
-            }, 280)
-        } else {
-            element.classList.remove('sticker-removing')
-            showToast('Ошибка удаления стикера')
-        }
-    } catch (error) {
-        element.classList.remove('sticker-removing')
-        console.error('Error deleting sticker:', error)
-        showToast('Ошибка удаления стикера')
     }
 }
 
@@ -1497,6 +1418,8 @@ function openChat(phone, displayName) {
     
     if (window.innerWidth <= 768) {
         document.getElementById('sidebar').classList.remove('open')
+        const overlay = document.getElementById('sidebarOverlay')
+        if (overlay) overlay.classList.remove('show')
     }
     
     loadMessages()
@@ -2156,7 +2079,6 @@ window.closeStickerModal = closeStickerModal
 window.switchStickerTab = switchStickerTab
 window.sendSticker = sendSticker
 window.uploadStickers = uploadStickers
-window.deleteSticker = deleteSticker
 // Глобальные функции для HTML
 window.showReactionsPanel = showReactionsPanel
 window.addReaction = addReaction
