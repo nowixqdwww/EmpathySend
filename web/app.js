@@ -809,24 +809,38 @@ async function removeAvatar() {
 
 // ============= ЭМОДЗИ =============
 
+// Надёжное разбиение строки эмодзи на массив (работает в Safari/iOS)
+function splitEmoji(str) {
+    // Используем Intl.Segmenter если доступен (Chrome 87+, Safari 14.1+)
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+        const seg = new Intl.Segmenter()
+        return [...seg.segment(str)].map(s => s.segment)
+    }
+    // Фолбэк: spread оператор правильно обрабатывает суррогатные пары
+    return [...str]
+}
+
 const EMOJI_CATEGORIES = [
     { id: 'smileys',    icon: '😀', label: 'Смайлы',
-      emojis: '😀😃😄😁😆😅🤣😂🙂🙃😉😊😇🥰😍🤩😘😗😚😙🥲😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬🤥😌😔😪🤤😴😷🤒🤕🤢🤮🤧🥵🥶🥴😵🤯🤠🥳🥸😎🤓🧐😕😟🙁☹️😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀☠️💩🤡👹👺👻👽👾🤖'.split(/(?<=\p{Emoji})/u).filter(Boolean) },
+      emojis: splitEmoji('😀😃😄😁😆😅🤣😂🙂🙃😉😊😇🥰😍🤩😘😗😚😙🥲😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬🤥😌😔😪🤤😴😷🤒🤕🤢🤮🤧🥵🥶🥴😵🤯🤠🥳🥸😎🤓🧐😕😟🙁☹️😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀☠️💩🤡👹👺👻👽👾🤖') },
     { id: 'gestures',   icon: '👋', label: 'Жесты',
-      emojis: '👋🤚🖐✋🖖👌🤌🤏✌️🤞🤟🤘🤙👈👉👆🖕👇☝️👍👎✊👊🤛🤜👏🙌🫶👐🤲🤝🙏✍️💅🤳💪🦾🦿🦵🦶👂🦻👃🧠👀👁👅👄💋'.split(/(?<=\p{Emoji})/u).filter(Boolean) },
+      emojis: splitEmoji('👋🤚🖐✋🖖👌🤌🤏✌️🤞🤟🤘🤙👈👉👆🖕👇☝️👍👎✊👊🤛🤜👏🙌🫶👐🤲🤝🙏✍️💅🤳💪🦾🦿🦵🦶👂🦻👃🧠👀👁👅👄💋') },
     { id: 'people',     icon: '👤', label: 'Люди',
-      emojis: '👶🧒👦👧🧑👱👨🧔👩🧓👴👵🙍🙎🙅🙆💁🙋🧏🙇🤦🤷👮🕵️💂🥷👷🤴👸👲🧕🤵👰🤰🤱👼🎅🤶🦸🦹🧙🧚🧛🧜🧝🧞🧟🧌💆💇🚶🧍🧎🏃💃🕺👯🧖🧗🧘🛀🛌👫👬👭💏💑👪'.split(/(?<=\p{Emoji})/u).filter(Boolean) },
+      emojis: splitEmoji('👶🧒👦👧🧑👱👨🧔👩🧓👴👵🙍🙎🙅🙆💁🙋🧏🙇🤦🤷👮🕵️💂🥷👷🤴👸👲🧕🤵👰🤰🤱👼🎅🤶🦸🦹🧙🧚🧛🧜🧝🧞🧟🧌💆💇🚶🧍🧎🏃💃🕺👯🧖🧗🧘🛀🛌👫👬👭💏💑👪') },
     { id: 'nature',     icon: '🌿', label: 'Природа',
-      emojis: '🐶🐱🐭🐹🐰🦊🐻🐼🐨🐯🦁🐮🐷🐸🐵🙈🙉🙊🐔🐧🐦🐤🦆🦅🦉🦇🐺🐗🐴🦄🐝🐛🦋🐌🐞🐜🦟🦗🕷🦂🐢🐍🦎🐙🦑🦐🦀🐡🐠🐟🐬🐳🦈🐊🐅🐆🦓🦍🐘🦛🦏🐪🦒🦘🦬🌸🌺🌻🌹🌷🌼🌱🌿☘️🍀🍃🍂🍁🍄🌾💐🌵🌴🌳🌲🌙⭐🌟💫✨☀️⛅🌧️🌨️❄️🌊🌈'.split(/(?<=\p{Emoji})/u).filter(Boolean) },
+      emojis: splitEmoji('🐶🐱🐭🐹🐰🦊🐻🐼🐨🐯🦁🐮🐷🐸🐵🙈🙉🙊🐔🐧🐦🐤🦆🦅🦉🦇🐺🐗🐴🦄🐝🐛🦋🐌🐞🐜🦟🦗🕷🦂🐢🐍🦎🐙🦑🦐🦀🐡🐠🐟🐬🐳🦈🐊🐅🐆🦓🦍🐘🦛🦏🐪🦒🦘🦬🌸🌺🌻🌹🌷🌼🌱🌿☘️🍀🍃🍂🍁🍄🌾💐🌵🌴🌳🌲🌙⭐🌟💫✨☀️⛅🌧️🌨️❄️🌊🌈') },
     { id: 'food',       icon: '🍕', label: 'Еда',
-      emojis: '🍏🍎🍐🍊🍋🍌🍉🍇🍓🫐🍒🍑🥭🍍🥥🥝🍅🍆🥑🥦🥬🥒🌶️🧄🧅🥔🍠🥜🍞🥐🥖🧀🥚🍳🧈🥞🧇🥓🥩🍗🍖🌭🍔🍟🍕🌮🌯🍜🍝🍛🍲🍣🍱🥟🍤🍙🍚🍘🍥🥮🧁🍰🎂🍮🍭🍬🍫🍿🍩🍪☕🍵🍺🍻🥂🍷🥃🍸🍹🧃🥤🧋🍾'.split(/(?<=\p{Emoji})/u).filter(Boolean) },
+      emojis: splitEmoji('🍏🍎🍐🍊🍋🍌🍉🍇🍓🫐🍒🍑🥭🍍🥥🥝🍅🍆🥑🥦🥬🥒🌶️🧄🧅🥔🍠🥜🍞🥐🥖🧀🥚🍳🧈🥞🧇🥓🥩🍗🍖🌭🍔🍟🍕🌮🌯🍜🍝🍛🍲🍣🍱🥟🍤🍙🍚🍘🍥🥮🧁🍰🎂🍮🍭🍬🍫🍿🍩🍪☕🍵🍺🍻🥂🍷🥃🍸🍹🧃🥤🧋🍾') },
     { id: 'activities', icon: '⚽', label: 'Активности',
-      emojis: '⚽🏀🏈⚾🥎🎾🏐🏉🥏🎱🏓🏸🏒⛳🎣🤿🎽🎿🛷🎯🎲🎮🕹️🎰🧩♟️🎭🎨🎪🎢🎡🎠🚀🎆🎇🧨🎉🎊🎈🎁🎀🏆🥇🥈🥉🎤🎧🎼🎵🎶🥁🎷🎺🎸🎻'.split(/(?<=\p{Emoji})/u).filter(Boolean) },
+      emojis: splitEmoji('⚽🏀🏈⚾🥎🎾🏐🏉🥏🎱🏓🏸🏒⛳🎣🤿🎽🎿🛷🎯🎲🎮🕹️🎰🧩♟️🎭🎨🎪🎢🎡🎠🚀🎆🎇🧨🎉🎊🎈🎁🎀🏆🥇🥈🥉🎤🎧🎼🎵🎶🥁🎷🎺🎸🎻') },
     { id: 'symbols',    icon: '❤️', label: 'Символы',
-      emojis: '❤️🧡💛💚💙💜🖤🤍🤎💔❤️‍🔥💕💞💓💗💖💘💝💟☮️✝️☪️🕉️☯️🛐💯🔥⭐✨💫⚡🌈💎👑🎯🔑🗝️🔒🔓💡🔍🔎📌📍🗺️🌍🌎🌏🚩🎌🏁🏳️🏴❌✅⚠️🚫🔞💲💱🔄🔃🔝🔛🔜🔚🔙'.split(/(?<=\p{Emoji})/u).filter(Boolean) }
+      emojis: splitEmoji('❤️🧡💛💚💙💜🖤🤍🤎💔💕💞💓💗💖💘💝💟☮️✝️☪️🕉️☯️🛐💯🔥⭐✨💫⚡🌈💎👑🎯🔑🔒🔓💡🔍🔎📌📍🌍🌎🌏🚩🎌🏁❌✅⚠️🚫🔞🔄🔃🔝🔛🔜🔚🔙') }
 ]
 
-// Названия для поиска (упрощённые)
+let currentEmojiCategory = 'smileys'
+let emojiSearchTimeout = null
+
+// Поиск по названиям
 const EMOJI_NAMES = {
     '😀':'радость','😂':'смех','😭':'плачет','😍':'влюблён','😎':'круто',
     '😊':'улыбка','😢':'грустно','😡':'злость','🥰':'любовь','🤔':'думает',
@@ -834,20 +848,26 @@ const EMOJI_NAMES = {
     '🎉':'праздник','🎊':'конфетти','🙏':'спасибо','💪':'сила','😴':'сон',
     '🤣':'хохот','😇':'ангел','🥺':'умоляет','😏':'ухмылка','🤗':'обнимает',
     '👋':'привет','✌️':'мир','🤞':'удача','👏':'аплодисменты','🙌':'ура',
-    '🐶':'собака','🐱':'кошка','🐭':'мышь','🦊':'лиса','🐻':'медведь',
+    '🐶':'собака','🐱':'кошка','🦊':'лиса','🐻':'медведь','🦁':'лев',
     '🍕':'пицца','🍔':'бургер','🍟':'картошка','🍣':'суши','🍜':'лапша',
     '⚽':'футбол','🏀':'баскетбол','🎮':'игры','🎵':'музыка','🎨':'рисование',
 }
-
-let currentEmojiCategory = 'smileys'
-let emojiSearchTimeout = null
 
 function renderEmojiPicker() {
     const catBar = document.getElementById('emojiCategoryBar')
     if (!catBar) return
 
-    // Строим панель категорий только один раз
     if (catBar.children.length === 0) {
+        // Вешаем обработчик поиска один раз
+        const searchEl = document.getElementById('emojiSearch')
+        if (searchEl && !searchEl._hasListener) {
+            searchEl._hasListener = true
+            searchEl.addEventListener('input', function() {
+                clearTimeout(emojiSearchTimeout)
+                emojiSearchTimeout = setTimeout(() => renderEmojiGrid(this.value.trim()), 200)
+            })
+        }
+
         EMOJI_CATEGORIES.forEach(cat => {
             const btn = document.createElement('button')
             btn.className = 'emoji-cat-btn' + (cat.id === currentEmojiCategory ? ' active' : '')
@@ -864,11 +884,10 @@ function renderEmojiPicker() {
             catBar.appendChild(btn)
         })
     }
-
     renderEmojiGrid()
 }
 
-function renderEmojiGrid(filter = '') {
+function renderEmojiGrid(filter) {
     const grid = document.getElementById('emojiGrid')
     const label = document.getElementById('emojiCategoryLabel')
     if (!grid) return
@@ -876,38 +895,39 @@ function renderEmojiGrid(filter = '') {
     let emojis
     if (filter && filter.length > 0) {
         const q = filter.toLowerCase()
-        // Ищем по названиям, а не по содержимому символа
-        const allEmojis = EMOJI_CATEGORIES.flatMap(c => c.emojis)
-        emojis = allEmojis.filter(e => {
-            const name = EMOJI_NAMES[e] || ''
-            return name.includes(q)
-        })
-        // Если по имени не нашли — показываем первые 40 из текущей категории
+        const all = EMOJI_CATEGORIES.flatMap(c => c.emojis)
+        emojis = all.filter(e => (EMOJI_NAMES[e] || '').includes(q))
         if (emojis.length === 0) {
             const cat = EMOJI_CATEGORIES.find(c => c.id === currentEmojiCategory)
-            emojis = cat ? cat.emojis.slice(0, 40) : []
+            emojis = cat ? cat.emojis : []
         }
-        if (label) label.textContent = emojis.length > 0 ? `Найдено: ${emojis.length}` : 'Ничего не найдено'
+        if (label) label.textContent = emojis.length > 0 ? 'Найдено: ' + emojis.length : 'Ничего не найдено'
     } else {
         const cat = EMOJI_CATEGORIES.find(c => c.id === currentEmojiCategory)
         emojis = cat ? cat.emojis : []
         if (label) label.textContent = cat ? cat.label : ''
     }
 
-    // Быстрая отрисовка через innerHTML — без per-item анимаций
-    grid.innerHTML = emojis.map(e =>
-        `<button class="emoji-item" onclick="insertEmoji('${e.replace(/'/g, "\\'")}')">${e}</button>`
-    ).join('')
+    // Очищаем и строим через createElement чтобы избежать XSS и проблем с onclick в innerHTML
+    grid.innerHTML = ''
+    const frag = document.createDocumentFragment()
+    emojis.forEach(emoji => {
+        const btn = document.createElement('button')
+        btn.className = 'emoji-item'
+        btn.textContent = emoji
+        btn.addEventListener('click', function() { insertEmoji(emoji) })
+        frag.appendChild(btn)
+    })
+    grid.appendChild(frag)
 }
 
 function insertEmoji(emoji) {
     const input = document.getElementById('text')
     if (!input) return
-
-    const start = input.selectionStart ?? input.value.length
-    const end   = input.selectionEnd   ?? input.value.length
+    const start = input.selectionStart != null ? input.selectionStart : input.value.length
+    const end   = input.selectionEnd   != null ? input.selectionEnd   : input.value.length
     input.value = input.value.slice(0, start) + emoji + input.value.slice(end)
-    const newPos = start + [...emoji].length  // правильный сдвиг для многобайтных символов
+    const newPos = start + [...emoji].length
     try { input.setSelectionRange(newPos, newPos) } catch(e) {}
     input.focus()
     if (navigator.vibrate) navigator.vibrate(10)
