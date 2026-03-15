@@ -57,11 +57,13 @@ function pluralize(n, one, few, many) {
 }
 function formatLastSeen(iso) {
     if (!iso) return 'был(а) давно'
-    const diff = Math.floor((Date.now() - new Date(iso)) / 1000)
+    // Добавляем Z если нет timezone-суффикса (PostgreSQL возвращает без Z)
+    const isoFixed = /[Z+]/.test(iso) ? iso : iso + 'Z'
+    const diff = Math.floor((Date.now() - new Date(isoFixed)) / 1000)
     const min  = Math.floor(diff / 60)
     const hour = Math.floor(min  / 60)
     const day  = Math.floor(hour / 24)
-    const d    = new Date(iso)
+    const d    = new Date(isoFixed)
     const t    = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
     if (diff < 60)  return 'был(а) только что'
     if (min  < 60)  return `был(а) ${min} ${pluralize(min, 'минуту', 'минуты', 'минут')} назад`
@@ -1088,8 +1090,7 @@ function sendSticker(stickerUrl) {
         to: currentChat,
         text: `[STICKER]${stickerUrl}[/STICKER]`
     }))
-    
-    addStickerMessage(currentUser, stickerUrl)
+    // НЕ вызываем addStickerMessage — придёт через message_sent
     closeStickerModal()
 }
 
@@ -1128,7 +1129,7 @@ function addMessage(user, text, messageId = null, isRead = false) {
 
         const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
         const ticks = isMe
-            ? `<span class="msg-ticks${isRead ? ' read' : ''}"><i class="fas fa-check"></i><i class="fas fa-check tick-second"></i></span>`
+            ? `<span class="msg-ticks${isRead ? ' read' : ''}">✓✓</span>`
             : ''
 
         // Пересланное сообщение
@@ -1726,8 +1727,8 @@ function sendForwarded(toPhone, text, originalSender) {
         : originalSender
     const fwdText = `[FWD:${senderName}]${text}[/FWD]`
     ws.send(JSON.stringify({ action: 'send', to: toPhone, text: fwdText }))
-    if (toPhone === currentChat) addMessage(currentUser, fwdText, null, false)
-    else showToast('Сообщение переслано')
+    // Не добавляем вручную — message_sent от сервера добавит само
+    if (toPhone !== currentChat) showToast('Сообщение переслано')
     closeForwardModal()
 }
 
@@ -1773,7 +1774,16 @@ function connect() {
                         const dot = chatEl.querySelector('.chat-status')
                         if (dot) dot.className = `chat-status ${data.online ? '' : 'offline'}`
                     }
-                    if (currentChat === data.from) updateChatStatusText(data.from, data.online)
+                    if (currentChat === data.from) {
+                        if (!data.online && !lastSeenMap[data.from]) {
+                            // Запрашиваем last_seen если не знаем
+                            fetch('/user/' + data.from)
+                                .then(r => r.json())
+                                .then(u => { if (u.last_seen) lastSeenMap[data.from] = u.last_seen })
+                                .catch(() => {})
+                        }
+                        updateChatStatusText(data.from, data.online)
+                    }
                 }
             }
 
@@ -2182,6 +2192,8 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('loginPhone').focus()
+    // Пре-рендер категорий эмодзи при загрузке страницы
+    // (не сетку, только catBar — чтобы RAF внутри модала мог работать быстро)
 })
 
 window.addEventListener('online', () => {
