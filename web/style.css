@@ -2298,9 +2298,10 @@ body {
 /* Сетка — фиксированная высота, свой скролл */
 .emoji-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 0;
-    height: 228px;
+    grid-template-columns: repeat(8, 1fr);
+    grid-auto-rows: 40px;
+    gap: 2px;
+    height: 210px;
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
@@ -2310,24 +2311,21 @@ body {
 .emoji-item {
     background: none;
     border: none;
-    /* Размер шрифта — главное */
-    font-size: 26px;
+    font-size: 22px;
     line-height: 1;
     cursor: pointer;
-    /* Квадратная ячейка */
+    height: 40px;
     width: 100%;
-    aspect-ratio: 1 / 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 10px;
+    border-radius: 8px;
     transition: background 0.1s, transform 0.12s;
     -webkit-tap-highlight-color: transparent;
-    /* Текст не должен переноситься */
-    white-space: nowrap;
-    overflow: hidden;
+    padding: 0;
+    box-sizing: border-box;
 }
-.emoji-item:hover  { background: rgba(0,0,0,0.07); transform: scale(1.2); }
+.emoji-item:hover  { background: rgba(0,0,0,0.07); transform: scale(1.15); }
 .emoji-item:active { transform: scale(0.88); }
 
 /* Панель категорий */
@@ -2365,9 +2363,10 @@ body {
 /* Мобильные */
 @media (max-width: 480px) {
     .emoji-grid {
-        grid-template-columns: repeat(6, 1fr);
-        height: 204px;
+        grid-template-columns: repeat(7, 1fr);
+        grid-auto-rows: 38px;
+        height: 200px;
     }
-    .emoji-item { font-size: 24px; }
+    .emoji-item { font-size: 20px; height: 38px; }
     .emoji-cat-btn { font-size: 20px; width: 32px; height: 32px; }
 }
