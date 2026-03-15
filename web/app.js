@@ -810,43 +810,44 @@ async function removeAvatar() {
 // ============= ЭМОДЗИ =============
 
 const EMOJI_CATEGORIES = [
-    {
-        id: 'smileys', icon: '😀', label: 'Смайлы',
-        emojis: ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','🥰','😍','🤩','😘','😗','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🤧','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','😟','🙁','☹️','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖']
-    },
-    {
-        id: 'gestures', icon: '👋', label: 'Жесты',
-        emojis: ['👋','🤚','🖐','✋','🖖','👌','🤌','🤏','✌️','🤞','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','👍','👎','✊','👊','🤛','🤜','👏','🙌','🫶','👐','🤲','🤝','🙏','✍️','💅','🤳','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🫀','🫁','🧠','🦷','🦴','👀','👁','👅','👄','🫦','💋','🩸']
-    },
-    {
-        id: 'people', icon: '👤', label: 'Люди',
-        emojis: ['👶','🧒','👦','👧','🧑','👱','👨','🧔','👩','🧓','👴','👵','🙍','🙎','🙅','🙆','💁','🙋','🧏','🙇','🤦','🤷','👮','🕵️','💂','🥷','👷','🫅','🤴','👸','👲','🧕','🤵','👰','🤰','🫃','🫄','🤱','👼','🎅','🤶','🧑‍🎄','🦸','🦹','🧙','🧚','🧛','🧜','🧝','🧞','🧟','🧌','💆','💇','🚶','🧍','🧎','🏃','💃','🕺','🕴️','👯','🧖','🧗','🏌️','🏇','🧘','🛀','🛌','👫','👬','👭','💏','💑','👪']
-    },
-    {
-        id: 'nature', icon: '🌿', label: 'Природа',
-        emojis: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐻‍❄️','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🪱','🐛','🦋','🐌','🐞','🐜','🪲','🦟','🦗','🕷','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🦭','🐊','🐅','🐆','🦓','🦍','🦧','🦣','🐘','🦛','🦏','🐪','🐫','🦒','🦘','🦬','🐃','🌸','🌺','🌻','🌹','🌷','🌼','🪷','🌱','🌿','☘️','🍀','🎍','🎋','🍃','🍂','🍁','🪺','🪹','🍄','🌾','💐','🌵','🌴','🌳','🌲','🪵','🪨','🌙','⭐','🌟','💫','✨','☀️','🌤️','⛅','🌦️','🌧️','🌨️','❄️','🌊','🌈','🌫️','🌪️','🌬️']
-    },
-    {
-        id: 'food', icon: '🍕', label: 'Еда',
-        emojis: ['🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🫛','🥦','🥬','🥒','🌶️','🫑','🧄','🧅','🥔','🍠','🫘','🥜','🍞','🥐','🥖','🫓','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🫔','🌮','🌯','🥙','🧆','🥚','🍜','🍝','🍛','🍲','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥮','🍢','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','☕','🍵','🧉','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🧃','🥤','🧋','🍶','🍾']
-    },
-    {
-        id: 'activities', icon: '⚽', label: 'Активности',
-        emojis: ['⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🥏','🎱','🪀','🏓','🏸','🏒','🥅','⛳','🎣','🤿','🎽','🎿','🛷','🥌','🎯','🪃','🎲','🎮','🕹️','🎰','🧩','🪆','♟️','🎭','🎨','🖼️','🎪','🎢','🎡','🎠','🚀','🛸','🎆','🎇','🧨','✨','🎉','🎊','🎈','🎁','🎀','🎗️','🎟️','🎫','🏆','🥇','🥈','🥉','🎖️','🏅','🎪','🤹','🎭','🩰','🎬','🎤','🎧','🎼','🎵','🎶','🥁','🪘','🎷','🎺','🪗','🎸','🪕','🎻']
-    },
-    {
-        id: 'symbols', icon: '❤️', label: 'Символы',
-        emojis: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','❤️‍🩹','💕','💞','💓','💗','💖','💘','💝','💟','☮️','✝️','☪️','🕉️','☸️','✡️','🔯','🕎','☯️','☦️','🛐','⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','🆔','⚛️','🉑','☢️','☣️','📴','📳','🈶','🈚','🈸','🈺','🈷️','✴️','🆚','💮','🉐','㊙️','㊗️','🈴','🈵','🈹','🈲','🅰️','🅱️','🆎','🆑','🅾️','🆘','❌','⭕','🛑','⛔','📛','🚫','✅','☑️','✔️','❎','🔝','🔛','🔜','🔚','💯','🔃','🔄','🔙','🔛','🔝','🔰','⭕','🔱','⚜️','🔰','♻️','💠','🔷','🔶','🔹','🔸','🔺','🔻','💠','🔘','🔲','🔳','⬛','⬜','◼️','◻️','◾','◽','▪️','▫️','🔼','🔽','⏫','⏬','⏩','⏪','⏭️','⏮️','🔀','🔁','🔂','▶️','⏸️','⏹️','⏺️','🎦','🔅','🔆','📶','📳','🔇','🔈','🔉','🔊','📢','📣','💬','💭','🗯️','💤','🔔','🔕']
-    }
+    { id: 'smileys',    icon: '😀', label: 'Смайлы',
+      emojis: '😀😃😄😁😆😅🤣😂🙂🙃😉😊😇🥰😍🤩😘😗😚😙🥲😋😛😜🤪😝🤑🤗🤭🤫🤔🤐🤨😐😑😶😏😒🙄😬🤥😌😔😪🤤😴😷🤒🤕🤢🤮🤧🥵🥶🥴😵🤯🤠🥳🥸😎🤓🧐😕😟🙁☹️😮😯😲😳🥺😦😧😨😰😥😢😭😱😖😣😞😓😩😫🥱😤😡😠🤬😈👿💀☠️💩🤡👹👺👻👽👾🤖'.split(/(?<=\p{Emoji})/u).filter(Boolean) },
+    { id: 'gestures',   icon: '👋', label: 'Жесты',
+      emojis: '👋🤚🖐✋🖖👌🤌🤏✌️🤞🤟🤘🤙👈👉👆🖕👇☝️👍👎✊👊🤛🤜👏🙌🫶👐🤲🤝🙏✍️💅🤳💪🦾🦿🦵🦶👂🦻👃🧠👀👁👅👄💋'.split(/(?<=\p{Emoji})/u).filter(Boolean) },
+    { id: 'people',     icon: '👤', label: 'Люди',
+      emojis: '👶🧒👦👧🧑👱👨🧔👩🧓👴👵🙍🙎🙅🙆💁🙋🧏🙇🤦🤷👮🕵️💂🥷👷🤴👸👲🧕🤵👰🤰🤱👼🎅🤶🦸🦹🧙🧚🧛🧜🧝🧞🧟🧌💆💇🚶🧍🧎🏃💃🕺👯🧖🧗🧘🛀🛌👫👬👭💏💑👪'.split(/(?<=\p{Emoji})/u).filter(Boolean) },
+    { id: 'nature',     icon: '🌿', label: 'Природа',
+      emojis: '🐶🐱🐭🐹🐰🦊🐻🐼🐨🐯🦁🐮🐷🐸🐵🙈🙉🙊🐔🐧🐦🐤🦆🦅🦉🦇🐺🐗🐴🦄🐝🐛🦋🐌🐞🐜🦟🦗🕷🦂🐢🐍🦎🐙🦑🦐🦀🐡🐠🐟🐬🐳🦈🐊🐅🐆🦓🦍🐘🦛🦏🐪🦒🦘🦬🌸🌺🌻🌹🌷🌼🌱🌿☘️🍀🍃🍂🍁🍄🌾💐🌵🌴🌳🌲🌙⭐🌟💫✨☀️⛅🌧️🌨️❄️🌊🌈'.split(/(?<=\p{Emoji})/u).filter(Boolean) },
+    { id: 'food',       icon: '🍕', label: 'Еда',
+      emojis: '🍏🍎🍐🍊🍋🍌🍉🍇🍓🫐🍒🍑🥭🍍🥥🥝🍅🍆🥑🥦🥬🥒🌶️🧄🧅🥔🍠🥜🍞🥐🥖🧀🥚🍳🧈🥞🧇🥓🥩🍗🍖🌭🍔🍟🍕🌮🌯🍜🍝🍛🍲🍣🍱🥟🍤🍙🍚🍘🍥🥮🧁🍰🎂🍮🍭🍬🍫🍿🍩🍪☕🍵🍺🍻🥂🍷🥃🍸🍹🧃🥤🧋🍾'.split(/(?<=\p{Emoji})/u).filter(Boolean) },
+    { id: 'activities', icon: '⚽', label: 'Активности',
+      emojis: '⚽🏀🏈⚾🥎🎾🏐🏉🥏🎱🏓🏸🏒⛳🎣🤿🎽🎿🛷🎯🎲🎮🕹️🎰🧩♟️🎭🎨🎪🎢🎡🎠🚀🎆🎇🧨🎉🎊🎈🎁🎀🏆🥇🥈🥉🎤🎧🎼🎵🎶🥁🎷🎺🎸🎻'.split(/(?<=\p{Emoji})/u).filter(Boolean) },
+    { id: 'symbols',    icon: '❤️', label: 'Символы',
+      emojis: '❤️🧡💛💚💙💜🖤🤍🤎💔❤️‍🔥💕💞💓💗💖💘💝💟☮️✝️☪️🕉️☯️🛐💯🔥⭐✨💫⚡🌈💎👑🎯🔑🗝️🔒🔓💡🔍🔎📌📍🗺️🌍🌎🌏🚩🎌🏁🏳️🏴❌✅⚠️🚫🔞💲💱🔄🔃🔝🔛🔜🔚🔙'.split(/(?<=\p{Emoji})/u).filter(Boolean) }
 ]
+
+// Названия для поиска (упрощённые)
+const EMOJI_NAMES = {
+    '😀':'радость','😂':'смех','😭':'плачет','😍':'влюблён','😎':'круто',
+    '😊':'улыбка','😢':'грустно','😡':'злость','🥰':'любовь','🤔':'думает',
+    '👍':'лайк','👎':'дизлайк','❤️':'сердце','🔥':'огонь','💯':'сто',
+    '🎉':'праздник','🎊':'конфетти','🙏':'спасибо','💪':'сила','😴':'сон',
+    '🤣':'хохот','😇':'ангел','🥺':'умоляет','😏':'ухмылка','🤗':'обнимает',
+    '👋':'привет','✌️':'мир','🤞':'удача','👏':'аплодисменты','🙌':'ура',
+    '🐶':'собака','🐱':'кошка','🐭':'мышь','🦊':'лиса','🐻':'медведь',
+    '🍕':'пицца','🍔':'бургер','🍟':'картошка','🍣':'суши','🍜':'лапша',
+    '⚽':'футбол','🏀':'баскетбол','🎮':'игры','🎵':'музыка','🎨':'рисование',
+}
 
 let currentEmojiCategory = 'smileys'
 let emojiSearchTimeout = null
 
 function renderEmojiPicker() {
-    // Рендерим панель категорий
     const catBar = document.getElementById('emojiCategoryBar')
-    if (catBar && catBar.children.length === 0) {
+    if (!catBar) return
+
+    // Строим панель категорий только один раз
+    if (catBar.children.length === 0) {
         EMOJI_CATEGORIES.forEach(cat => {
             const btn = document.createElement('button')
             btn.className = 'emoji-cat-btn' + (cat.id === currentEmojiCategory ? ' active' : '')
@@ -854,47 +855,49 @@ function renderEmojiPicker() {
             btn.title = cat.label
             btn.onclick = () => {
                 currentEmojiCategory = cat.id
-                const searchEl = document.getElementById('emojiSearch')
-                if (searchEl) searchEl.value = ''
+                const s = document.getElementById('emojiSearch')
+                if (s) s.value = ''
                 renderEmojiGrid()
-                document.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'))
+                catBar.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'))
                 btn.classList.add('active')
             }
             catBar.appendChild(btn)
         })
     }
+
     renderEmojiGrid()
 }
 
 function renderEmojiGrid(filter = '') {
     const grid = document.getElementById('emojiGrid')
+    const label = document.getElementById('emojiCategoryLabel')
     if (!grid) return
 
     let emojis
-    const label = document.getElementById('emojiCategoryLabel')
-
-    if (filter) {
-        // поиск по всем категориям
-        emojis = EMOJI_CATEGORIES.flatMap(c => c.emojis).filter(e => {
-            // простая фильтрация по совпадению кодпоинтов — ищем вхождение
-            return e.includes(filter)
+    if (filter && filter.length > 0) {
+        const q = filter.toLowerCase()
+        // Ищем по названиям, а не по содержимому символа
+        const allEmojis = EMOJI_CATEGORIES.flatMap(c => c.emojis)
+        emojis = allEmojis.filter(e => {
+            const name = EMOJI_NAMES[e] || ''
+            return name.includes(q)
         })
-        if (label) label.textContent = `Результаты: ${emojis.length}`
+        // Если по имени не нашли — показываем первые 40 из текущей категории
+        if (emojis.length === 0) {
+            const cat = EMOJI_CATEGORIES.find(c => c.id === currentEmojiCategory)
+            emojis = cat ? cat.emojis.slice(0, 40) : []
+        }
+        if (label) label.textContent = emojis.length > 0 ? `Найдено: ${emojis.length}` : 'Ничего не найдено'
     } else {
         const cat = EMOJI_CATEGORIES.find(c => c.id === currentEmojiCategory)
         emojis = cat ? cat.emojis : []
         if (label) label.textContent = cat ? cat.label : ''
     }
 
-    grid.innerHTML = ''
-    emojis.forEach((emoji, i) => {
-        const btn = document.createElement('button')
-        btn.className = 'emoji-item sticker-animate-in'
-        btn.textContent = emoji
-        btn.style.animationDelay = `${Math.min(i, 30) * 10}ms`
-        btn.onclick = () => insertEmoji(emoji)
-        grid.appendChild(btn)
-    })
+    // Быстрая отрисовка через innerHTML — без per-item анимаций
+    grid.innerHTML = emojis.map(e =>
+        `<button class="emoji-item" onclick="insertEmoji('${e.replace(/'/g, "\\'")}')">${e}</button>`
+    ).join('')
 }
 
 function insertEmoji(emoji) {
@@ -904,15 +907,11 @@ function insertEmoji(emoji) {
     const start = input.selectionStart ?? input.value.length
     const end   = input.selectionEnd   ?? input.value.length
     input.value = input.value.slice(0, start) + emoji + input.value.slice(end)
-    // Ставим курсор после вставленного эмодзи
-    const newPos = start + emoji.length
-    input.setSelectionRange(newPos, newPos)
+    const newPos = start + [...emoji].length  // правильный сдвиг для многобайтных символов
+    try { input.setSelectionRange(newPos, newPos) } catch(e) {}
     input.focus()
-
-    // Лёгкая вибрация на мобильных
     if (navigator.vibrate) navigator.vibrate(10)
 }
-
 
 
 // Загрузить сохраненные стикеры
