@@ -560,16 +560,29 @@ async def import_sticker_pack(phone: str, request: Request):
         if not pack_input:
             return JSONResponse(status_code=400, content={"error": "Укажите ссылку или название пака"})
 
-        token = TG_BOT_TOKEN
+        token = TG_BOT_TOKEN.strip()  # убираем случайные пробелы/переносы
         if not token or token == "ВСТАВЬТЕ_ТОКЕН_СЮДА":
             return JSONResponse(status_code=400, content={
                 "error": "Токен бота не настроен. Вставьте токен в переменную TG_BOT_TOKEN в main.py"
             })
+        if ":" not in token:
+            return JSONResponse(status_code=400, content={
+                "error": f"Неверный формат токена. Токен должен содержать ':'. Получено: {token[:20]}..."
+            })
+        logger.info(f"TG token len={len(token)} starts={token[:8]}")
 
         step = "parse_pack_name"
         import re as _re2
-        match = _re2.search(r't\.me/addstickers/([\w]+)', pack_input, _re2.IGNORECASE)
-        pack_name = match.group(1) if match else pack_input.strip().lstrip('@').split('/')[-1]
+        # Берём всё после /addstickers/ до конца строки или знака вопроса
+        match = _re2.search(r't\.me/addstickers/([A-Za-z0-9_]+)', pack_input, _re2.IGNORECASE)
+        if match:
+            pack_name = match.group(1)
+        else:
+            # Введено просто имя пака без ссылки
+            pack_name = pack_input.strip().lstrip('@').rstrip('/')
+            # Убираем лишнее если вдруг вставили что-то вроде "addstickers/PackName"
+            if 'addstickers/' in pack_name:
+                pack_name = pack_name.split('addstickers/')[-1]
         logger.info(f"TG import: pack_name={pack_name!r}")
 
         tg_api  = f"https://api.telegram.org/bot{token}"
@@ -578,12 +591,19 @@ async def import_sticker_pack(phone: str, request: Request):
 
         step = "get_sticker_set"
         qs        = urllib.parse.urlencode({"name": pack_name})
-        pack_data = await loop.run_in_executor(None, _tg_request, f"{tg_api}/getStickerSet?{qs}")
+        tg_url    = f"{tg_api}/getStickerSet?{qs}"
+        pack_data = await loop.run_in_executor(None, _tg_request, tg_url)
         logger.info(f"TG getStickerSet ok={pack_data.get('ok')} desc={pack_data.get('description','')}")
 
         if not pack_data.get("ok"):
             desc = pack_data.get("description", "Пак не найден")
-            return JSONResponse(status_code=404, content={"error": f"Telegram: {desc}"})
+            # Маскируем токен в URL для безопасности
+            safe_url = tg_url.replace(token, token[:8] + "***")
+            return JSONResponse(status_code=404, content={
+                "error": f"Telegram: {desc}",
+                "pack_name_used": pack_name,
+                "tg_url": safe_url
+            })
 
         stickers   = pack_data["result"]["stickers"]
         pack_title = pack_data["result"]["title"]
@@ -599,20 +619,36 @@ async def import_sticker_pack(phone: str, request: Request):
             stickers = stickers[:can_add]
             logger.info(f"TG import: existing={existing} can_add={can_add}")
 
+            first_error = None
             for i, sticker in enumerate(stickers):
+                # Пропускаем анимированные (.tgs) и видео-стикеры — браузер их не покажет
+                if sticker.get("is_animated") or sticker.get("is_video"):
+                    logger.info(f"TG sticker {i}: skip animated/video")
+                    continue
+
                 step = f"sticker_{i}_getfile"
                 file_id = sticker["file_id"]
                 qs2     = urllib.parse.urlencode({"file_id": file_id})
                 fdata   = await loop.run_in_executor(None, _tg_request, f"{tg_api}/getFile?{qs2}")
                 if not fdata.get("ok"):
-                    logger.warning(f"TG getFile failed: {fdata.get('description')}")
+                    err = fdata.get("description", "unknown")
+                    logger.warning(f"TG getFile failed sticker {i}: {err}")
+                    if first_error is None:
+                        first_error = err
                     continue
 
                 file_path = fdata["result"]["file_path"]
                 dl_url    = f"{tg_file}/{file_path}"
 
                 step = f"sticker_{i}_download"
-                content = await loop.run_in_executor(None, _tg_download_file, dl_url)
+                try:
+                    content = await loop.run_in_executor(None, _tg_download_file, dl_url)
+                except Exception as dl_err:
+                    logger.warning(f"TG download failed sticker {i}: {dl_err}")
+                    if first_error is None:
+                        first_error = str(dl_err)
+                    continue
+
                 if not content:
                     continue
 
@@ -629,11 +665,14 @@ async def import_sticker_pack(phone: str, request: Request):
                     phone, f"/stickers/{filename}"
                 )
                 saved += 1
+                logger.info(f"TG saved sticker {i}")
 
         finally:
             await conn.close()
 
-        logger.info(f"TG import done: saved={saved}")
+        logger.info(f"TG import done: saved={saved} first_error={first_error}")
+        if saved == 0 and first_error:
+            return JSONResponse(status_code=500, content={"error": f"Не удалось скачать стикеры: {first_error}"})
         return {"ok": True, "title": pack_title, "total": len(stickers), "added": saved}
 
     except Exception as e:
