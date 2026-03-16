@@ -1,5 +1,4 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, File, UploadFile, Request
-import httpx
 import re as _re
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -513,152 +512,21 @@ async def get_stickers(phone: str):
 
 # ============= ИМПОРТ СТИКЕРОВ ИЗ TELEGRAM =============
 
-async def _get_tg_pack_info(pack_name: str):
-    """Получить информацию о стикер-паке из Telegram API."""
-    if not TG_BOT_TOKEN or TG_BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
-        return None, "TG_BOT_TOKEN не настроен. Вставьте токен бота в main.py"
+import urllib.request
+import urllib.parse
+import json as _json
+import time as _time
+import asyncio
 
-    tg_api = f"https://api.telegram.org/bot{TG_BOT_TOKEN}"
-    async with httpx.AsyncClient(timeout=20) as client:
-        r = await client.get(f"{tg_api}/getStickerSet", params={"name": pack_name})
-        data = r.json()
+def _tg_get(url: str) -> dict:
+    """Синхронный GET к Telegram API через urllib (без внешних зависимостей)."""
+    with urllib.request.urlopen(url, timeout=20) as resp:
+        return _json.loads(resp.read())
 
-    if not data.get("ok"):
-        desc = data.get("description", "неизвестная ошибка")
-        if "STICKERSET_INVALID" in desc:
-            return None, f"Пак «{pack_name}» не найден в Telegram"
-        return None, f"Ошибка Telegram API: {desc}"
-
-    return data["result"], None
-
-
-@app.get("/tg-pack-preview/{pack_name}")
-async def tg_pack_preview(pack_name: str):
-    """Превью стикер-пака — возвращает список thumbnail URL без сохранения."""
-    try:
-        sticker_set, err = await _get_tg_pack_info(pack_name)
-        if err:
-            return JSONResponse(status_code=400, content={"error": err})
-
-        stickers = sticker_set.get("stickers", [])
-        title = sticker_set.get("title", pack_name)
-
-        if not stickers:
-            return JSONResponse(status_code=400, content={"error": "В паке нет стикеров"})
-
-        tg_api = f"https://api.telegram.org/bot{TG_BOT_TOKEN}"
-        preview_urls = []
-
-        # Берём первые 8 стикеров для превью — быстро
-        async with httpx.AsyncClient(timeout=20) as client:
-            for sticker in stickers[:8]:
-                file_id = sticker.get("thumb", {}).get("file_id") or sticker.get("file_id")
-                if not file_id:
-                    continue
-                try:
-                    fr = await client.get(f"{tg_api}/getFile", params={"file_id": file_id})
-                    fdata = fr.json()
-                    if fdata.get("ok"):
-                        fp = fdata["result"]["file_path"]
-                        preview_urls.append(f"https://api.telegram.org/file/bot{TG_BOT_TOKEN}/{fp}")
-                except Exception:
-                    continue
-
-        return {
-            "ok": True,
-            "title": title,
-            "pack_name": pack_name,
-            "total_found": len(stickers),
-            "preview_urls": preview_urls
-        }
-
-    except Exception as e:
-        logger.error(f"TG pack preview error: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-
-@app.post("/import-tg-pack/{phone}")
-async def import_tg_pack(phone: str, request: Request):
-    """Скачать все стикеры пака и сохранить в коллекцию пользователя."""
-    try:
-        body = await request.json()
-        pack_input = body.get("url", "").strip()
-
-        if not pack_input:
-            return JSONResponse(status_code=400, content={"error": "Укажите ссылку на пак"})
-
-        # Извлекаем имя пака
-        m = re.search(r"t\.me/addstickers/([A-Za-z0-9_]+)", pack_input, re.IGNORECASE)
-        pack_name = m.group(1) if m else re.sub(r"[^A-Za-z0-9_]", "", pack_input.split("/")[-1])
-
-        if not pack_name:
-            return JSONResponse(status_code=400, content={"error": "Не удалось определить название пака"})
-
-        sticker_set, err = await _get_tg_pack_info(pack_name)
-        if err:
-            return JSONResponse(status_code=400, content={"error": err})
-
-        stickers = sticker_set.get("stickers", [])
-        title = sticker_set.get("title", pack_name)
-
-        if not stickers:
-            return JSONResponse(status_code=400, content={"error": "В паке нет стикеров"})
-
-        tg_api = f"https://api.telegram.org/bot{TG_BOT_TOKEN}"
-        conn = await get_db()
-        saved = 0
-        errors = 0
-
-        try:
-            async with httpx.AsyncClient(timeout=60) as client:
-                for sticker in stickers:
-                    file_id = sticker.get("file_id")
-                    if not file_id:
-                        continue
-                    try:
-                        fr = await client.get(f"{tg_api}/getFile", params={"file_id": file_id})
-                        fdata = fr.json()
-                        if not fdata.get("ok"):
-                            errors += 1
-                            continue
-
-                        file_path = fdata["result"]["file_path"]
-                        dl = await client.get(
-                            f"https://api.telegram.org/file/bot{TG_BOT_TOKEN}/{file_path}"
-                        )
-                        if dl.status_code != 200:
-                            errors += 1
-                            continue
-
-                        ext = ".webp" if file_path.endswith(".webp") else ".png"
-                        filename = f"tg_{phone}_{file_id[-10:]}{ext}"
-                        with open(os.path.join(STICKER_DIR, filename), "wb") as ff:
-                            ff.write(dl.content)
-
-                        sticker_url = f"/stickers/{filename}"
-                        exists = await conn.fetchval(
-                            "SELECT id FROM stickers WHERE user_phone=$1 AND sticker_url=$2",
-                            phone, sticker_url
-                        )
-                        if not exists:
-                            await conn.execute(
-                                "INSERT INTO stickers (user_phone, sticker_url) VALUES ($1, $2)",
-                                phone, sticker_url
-                            )
-                            saved += 1
-                    except Exception as e2:
-                        logger.error(f"Sticker dl error: {e2}")
-                        errors += 1
-        finally:
-            await conn.close()
-
-        return {"ok": True, "title": title, "saved": saved, "errors": errors, "total": len(stickers)}
-
-    except Exception as e:
-        logger.error(f"Import TG pack error: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-# ============= ИМПОРТ СТИКЕРОВ ИЗ TELEGRAM =============
+def _tg_download(url: str) -> bytes:
+    """Скачивает файл по URL."""
+    with urllib.request.urlopen(url, timeout=30) as resp:
+        return resp.read()
 
 @app.post("/import-sticker-pack/{phone}")
 async def import_sticker_pack(phone: str, request: Request):
@@ -673,86 +541,71 @@ async def import_sticker_pack(phone: str, request: Request):
         token = TG_BOT_TOKEN
         if not token or token == "ВСТАВЬТЕ_ТОКЕН_СЮДА":
             return JSONResponse(status_code=400, content={
-                "error": "Токен бота не настроен. Откройте main.py и вставьте токен в переменную TG_BOT_TOKEN."
+                "error": "Токен бота не настроен. Вставьте токен в переменную TG_BOT_TOKEN в main.py"
             })
 
         # Извлекаем имя пака из ссылки или берём как есть
         match = _re.search(r't\.me/addstickers/([\w]+)', pack_input, _re.IGNORECASE)
         pack_name = match.group(1) if match else pack_input.strip().lstrip('@')
 
-        tg_api = f"https://api.telegram.org/bot{token}"
+        tg_api  = f"https://api.telegram.org/bot{token}"
         tg_file = f"https://api.telegram.org/file/bot{token}"
 
-        async with httpx.AsyncClient(timeout=30) as client:
-            # Получаем информацию о паке
-            r = await client.get(f"{tg_api}/getStickerSet", params={"name": pack_name})
-            data = r.json()
+        # Получаем инфо о паке (в отдельном потоке чтобы не блокировать event loop)
+        loop = asyncio.get_event_loop()
+        pack_url = f"{tg_api}/getStickerSet?name={urllib.parse.quote(pack_name)}"
+        pack_data = await loop.run_in_executor(None, _tg_get, pack_url)
 
-            if not data.get("ok"):
-                desc = data.get("description", "Пак не найден")
-                return JSONResponse(status_code=404, content={"error": f"Ошибка Telegram: {desc}"})
+        if not pack_data.get("ok"):
+            desc = pack_data.get("description", "Пак не найден")
+            return JSONResponse(status_code=404, content={"error": f"Telegram: {desc}"})
 
-            stickers = data["result"]["stickers"]
-            pack_title = data["result"]["title"]
-            saved = 0
+        stickers   = pack_data["result"]["stickers"]
+        pack_title = pack_data["result"]["title"]
+        saved      = 0
 
-            conn = await get_db()
-            try:
-                # Проверяем сколько стикеров уже есть у пользователя
-                existing = await conn.fetchval(
-                    "SELECT COUNT(*) FROM stickers WHERE user_phone = $1", phone
+        conn = await get_db()
+        try:
+            existing  = await conn.fetchval("SELECT COUNT(*) FROM stickers WHERE user_phone = $1", phone)
+            can_add   = max(0, 200 - int(existing))
+            stickers  = stickers[:can_add]
+
+            for sticker in stickers:
+                file_id = sticker["file_id"]
+
+                # Получаем путь к файлу
+                furl   = f"{tg_api}/getFile?file_id={urllib.parse.quote(file_id)}"
+                fdata  = await loop.run_in_executor(None, _tg_get, furl)
+                if not fdata.get("ok"):
+                    continue
+
+                file_path = fdata["result"]["file_path"]
+                dl_url    = f"{tg_file}/{file_path}"
+
+                # Скачиваем
+                content = await loop.run_in_executor(None, _tg_download, dl_url)
+                if not content:
+                    continue
+
+                # Сохраняем
+                ext      = ".webp" if file_path.endswith(".webp") else ".png"
+                filename = f"tg_{phone.replace('+','')}_{int(_time.time()*1000)}_{saved}{ext}"
+                fpath    = os.path.join(STICKER_DIR, filename)
+
+                with open(fpath, "wb") as f_out:
+                    f_out.write(content)
+
+                await conn.execute(
+                    "INSERT INTO stickers (user_phone, sticker_url) VALUES ($1, $2)",
+                    phone, f"/stickers/{filename}"
                 )
-                limit = 200  # максимум стикеров на пользователя
-                can_add = max(0, limit - existing)
-                stickers = stickers[:can_add]
+                saved += 1
 
-                for sticker in stickers:
-                    file_id = sticker["file_id"]
+        finally:
+            await conn.close()
 
-                    # Получаем путь к файлу
-                    fr = await client.get(f"{tg_api}/getFile", params={"file_id": file_id})
-                    fdata = fr.json()
-                    if not fdata.get("ok"):
-                        continue
+        return {"ok": True, "title": pack_title, "total": len(stickers), "added": saved}
 
-                    file_path = fdata["result"]["file_path"]
-                    file_url = f"{tg_file}/{file_path}"
-
-                    # Скачиваем файл
-                    dr = await client.get(file_url)
-                    if dr.status_code != 200:
-                        continue
-
-                    content = dr.content
-
-                    # Сохраняем файл
-                    import time
-                    ext = ".webp" if file_path.endswith(".webp") else ".png"
-                    filename = f"tg_{phone.replace('+','')}_{int(time.time()*1000)}_{saved}{ext}"
-                    file_save_path = os.path.join(STICKER_DIR, filename)
-
-                    with open(file_save_path, "wb") as f_out:
-                        f_out.write(content)
-
-                    sticker_url = f"/stickers/{filename}"
-                    await conn.execute(
-                        "INSERT INTO stickers (user_phone, sticker_url) VALUES ($1, $2)",
-                        phone, sticker_url
-                    )
-                    saved += 1
-
-            finally:
-                await conn.close()
-
-        return {
-            "ok": True,
-            "title": pack_title,
-            "total": len(stickers),
-            "added": saved
-        }
-
-    except httpx.TimeoutException:
-        return JSONResponse(status_code=408, content={"error": "Telegram не ответил. Попробуйте ещё раз."})
     except Exception as e:
         logger.error(f"Error importing sticker pack: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
