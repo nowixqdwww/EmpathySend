@@ -958,7 +958,7 @@ async function removeAvatar() {
 // Загрузить сохраненные стикеры
 async function loadStickers() {
     try {
-        const res = await fetch(`/stickers/${currentUser}`)
+        const res = await fetch(`/api/stickers/${encodeURIComponent(currentUser)}`)
         if (res.ok) {
             const data = await res.json()
             const raw = data.stickers || []
@@ -1222,7 +1222,7 @@ async function importTgStickers() {
     if (status) { status.style.display = 'flex'; status.className = 'tg-import-status loading'; status.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Загружаю стикеры...' }
 
     try {
-        const res = await fetch('/import-tg-stickers', {
+        const res = await fetch(`/api/import-sticker-pack/${encodeURIComponent(currentUser)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ pack_url: url, phone: currentUser })
@@ -1263,7 +1263,7 @@ async function uploadStickers() {
     try {
         showToast('Загрузка стикеров...')
         
-        const res = await fetch(`/upload-stickers/${currentUser}`, {
+        const res = await fetch(`/api/upload-stickers/${encodeURIComponent(currentUser)}`, {
             method: 'POST',
             body: formData
         })
@@ -1339,7 +1339,7 @@ async function previewTgPack() {
     }, 800)
 
     try {
-        const res  = await fetch(`/import-sticker-pack/${encodeURIComponent(currentUser)}`, {
+        const res  = await fetch(`/api/import-sticker-pack/${encodeURIComponent(currentUser)}`, {
             method:  'POST',
             headers: { 'Content-Type': 'application/json' },
             body:    JSON.stringify({ url: packName })
@@ -2377,6 +2377,20 @@ setInterval(() => {
     if (currentChat && window.clients && !window.clients[currentChat]) updateChatStatusText(currentChat, false)
 }, 60000)
 
+// ============= УДАЛЕНИЕ СТИКЕРА =============
+async function deleteSticker(stickerId, element) {
+    try {
+        element.style.transition = 'transform 0.2s, opacity 0.2s'
+        element.style.transform = 'scale(0.5)'
+        element.style.opacity = '0'
+        setTimeout(() => element.remove(), 200)
+        await fetch(`/api/stickers/${encodeURIComponent(currentUser)}/${stickerId}`, { method: 'DELETE' })
+        userStickers = userStickers.filter(s => s.id !== stickerId)
+    } catch (e) {
+        console.error('deleteSticker error', e)
+    }
+}
+
 // Глобальные функции для HTML
 window.toggleSidebar = toggleSidebar
 window.closeChat = closeChat
@@ -2426,5 +2440,6 @@ window.renderEmojiGrid = renderEmojiGrid
 window.forwardMessage = forwardMessage
 window.closeForwardModal = closeForwardModal
 window.clearChat = clearChat
+window.deleteSticker = deleteSticker
 window.showReactionsPanel = showReactionsPanel
 window.addReaction = addReaction
