@@ -41,7 +41,7 @@ os.makedirs(STATIC_DIR, exist_ok=True)
 
 # Монтируем папки
 app.mount("/avatars", StaticFiles(directory=AVATAR_DIR), name="avatars")
-app.mount("/stickers", StaticFiles(directory=STICKER_DIR), name="stickers")
+# sticker files now served via /sticker-data/{id} from DB
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # Подключение к PostgreSQL
@@ -49,7 +49,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/messenger")
 
 # ═══ Вставьте сюда токен вашего Telegram-бота ═══════════════════════════
 # Получить: https://t.me/BotFather → /newbot → скопировать токен
-TG_BOT_TOKEN = "8636203630:AAEOehs3Q-UfKHgMfqSvXmVwcsOzFcS6z8o"
+TG_BOT_TOKEN = "ВСТАВЬТЕ_ТОКЕН_СЮДА"
 # ════════════════════════════════════════════════════════════════════════
 
 async def get_db():
@@ -153,7 +153,7 @@ async def init_db():
                 new_id = row['id']
                 await conn.execute(
                     "UPDATE stickers SET sticker_data = $1, sticker_url = $2 WHERE id = $3",
-                    raw, f"/sticker-data/{new_id}", new_id
+                    raw, f"/api/sticker-data/{new_id}", new_id
                 )
                 migrated += 1
             except Exception:
@@ -495,7 +495,7 @@ async def remove_avatar(phone: str):
 
 # ============= СТИКЕРЫ =============
 
-@app.post("/upload-stickers/{phone}")
+@app.post("/api/upload-stickers/{phone}")
 async def upload_stickers(phone: str, stickers: List[UploadFile] = File(...)):
     try:
         conn = await get_db()
@@ -525,23 +525,24 @@ async def upload_stickers(phone: str, stickers: List[UploadFile] = File(...)):
         logger.error(f"Error uploading stickers: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-@app.get("/stickers/{phone}")
+@app.get("/api/stickers/{phone}")
 async def get_stickers(phone: str):
     try:
-        conn = await get_db()
+        # Декодируем телефон (может прийти как %2B16... или +16...)
+        import urllib.parse as _up
+        phone = _up.unquote(phone)
         
+        conn = await get_db()
         stickers = await conn.fetch("""
             SELECT id, sticker_url FROM stickers WHERE user_phone = $1 ORDER BY created_at DESC
         """, phone)
-        
         await conn.close()
         
         result = []
         for s in stickers:
             url = s['sticker_url']
-            # Если sticker_url это data URI — заменяем на /sticker-data/{id}
             if url.startswith('data:'):
-                url = f"/sticker-data/{s['id']}"
+                url = f"/api/sticker-data/{s['id']}"
             result.append({"id": s['id'], "url": url})
         return {"stickers": result}
         
@@ -586,7 +587,27 @@ def _tg_download(url: str) -> bytes:
 # Алиас
 _tg_download_file = _tg_download
 
-@app.delete("/stickers/{phone}/all")
+@app.delete("/api/stickers/{phone}/{sticker_id}")
+async def delete_sticker(phone: str, sticker_id: int):
+    try:
+        conn = await get_db()
+        row = await conn.fetchrow("SELECT user_phone, sticker_url FROM stickers WHERE id = $1", sticker_id)
+        if not row or row['user_phone'] != phone:
+            await conn.close()
+            return JSONResponse(status_code=403, content={"error": "Not authorized"})
+        await conn.execute("DELETE FROM stickers WHERE id = $1", sticker_id)
+        await conn.close()
+        # Удаляем файл если он на диске
+        url = row['sticker_url']
+        if url.startswith('/stickers/'):
+            fpath = os.path.join(STICKER_DIR, os.path.basename(url))
+            if os.path.exists(fpath):
+                os.remove(fpath)
+        return {"ok": True}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.delete("/api/stickers-clear/{phone}")
 async def clear_all_stickers(phone: str):
     """Удалить все стикеры пользователя (для сброса битых записей)."""
     try:
@@ -600,7 +621,7 @@ async def clear_all_stickers(phone: str):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
-@app.post("/import-sticker-pack/{phone}")
+@app.post("/api/import-sticker-pack/{phone:path}")
 async def import_sticker_pack(phone: str, request: Request):
     """Импорт стикер-пака из Telegram по ссылке или имени пака."""
     step = "init"
@@ -710,7 +731,7 @@ async def import_sticker_pack(phone: str, request: Request):
                 )
                 await conn.execute(
                     "UPDATE stickers SET sticker_url = $1 WHERE id = $2",
-                    f"/sticker-data/{row['id']}", row['id']
+                    f"/api/sticker-data/{row['id']}", row['id']
                 )
                 saved += 1
                 logger.info(f"TG saved sticker {i}")
@@ -730,7 +751,7 @@ async def import_sticker_pack(phone: str, request: Request):
 
 # ============= ПОИСК =============
 
-@app.get("/sticker-data/{sticker_id}")
+@app.get("/api/sticker-data/{sticker_id}")
 async def get_sticker_data(sticker_id: int):
     """Отдаём файл стикера из БД (для Render где диск эфемерный)."""
     try:
