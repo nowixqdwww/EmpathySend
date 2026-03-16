@@ -49,7 +49,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/messenger")
 
 # ═══ Вставьте сюда токен вашего Telegram-бота ═══════════════════════════
 # Получить: https://t.me/BotFather → /newbot → скопировать токен
-TG_BOT_TOKEN = "ВСТАВЬТЕ_ТОКЕН_СЮДА"
+TG_BOT_TOKEN = "8636203630:AAEOehs3Q-UfKHgMfqSvXmVwcsOzFcS6z8o"
 # ════════════════════════════════════════════════════════════════════════
 
 async def get_db():
