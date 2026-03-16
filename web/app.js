@@ -961,7 +961,10 @@ async function loadStickers() {
         const res = await fetch(`/stickers/${currentUser}`)
         if (res.ok) {
             const data = await res.json()
-            userStickers = data.stickers || []
+            // Нормализуем: принимаем [{id,url}] и [url] и [string]
+            userStickers = (data.stickers || []).map(s =>
+                typeof s === 'string' ? { id: null, url: s } : { id: s.id || null, url: s.url || s.sticker_url || s }
+            )
             renderStickers()
         }
     } catch (error) {
@@ -1044,17 +1047,29 @@ function renderStickers() {
             if (emptyMyStickers) emptyMyStickers.style.display = 'block'
         } else {
             if (emptyMyStickers) emptyMyStickers.style.display = 'none'
-            userStickers.forEach(sticker => {
+            userStickers.forEach((sticker, idx) => {
+                const url = typeof sticker === 'string' ? sticker : sticker.url
+                const id  = typeof sticker === 'object' ? sticker.id : null
                 const div = document.createElement('div')
                 div.className = 'sticker-item'
-                div.setAttribute('data-sticker-url', sticker)
-                div.onclick = () => sendSticker(sticker)
-                
+                div.setAttribute('data-sticker-url', url)
+                div.onclick = () => sendSticker(url)
+
                 const img = document.createElement('img')
-                img.src = sticker
+                img.src = url
                 img.alt = 'sticker'
+                img.loading = 'lazy'
                 div.appendChild(img)
-                
+
+                // Кнопка удаления
+                if (id) {
+                    const del = document.createElement('button')
+                    del.className = 'sticker-delete-btn'
+                    del.textContent = '✕'
+                    del.onclick = e => { e.stopPropagation(); deleteSticker(id, div) }
+                    div.appendChild(del)
+                }
+
                 myStickersDiv.appendChild(div)
             })
         }
@@ -1330,7 +1345,9 @@ async function previewTgPack() {
         fill.style.width = '100%'
 
         if (!res.ok || data.error) {
-            text.textContent = '❌ ' + (data.error || 'Ошибка')
+            const errMsg = data.error || 'Ошибка импорта'
+            console.error('Import error detail:', data.detail || errMsg)
+            text.textContent = '❌ ' + errMsg
             showToast(data.error || 'Ошибка импорта')
             document.getElementById('tgImportBtn').style.display = 'block'
             document.getElementById('tgImportBtn').disabled = false
