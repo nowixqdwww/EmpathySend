@@ -49,7 +49,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/messenger")
 
 # ═══ Вставьте сюда токен вашего Telegram-бота ═══════════════════════════
 # Получить: https://t.me/BotFather → /newbot → скопировать токен
-TG_BOT_TOKEN = "ВСТАВЬТЕ_ТОКЕН_СЮДА"
+TG_BOT_TOKEN = "8636203630:AAEOehs3Q-UfKHgMfqSvXmVwcsOzFcS6z8o"
 # ════════════════════════════════════════════════════════════════════════
 
 async def get_db():
@@ -561,6 +561,7 @@ async def clear_all_stickers(phone: str):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 
+@app.post("/import-sticker-pack/{phone}")
 async def import_sticker_pack(phone: str, request: Request):
     """Импорт стикер-пака из Telegram по ссылке или имени пака."""
     step = "init"
