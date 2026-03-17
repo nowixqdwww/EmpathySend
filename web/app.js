@@ -1210,11 +1210,17 @@ function addMessage(user, text, messageId = null, isRead = false) {
         div.addEventListener('contextmenu', ctxHandler)
         // Долгое нажатие для мобильных
         let lpTimer = null
-        div.addEventListener('touchstart', () => {
+        div.addEventListener('touchstart', (te) => {
+            const touch = te.touches[0]
+            const startX = touch ? touch.pageX : 0
+            const startY = touch ? touch.pageY : 0
             lpTimer = setTimeout(() => {
                 if (window.navigator.vibrate) window.navigator.vibrate(40)
-                const fakeE = { preventDefault(){}, pageX: 0, pageY: 0,
-                    touches: [{pageX: div.getBoundingClientRect().left, pageY: div.getBoundingClientRect().top}] }
+                const fakeE = {
+                    preventDefault() {}, stopPropagation() {},
+                    pageX: startX, pageY: startY,
+                    touches: [{ pageX: startX, pageY: startY }]
+                }
                 ctxHandler(fakeE)
             }, 500)
         }, { passive: true })
@@ -1463,24 +1469,32 @@ let reactionsPanelTimeout = null
 
 // Показать панель реакций
 function showReactionsPanel(event, messageId) {
-    event.preventDefault()
-    event.stopPropagation()
-    
+    if (event && event.preventDefault) event.preventDefault()
+    if (event && event.stopPropagation) event.stopPropagation()
+
     currentMessageId = messageId
-    
+
     const panel = document.getElementById('reactionsPanel')
-    const messageElement = event.currentTarget.closest('.message')
-    
+    if (!panel) return
+
+    // Ищем элемент сообщения — от currentTarget или по messageId
+    let messageElement = null
+    if (event && event.currentTarget) {
+        messageElement = event.currentTarget.closest('.message')
+    }
+    if (!messageElement) {
+        messageElement = document.querySelector(`[data-message-id="${messageId}"]`)
+    }
     if (!messageElement) return
-    
-    // Позиционируем панель над сообщением
+
     const rect = messageElement.getBoundingClientRect()
-    panel.style.bottom = (window.innerHeight - rect.top + 10) + 'px'
-    panel.style.left = rect.left + 'px'
-    
+    const panelBottom = window.innerHeight - rect.top + 8
+    const panelLeft   = Math.min(rect.left, window.innerWidth - 300)
+
+    panel.style.bottom  = panelBottom + 'px'
+    panel.style.left    = Math.max(8, panelLeft) + 'px'
     panel.style.display = 'block'
-    
-    // Автоматически скрываем через 5 секунд
+
     clearTimeout(reactionsPanelTimeout)
     reactionsPanelTimeout = setTimeout(() => {
         panel.style.display = 'none'
@@ -1775,8 +1789,8 @@ function send() {
 // ============= КОНТЕКСТНОЕ МЕНЮ =============
 
 function showContextMenu(event, type, data) {
-    event.preventDefault()
-    event.stopPropagation()
+    if (event.preventDefault) event.preventDefault()
+    if (event.stopPropagation) event.stopPropagation()
     
     document.getElementById('messageContextMenu').style.display = 'none'
     document.getElementById('chatContextMenu').style.display = 'none'
@@ -1798,12 +1812,23 @@ function showContextMenu(event, type, data) {
     const menu = document.getElementById(menuId)
     
     let x, y
-    if (event.touches) {
+    if (event.touches && event.touches[0]) {
         x = event.touches[0].pageX
         y = event.touches[0].pageY
-    } else {
+    } else if (event.pageX !== undefined) {
         x = event.pageX
         y = event.pageY
+    } else {
+        // Fallback — позиционируем по центру элемента
+        const el = data.element
+        if (el) {
+            const r = el.getBoundingClientRect()
+            x = r.left + r.width / 2
+            y = r.top + window.scrollY
+        } else {
+            x = window.innerWidth / 2
+            y = window.innerHeight / 2
+        }
     }
     
     menu.style.display = 'block'
@@ -2484,6 +2509,14 @@ window.rotateLeft = rotateLeft
 window.rotateRight = rotateRight
 window.saveCroppedAvatar = saveCroppedAvatar
 window.closeAvatarEditor = closeAvatarEditor
+function addReactionFromMenu() {
+    if (!selectedMessageId) return
+    const id = selectedMessageId
+    hideContextMenus()
+    // Небольшая задержка чтобы меню успело скрыться
+    setTimeout(() => showReactionsPanel(null, id), 50)
+}
+window.addReactionFromMenu = addReactionFromMenu
 window.deleteMessage = deleteMessage
 window.deleteChat = deleteChat
 window.muteChat = muteChat
