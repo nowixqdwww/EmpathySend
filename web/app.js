@@ -1147,10 +1147,31 @@ function addMessage(user, text, messageId = null, isRead = false) {
 
     if (stickerMatch) {
         div.className = 'message sticker ' + (isMe ? 'me' : 'other')
+        if (messageId) div.dataset.messageId = messageId
+
         const img = document.createElement('img')
         img.src = stickerMatch[1]
         img.alt = 'sticker'
         div.appendChild(img)
+
+        // Время + галочки под стикером
+        const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+        const ticks = isMe
+            ? `<span class="msg-ticks${isRead ? ' read' : ''}"><i class="fas fa-check"></i><i class="fas fa-check tick-second"></i></span>`
+            : ''
+        const meta = document.createElement('div')
+        meta.className = 'message-meta sticker-meta'
+        meta.innerHTML = `<span class="message-time">${time}</span>${ticks}`
+        div.appendChild(meta)
+
+        // Кнопка реакции
+        if (messageId) {
+            const reBtn = document.createElement('button')
+            reBtn.className = 'add-reaction-btn'
+            reBtn.textContent = '😊'
+            reBtn.onclick = (e) => showReactionsPanel(e, messageId)
+            div.appendChild(reBtn)
+        }
     } else {
         div.className = 'message ' + (isMe ? 'me' : 'other')
         if (messageId) div.dataset.messageId = messageId
@@ -1177,12 +1198,28 @@ function addMessage(user, text, messageId = null, isRead = false) {
             <button class="add-reaction-btn" onclick="showReactionsPanel(event,${messageId})">😊</button>`
     }
 
-    if (isMe && messageId && !stickerMatch) {
-        div.addEventListener('contextmenu', (e) => {
+    // Контекстное меню — для всех сообщений включая стикеры
+    if (messageId) {
+        const ctxHandler = (e) => {
             e.preventDefault()
-            const msgText = div.querySelector('.message-text')?.innerText || ''
+            const msgText = stickerMatch
+                ? `[STICKER]${stickerMatch[1]}[/STICKER]`
+                : (div.querySelector('.message-text')?.innerText || '')
             showContextMenu(e, 'message', { messageId, element: div, text: msgText, sender: user })
-        })
+        }
+        div.addEventListener('contextmenu', ctxHandler)
+        // Долгое нажатие для мобильных
+        let lpTimer = null
+        div.addEventListener('touchstart', () => {
+            lpTimer = setTimeout(() => {
+                if (window.navigator.vibrate) window.navigator.vibrate(40)
+                const fakeE = { preventDefault(){}, pageX: 0, pageY: 0,
+                    touches: [{pageX: div.getBoundingClientRect().left, pageY: div.getBoundingClientRect().top}] }
+                ctxHandler(fakeE)
+            }, 500)
+        }, { passive: true })
+        div.addEventListener('touchend',   () => clearTimeout(lpTimer))
+        div.addEventListener('touchmove',  () => clearTimeout(lpTimer))
     }
 
     messagesDiv.appendChild(div)
@@ -1854,6 +1891,7 @@ function clearChat() {
 
 function forwardMessage() {
     if (!selectedMessageText) return
+    // Если это стикер — текст содержит [STICKER]url[/STICKER]
     const text = selectedMessageText, sender = selectedMessageSender
     hideContextMenus()
     const modal = document.getElementById('forwardModal')
@@ -1888,10 +1926,16 @@ function closeForwardModal() {
 
 function sendForwarded(toPhone, text, originalSender) {
     if (!ws || ws.readyState !== WebSocket.OPEN) { showToast('Нет соединения'); return }
-    const senderName = originalSender === currentUser
-        ? (currentUserProfile?.name || currentUserProfile?.username || currentUser)
-        : originalSender
-    const fwdText = `[FWD:${senderName}]${text}[/FWD]`
+    // Стикеры пересылаем как есть, обычные сообщения — с пометкой
+    let fwdText
+    if (text.startsWith('[STICKER]')) {
+        fwdText = text  // стикер без обёртки FWD
+    } else {
+        const senderName = originalSender === currentUser
+            ? (currentUserProfile?.name || currentUserProfile?.username || currentUser)
+            : originalSender
+        fwdText = `[FWD:${senderName}]${text}[/FWD]`
+    }
     ws.send(JSON.stringify({ action: 'send', to: toPhone, text: fwdText }))
     // Не добавляем вручную — message_sent от сервера добавит само
     if (toPhone !== currentChat) showToast('Сообщение переслано')
