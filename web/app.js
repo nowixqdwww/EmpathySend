@@ -1144,8 +1144,22 @@ function addMessage(user, text, messageId = null, isRead = false) {
     const isMe = user === currentUser
 
     const stickerMatch = text.match(/\[STICKER\](.*?)\[\/STICKER\]/)
+    const voiceMatch   = text.match(/\[VOICE(?::(\d+))?\](.*?)\[\/VOICE\]/)
 
-    if (stickerMatch) {
+    if (voiceMatch) {
+        div.className = 'message voice-message ' + (isMe ? 'me' : 'other')
+        if (messageId) div.dataset.messageId = messageId
+        const duration = parseInt(voiceMatch[1] || '0')
+        const voiceUrl = voiceMatch[2]
+        const player = createVoicePlayer(voiceUrl, isMe, duration)
+        div.appendChild(player)
+        if (isMe) {
+            const ticks = document.createElement('span')
+            ticks.className = `msg-ticks voice-ticks${isRead ? ' read' : ''}`
+            ticks.innerHTML = '<i class="fas fa-check"></i><i class="fas fa-check tick-second"></i>'
+            div.appendChild(ticks)
+        }
+    } else if (stickerMatch) {
         div.className = 'message sticker ' + (isMe ? 'me' : 'other')
         if (messageId) div.dataset.messageId = messageId
 
@@ -1202,6 +1216,8 @@ function addMessage(user, text, messageId = null, isRead = false) {
             e.preventDefault()
             const msgText = stickerMatch
                 ? `[STICKER]${stickerMatch[1]}[/STICKER]`
+                : voiceMatch
+                ? text  // голосовые пересылаем как есть
                 : (div.querySelector('.message-text')?.innerText || '')
             showContextMenu(e, 'message', { messageId, element: div, text: msgText, sender: user })
         }
@@ -1459,6 +1475,288 @@ if (uploadArea) {
         handleStickerFiles({ target: { files } })
     })
 }
+
+
+// ============= ГОЛОСОВЫЕ СООБЩЕНИЯ =============
+
+let mediaRecorder = null
+let voiceChunks = []
+let voiceStartTime = null
+let voiceTimer = null
+let voiceCancelled = false
+let voiceTouchStartX = 0
+let voiceMode = localStorage.getItem('voiceMode') || 'hold'  // 'hold' | 'tap'
+let voiceTapActive = false  // для режима tap
+
+function saveVoiceMode() {
+    const sel = document.getElementById('voiceMode')
+    if (!sel) return
+    voiceMode = sel.value
+    localStorage.setItem('voiceMode', voiceMode)
+    updateVoiceBtnBehavior()
+    showToast(voiceMode === 'hold' ? 'Режим: зажать кнопку' : 'Режим: нажать дважды')
+}
+
+function loadVoiceModeSetting() {
+    const sel = document.getElementById('voiceMode')
+    if (sel) sel.value = voiceMode
+    updateVoiceBtnBehavior()
+}
+
+function updateVoiceBtnBehavior() {
+    const btn = document.getElementById('voiceBtn')
+    if (!btn) return
+    if (voiceMode === 'hold') {
+        btn.onmousedown  = (e) => startVoice(e)
+        btn.onmouseup    = (e) => stopVoice(e)
+        btn.onmouseleave = (e) => stopVoice(e)
+        btn.ontouchstart = (e) => startVoice(e)
+        btn.ontouchend   = (e) => stopVoice(e)
+        btn.ontouchcancel = () => cancelVoice()
+        btn.onclick = null
+        btn.title = 'Зажать для записи'
+    } else {
+        btn.onmousedown  = null
+        btn.onmouseup    = null
+        btn.onmouseleave = null
+        btn.ontouchstart = null
+        btn.ontouchend   = null
+        btn.onclick = () => {
+            if (!voiceTapActive) {
+                voiceTapActive = true
+                startVoice(null)
+            } else {
+                voiceTapActive = false
+                stopVoice(null)
+            }
+        }
+        btn.title = 'Нажать для начала/конца записи'
+    }
+}
+
+async function startVoiceRecord(e) {
+    if (e) e.preventDefault()
+    if (!currentChat) { showToast('Выберите чат'); return }
+
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        voiceChunks = []
+        voiceCancelled = false
+        voiceTouchStartX = e?.touches?.[0]?.clientX ?? 0
+
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus'
+            : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg'
+
+        mediaRecorder = new MediaRecorder(stream, { mimeType })
+        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) voiceChunks.push(e.data) }
+        mediaRecorder.onstop = () => {
+            stream.getTracks().forEach(t => t.stop())
+            if (!voiceCancelled) sendVoiceMessage()
+        }
+        mediaRecorder.start(100)
+
+        voiceStartTime = Date.now()
+        document.getElementById('voiceRecordingBar').style.display = 'flex'
+        document.getElementById('sendBtn').style.display = 'none'
+        document.getElementById('voiceBtn').classList.add('recording')
+        if (navigator.vibrate) navigator.vibrate(40)
+
+        voiceTimer = setInterval(() => {
+            const sec = Math.floor((Date.now() - voiceStartTime) / 1000)
+            const m = Math.floor(sec / 60), s = sec % 60
+            document.getElementById('voiceRecTime').textContent = `${m}:${s.toString().padStart(2,'0')}`
+        }, 500)
+
+    } catch (err) {
+        showToast('Нет доступа к микрофону')
+        console.error('Voice record error:', err)
+    }
+}
+
+function stopVoiceRecord(e) {
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') return
+    if (e) e.preventDefault()
+
+    // Смахивание влево — отмена
+    const endX = e?.changedTouches?.[0]?.clientX ?? voiceTouchStartX
+    if (voiceTouchStartX - endX > 80) {
+        cancelVoiceRecord(); return
+    }
+
+    const duration = Date.now() - voiceStartTime
+    if (duration < 500) { cancelVoiceRecord(); showToast('Слишком короткое'); return }
+
+    clearInterval(voiceTimer)
+    document.getElementById('voiceRecordingBar').style.display = 'none'
+    document.getElementById('sendBtn').style.display = 'flex'
+    document.getElementById('voiceBtn').classList.remove('recording')
+    mediaRecorder.stop()
+}
+
+function cancelVoiceRecord() {
+    voiceCancelled = true
+    clearInterval(voiceTimer)
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop()
+    document.getElementById('voiceRecordingBar').style.display = 'none'
+    document.getElementById('sendBtn').style.display = 'flex'
+    document.getElementById('voiceBtn').classList.remove('recording')
+    voiceChunks = []
+}
+
+async function sendVoiceMessage() {
+    if (!voiceChunks.length || !currentChat) return
+
+    const blob = new Blob(voiceChunks, { type: mediaRecorder.mimeType })
+    const duration = Math.round((Date.now() - voiceStartTime) / 1000)
+
+    try {
+        const res = await fetch('/voice/upload', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'audio/webm',
+                'X-Sender': currentUser,
+                'X-Duration': String(duration)
+            },
+            body: blob
+        })
+        const data = await res.json()
+        if (!res.ok) { showToast(data.error || 'Ошибка отправки'); return }
+
+        const voiceText = `[VOICE:${duration}]/voice/${data.voice_id}[/VOICE]`
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ action: 'send', to: currentChat, text: voiceText }))
+        }
+    } catch (err) {
+        console.error('Send voice error:', err)
+        showToast('Ошибка отправки')
+    }
+}
+
+// Переключение кнопки send/mic в зависимости от текста
+// Инициализируем режим голосовой записи при загрузке
+document.addEventListener('DOMContentLoaded', () => updateVoiceBtnBehavior())
+// Fallback если DOMContentLoaded уже сработал
+if (document.readyState !== 'loading') updateVoiceBtnBehavior()
+
+document.getElementById('text').addEventListener('input', function() {
+    const hasText = this.value.trim().length > 0
+    document.getElementById('sendBtn').style.display = hasText ? 'flex' : 'none'
+    document.getElementById('voiceBtn').style.display = hasText ? 'none' : 'flex'
+})
+
+// Также на десктопе — зажать кнопку мышью
+document.getElementById('voiceBtn')?.addEventListener('mousedown', e => {
+    if (e.button !== 0) return
+    startVoiceRecord(null)
+    const up = () => { stopVoiceRecord(null); document.removeEventListener('mouseup', up) }
+    document.addEventListener('mouseup', up)
+})
+
+// Плеер голосового сообщения
+function createVoicePlayer(url, isMe, duration) {
+    const wrap = document.createElement('div')
+    wrap.className = 'voice-player'
+
+    const playBtn = document.createElement('button')
+    playBtn.className = 'voice-play-btn'
+    playBtn.innerHTML = '<i class="fas fa-play"></i>'
+
+    const waveWrap = document.createElement('div')
+    waveWrap.className = 'voice-wave-wrap'
+
+    // Псевдо-волна из 30 баров
+    const bars = document.createElement('div')
+    bars.className = 'voice-wave-bars'
+    for (let i = 0; i < 30; i++) {
+        const bar = document.createElement('div')
+        bar.className = 'voice-wave-bar'
+        bar.style.height = (20 + Math.random() * 60) + '%'
+        bars.appendChild(bar)
+    }
+
+    const progress = document.createElement('div')
+    progress.className = 'voice-progress-bar'
+    const fill = document.createElement('div')
+    fill.className = 'voice-progress-fill'
+    progress.appendChild(fill)
+
+    waveWrap.appendChild(bars)
+    waveWrap.appendChild(progress)
+
+    const timeEl = document.createElement('span')
+    timeEl.className = 'voice-time'
+    // Показываем длительность сразу из метаданных
+    if (duration) {
+        timeEl.textContent = `${Math.floor(duration/60)}:${(duration%60).toString().padStart(2,'0')}`
+    } else {
+        timeEl.textContent = '0:00'
+    }
+
+    wrap.appendChild(playBtn)
+    wrap.appendChild(waveWrap)
+    wrap.appendChild(timeEl)
+
+    const audio = new Audio(url)
+    let playing = false
+
+    audio.addEventListener('loadedmetadata', () => {
+        const d = isFinite(audio.duration) ? Math.floor(audio.duration) : (duration || 0)
+        timeEl.textContent = `${Math.floor(d/60)}:${(d%60).toString().padStart(2,'0')}`
+    })
+
+    audio.addEventListener('timeupdate', () => {
+        const pct  = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0
+        fill.style.width = pct + '%'
+        // Подсвечиваем пройденные бары
+        const barEls = bars.querySelectorAll('.voice-wave-bar')
+        barEls.forEach((b, i) => {
+            b.classList.toggle('played', i / barEls.length < pct / 100)
+        })
+        const left = Math.max(0, Math.floor((audio.duration || 0) - audio.currentTime))
+        timeEl.textContent = `${Math.floor(left/60)}:${(left%60).toString().padStart(2,'0')}`
+    })
+
+    audio.addEventListener('ended', () => {
+        playing = false
+        playBtn.innerHTML = '<i class="fas fa-play"></i>'
+        fill.style.width = '0%'
+        bars.querySelectorAll('.voice-wave-bar').forEach(b => b.classList.remove('played'))
+        if (duration) timeEl.textContent = `${Math.floor(duration/60)}:${(duration%60).toString().padStart(2,'0')}`
+    })
+
+    playBtn.onclick = () => {
+        document.querySelectorAll('.voice-player').forEach(vp => {
+            if (vp !== wrap) {
+                const a = vp._audio
+                if (a) { a.pause(); a.currentTime = 0 }
+                vp.querySelector('.voice-play-btn').innerHTML = '<i class="fas fa-play"></i>'
+            }
+        })
+        if (playing) {
+            audio.pause()
+            playBtn.innerHTML = '<i class="fas fa-play"></i>'
+        } else {
+            audio.play().catch(() => showToast('Ошибка воспроизведения'))
+            playBtn.innerHTML = '<i class="fas fa-pause"></i>'
+        }
+        playing = !playing
+    }
+
+    wrap._audio = audio
+
+    progress.addEventListener('click', e => {
+        if (!audio.duration) return
+        const rect = progress.getBoundingClientRect()
+        audio.currentTime = audio.duration * ((e.clientX - rect.left) / rect.width)
+    })
+
+    return wrap
+}
+
+window.startVoiceRecord = startVoiceRecord
+window.stopVoiceRecord  = stopVoiceRecord
+window.cancelVoiceRecord = cancelVoiceRecord
 
 // ============= РЕАКЦИИ =============
 
@@ -2222,6 +2520,7 @@ async function searchExactUser(username) {
 function openSettings() {
     const modal = document.getElementById('settingsModal')
     loadPrivacySettings()
+    loadVoiceModeSetting()
     modal.classList.add('show')
 }
 
@@ -2484,6 +2783,14 @@ async function deleteSticker(stickerId, element) {
     }
 }
 
+// Алиасы для голосовых (HTML использует короткие имена)
+const startVoice  = startVoiceRecord
+const stopVoice   = stopVoiceRecord
+const cancelVoice = cancelVoiceRecord
+window.startVoice  = startVoiceRecord
+window.stopVoice   = stopVoiceRecord
+window.cancelVoice = cancelVoiceRecord
+
 // Глобальные функции для HTML
 window.toggleSidebar = toggleSidebar
 window.closeChat = closeChat
@@ -2527,6 +2834,7 @@ window.deleteMessage = deleteMessage
 window.deleteChat = deleteChat
 window.muteChat = muteChat
 window.clearChat = clearChat
+window.saveVoiceMode = saveVoiceMode
 window.toggleStickerModal = toggleStickerModal
 window.closeStickerModal = closeStickerModal
 window.switchStickerTab = switchStickerTab
@@ -2541,6 +2849,7 @@ window.renderEmojiGrid = renderEmojiGrid
 window.forwardMessage = forwardMessage
 window.closeForwardModal = closeForwardModal
 window.clearChat = clearChat
+window.saveVoiceMode = saveVoiceMode
 window.deleteSticker = deleteSticker
 window.showReactionsPanel = showReactionsPanel
 window.addReaction = addReaction
