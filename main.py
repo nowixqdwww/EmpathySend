@@ -183,6 +183,12 @@ async def init_db():
             await conn.execute("ALTER TABLE voice_messages ADD COLUMN data BYTEA")
             logger.info("Added data column to voice_messages")
 
+        # Убираем NOT NULL с voice_data чтобы не было конфликтов
+        try:
+            await conn.execute("ALTER TABLE voice_messages ALTER COLUMN voice_data DROP NOT NULL")
+        except Exception:
+            pass
+
             # Таблица реакций
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS reactions (
@@ -568,8 +574,10 @@ async def get_stickers(phone: str):
             has_data = s['has_data']
             if url.startswith('data:') or url.startswith('/api/sticker-data/') or has_data:
                 result.append({"id": sid, "url": f"/api/sticker-data/{sid}"})
+            elif url.startswith('https://api.telegram.org/'):
+                # Прямая TG ссылка — истекает, пропускаем (нужно переимпортировать)
+                pass
             elif not url.startswith('/stickers/'):
-                # Внешний URL (напр. /static/)
                 result.append({"id": sid, "url": url})
             # /stickers/... без данных — пропускаем (файл не существует на Render)
         return {"stickers": result}
@@ -797,41 +805,7 @@ async def import_sticker_pack(phone: str, request: Request):
 
 # ============= ГОЛОСОВЫЕ СООБЩЕНИЯ =============
 
-@app.post("/api/upload-voice/{phone}")
-async def upload_voice(phone: str, file: UploadFile = File(...)):
-    try:
-        content = await file.read()
-        if len(content) > 10 * 1024 * 1024:
-            return JSONResponse(status_code=400, content={"error": "Файл слишком большой (макс 10MB)"})
-
-        conn = await get_db()
-        row = await conn.fetchrow(
-            "INSERT INTO voice_messages (sender, voice_data) VALUES ($1, $2) RETURNING id",
-            phone, content
-        )
-        await conn.close()
-
-        return {"ok": True, "url": f"/api/voice-data/{row['id']}"}
-    except Exception as e:
-        logger.error(f"Error uploading voice: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-@app.get("/api/voice-data/{voice_id}")
-async def get_voice_data(voice_id: int):
-    try:
-        conn = await get_db()
-        row = await conn.fetchrow("SELECT voice_data FROM voice_messages WHERE id = $1", voice_id)
-        await conn.close()
-        if not row:
-            return JSONResponse(status_code=404, content={"error": "Not found"})
-        from fastapi.responses import Response
-        return Response(
-            content=bytes(row['voice_data']),
-            media_type="audio/webm",
-            headers={"Cache-Control": "public, max-age=86400"}
-        )
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+# old voice endpoints removed
 
 # ============= ПОИСК =============
 
@@ -865,7 +839,7 @@ async def get_sticker_data(sticker_id: int):
 
 # ============= ГОЛОСОВЫЕ СООБЩЕНИЯ =============
 
-@app.post("/voice/upload")
+@app.post("/api/voice/upload")
 async def upload_voice(request: Request):
     """Загружаем голосовое сообщение, возвращаем id."""
     try:
@@ -878,27 +852,27 @@ async def upload_voice(request: Request):
         conn = await get_db()
         try:
             row = await conn.fetchrow("""
-                INSERT INTO voice_messages (sender, data, duration)
+                INSERT INTO voice_messages (sender, voice_data, duration)
                 VALUES ($1, $2, $3) RETURNING id
             """, sender, bytes(body), duration)
         finally:
             await conn.close()
 
-        return {"ok": True, "voice_id": row["id"]}
+        return {"ok": True, "voice_id": row["id"], "url": f"/voice/{row['id']}"}
     except Exception as e:
         logger.error(f"voice upload error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-@app.get("/voice/{voice_id}")
+@app.get("/api/voice/{voice_id}")
 async def get_voice(voice_id: int):
     """Отдаём аудио файл по id."""
     try:
         conn = await get_db()
-        row = await conn.fetchrow("SELECT data, voice_data FROM voice_messages WHERE id = $1", voice_id)
+        row = await conn.fetchrow("SELECT voice_data FROM voice_messages WHERE id = $1", voice_id)
         await conn.close()
         if not row:
             return JSONResponse(status_code=404, content={"error": "Not found"})
-        raw = row["data"] or row["voice_data"]
+        raw = row["voice_data"]
         if not raw:
             return JSONResponse(status_code=404, content={"error": "No audio data"})
         from fastapi.responses import Response
