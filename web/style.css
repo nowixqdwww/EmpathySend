@@ -878,15 +878,49 @@ body {
 
 /* Стикеры в сообщениях */
 .message.sticker {
-    background: none;
-    padding: 5px;
+    background: none !important;
+    padding: 4px;
+    box-shadow: none !important;
+    position: relative;
 }
 
 .message.sticker img {
-    max-width: 150px;
-    max-height: 150px;
+    width: 150px;
+    height: 150px;
+    object-fit: contain;
     border-radius: 10px;
+    display: block;
 }
+
+/* Галочки поверх стикера — правый нижний угол */
+.sticker-meta {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background: rgba(0,0,0,0.35);
+    border-radius: 8px;
+    padding: 2px 5px;
+    pointer-events: none;
+}
+
+/* Скрываем время, показываем только галочки */
+.sticker-meta .message-time { display: none; }
+
+.sticker-meta .msg-ticks {
+    opacity: 1;
+    position: static;
+    width: auto;
+    height: auto;
+    display: inline-flex;
+    gap: 1px;
+}
+.sticker-meta .msg-ticks .fa-check { color: white; font-size: 9px; position: static; }
+.sticker-meta .msg-ticks .tick-second { opacity: 0; }
+.sticker-meta .msg-ticks.read .fa-check { color: #7ee8fa; }
+.sticker-meta .msg-ticks.read .tick-second { opacity: 1; }
 
 /* Input Area */
 .input-area {
@@ -2525,14 +2559,4 @@ body {
     background: #e5e5e5;
 }
 
-/* Время и галочки под стикером */
-.sticker-meta {
-    justify-content: flex-end;
-    margin-top: 3px;
-    opacity: 0.75;
-}
-.message.sticker.me  .sticker-meta { justify-content: flex-end; }
-.message.sticker.other .sticker-meta { justify-content: flex-end; }
-.message.sticker .message-time { color: #555; font-size: 11px; }
-.message.sticker.me .msg-ticks .fa-check { color: rgba(0,0,0,0.45); }
-.message.sticker.me .msg-ticks.read .fa-check { color: #2AABEE; }
+/* sticker-meta defined above */
