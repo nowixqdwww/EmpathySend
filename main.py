@@ -49,7 +49,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/messenger")
 
 # ═══ Вставьте сюда токен вашего Telegram-бота ═══════════════════════════
 # Получить: https://t.me/BotFather → /newbot → скопировать токен
-TG_BOT_TOKEN = "8636203630:AAEOehs3Q-UfKHgMfqSvXmVwcsOzFcS6z8o"
+TG_BOT_TOKEN = "ВСТАВЬТЕ_ТОКЕН_СЮДА"
 # ════════════════════════════════════════════════════════════════════════
 
 async def get_db():
@@ -160,6 +160,28 @@ async def init_db():
                 pass
         if migrated:
             logger.info(f"Migrated {migrated} data:URI stickers to BYTEA")
+
+        # Таблица голосовых сообщений
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS voice_messages (
+                id SERIAL PRIMARY KEY,
+                sender TEXT NOT NULL,
+                voice_data BYTEA NOT NULL,
+                duration INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+            # Таблица голосовых сообщений
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS voice_messages (
+                id SERIAL PRIMARY KEY,
+                sender TEXT NOT NULL,
+                data BYTEA NOT NULL,
+                duration INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
 
             # Таблица реакций
         await conn.execute("""
@@ -773,6 +795,44 @@ async def import_sticker_pack(phone: str, request: Request):
         logger.error(f"TG import ERROR at step={step}: {e}\n{tb}")
         return JSONResponse(status_code=500, content={"error": str(e), "step": step})
 
+# ============= ГОЛОСОВЫЕ СООБЩЕНИЯ =============
+
+@app.post("/api/upload-voice/{phone}")
+async def upload_voice(phone: str, file: UploadFile = File(...)):
+    try:
+        content = await file.read()
+        if len(content) > 10 * 1024 * 1024:
+            return JSONResponse(status_code=400, content={"error": "Файл слишком большой (макс 10MB)"})
+
+        conn = await get_db()
+        row = await conn.fetchrow(
+            "INSERT INTO voice_messages (sender, voice_data) VALUES ($1, $2) RETURNING id",
+            phone, content
+        )
+        await conn.close()
+
+        return {"ok": True, "url": f"/api/voice-data/{row['id']}"}
+    except Exception as e:
+        logger.error(f"Error uploading voice: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/api/voice-data/{voice_id}")
+async def get_voice_data(voice_id: int):
+    try:
+        conn = await get_db()
+        row = await conn.fetchrow("SELECT voice_data FROM voice_messages WHERE id = $1", voice_id)
+        await conn.close()
+        if not row:
+            return JSONResponse(status_code=404, content={"error": "Not found"})
+        from fastapi.responses import Response
+        return Response(
+            content=bytes(row['voice_data']),
+            media_type="audio/webm",
+            headers={"Cache-Control": "public, max-age=86400"}
+        )
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 # ============= ПОИСК =============
 
 @app.get("/api/sticker-data/{sticker_id}")
@@ -800,6 +860,50 @@ async def get_sticker_data(sticker_id: int):
             # Старый стикер — редиректим на файл
             from fastapi.responses import RedirectResponse
             return RedirectResponse(url=row['sticker_url'])
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+# ============= ГОЛОСОВЫЕ СООБЩЕНИЯ =============
+
+@app.post("/voice/upload")
+async def upload_voice(request: Request):
+    """Загружаем голосовое сообщение, возвращаем id."""
+    try:
+        body = await request.body()
+        sender = request.headers.get("X-Sender", "")
+        duration = int(request.headers.get("X-Duration", "0"))
+        if not body or not sender:
+            return JSONResponse(status_code=400, content={"error": "No data"})
+
+        conn = await get_db()
+        try:
+            row = await conn.fetchrow("""
+                INSERT INTO voice_messages (sender, data, duration)
+                VALUES ($1, $2, $3) RETURNING id
+            """, sender, bytes(body), duration)
+        finally:
+            await conn.close()
+
+        return {"ok": True, "voice_id": row["id"]}
+    except Exception as e:
+        logger.error(f"voice upload error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/voice/{voice_id}")
+async def get_voice(voice_id: int):
+    """Отдаём аудио файл по id."""
+    try:
+        conn = await get_db()
+        row = await conn.fetchrow("SELECT data FROM voice_messages WHERE id = $1", voice_id)
+        await conn.close()
+        if not row:
+            return JSONResponse(status_code=404, content={"error": "Not found"})
+        from fastapi.responses import Response
+        return Response(
+            content=bytes(row["data"]),
+            media_type="audio/webm",
+            headers={"Cache-Control": "public, max-age=86400"}
+        )
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
