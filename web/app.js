@@ -1863,18 +1863,38 @@ function createVoicePlayer(url, isMe, duration) {
             if (vp !== wrap) {
                 const a = vp._audio
                 if (a) { a.pause(); a.currentTime = 0 }
-                vp.querySelector('.voice-play-btn').innerHTML = '<i class="fas fa-play"></i>'
+                const pb = vp.querySelector('.voice-play-btn')
+                if (pb) pb.innerHTML = '<i class="fas fa-play"></i>'
             }
         })
         if (playing) {
             audio.pause()
             playBtn.innerHTML = '<i class="fas fa-play"></i>'
+            playing = false
         } else {
-            audio.play().catch(() => showToast('Ошибка воспроизведения'))
+            // Принудительно загружаем если ещё не загружено
+            if (audio.readyState === 0) audio.load()
+            const p = audio.play()
+            if (p && p.catch) {
+                p.catch(err => {
+                    console.error('Voice play error:', err.name, err.message, 'url:', url)
+                    playing = false
+                    playBtn.innerHTML = '<i class="fas fa-play"></i>'
+                    showToast('Ошибка: ' + err.name)
+                })
+            }
             playBtn.innerHTML = '<i class="fas fa-pause"></i>'
+            playing = true
         }
-        playing = !playing
     }
+
+    // Сбрасываем состояние если audio сам остановился с ошибкой
+    audio.addEventListener('error', (e) => {
+        console.error('Audio error:', audio.error?.code, audio.error?.message, 'url:', url)
+        playing = false
+        playBtn.innerHTML = '<i class="fas fa-play"></i>'
+        showToast('Не удалось загрузить аудио (код ' + (audio.error?.code || '?') + ')')
+    })
 
     wrap._audio = audio
 
