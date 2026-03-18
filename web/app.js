@@ -1581,11 +1581,19 @@ async function startVoiceRecord(e) {
         voiceCancelled = false
         voiceTouchStartX = e?.touches?.[0]?.clientX ?? 0
 
-        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-            ? 'audio/webm;codecs=opus'
-            : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg'
+        // Выбираем формат с максимальной совместимостью
+        // mp4/aac работает в Safari, webm/opus в Chrome/Firefox
+        const mimeTypes = [
+            'audio/mp4;codecs=mp4a.40.2',  // Safari iOS/macOS
+            'audio/mp4',                    // Safari fallback
+            'audio/webm;codecs=opus',       // Chrome/Firefox
+            'audio/webm',                   // Chrome fallback
+            'audio/ogg;codecs=opus',        // Firefox
+            '',                             // браузер выберет сам
+        ]
+        const mimeType = mimeTypes.find(m => !m || MediaRecorder.isTypeSupported(m)) || ''
 
-        mediaRecorder = new MediaRecorder(voiceStream, { mimeType })
+        mediaRecorder = new MediaRecorder(voiceStream, mimeType ? { mimeType } : {})
         mediaRecorder.ondataavailable = ev => { if (ev.data.size > 0) voiceChunks.push(ev.data) }
         mediaRecorder.onstop = () => {
             if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null }
@@ -1632,8 +1640,9 @@ function stopVoiceRecord(e) {
     const dur = Date.now() - voiceStartTime
     if (dur < 500) { cancelVoiceRecord(); showToast('Слишком короткое'); return }
     clearInterval(voiceTimer)
-    mediaRecorder.stop()
-    // hideRecordArea вызовется после анимации в sendVoiceMessage
+    // Запрашиваем финальный чанк перед остановкой
+    mediaRecorder.requestData()
+    setTimeout(() => mediaRecorder.stop(), 50)
 }
 
 // Кнопка ✈ в строке записи (режим tap или явная отправка)
@@ -1642,7 +1651,8 @@ function commitVoice() {
     const dur = Date.now() - voiceStartTime
     if (dur < 500) { cancelVoiceRecord(); showToast('Слишком короткое'); return }
     clearInterval(voiceTimer)
-    mediaRecorder.stop()
+    mediaRecorder.requestData()
+    setTimeout(() => mediaRecorder.stop(), 50)
 }
 
 function cancelVoiceRecord() {
@@ -1691,8 +1701,11 @@ function stopWaveAnimation() {
 async function sendVoiceMessage() {
     if (!voiceChunks.length || !currentChat) return
 
-    const blob = new Blob(voiceChunks, { type: mediaRecorder.mimeType })
+    const mimeType = mediaRecorder.mimeType || 'audio/webm'
+    const blob = new Blob(voiceChunks, { type: mimeType })
     const duration = Math.round((Date.now() - voiceStartTime) / 1000)
+    console.log(`[voice] blob size=${blob.size} type=${mimeType} duration=${duration}s chunks=${voiceChunks.length}`)
+    if (blob.size < 100) { showToast('Запись пустая, попробуйте ещё раз'); return }
 
     // Скрываем строку записи с анимацией
     hideRecordArea()
@@ -1727,7 +1740,7 @@ async function sendVoiceMessage() {
         const res = await fetch('/api/voice/upload', {
             method: 'POST',
             headers: {
-                'Content-Type': 'audio/webm',
+                'Content-Type': mimeType,
                 'X-Sender': currentUser,
                 'X-Duration': String(duration)
             },
