@@ -1509,43 +1509,73 @@ function updateVoiceBtnBehavior() {
     const btn = document.getElementById('voiceBtn')
     if (!btn) return
     if (voiceMode === 'hold') {
-        btn.onmousedown  = (e) => startVoice(e)
-        btn.onmouseup    = (e) => stopVoice(e)
-        btn.onmouseleave = (e) => stopVoice(e)
-        btn.ontouchstart = (e) => startVoice(e)
-        btn.ontouchend   = (e) => stopVoice(e)
-        btn.ontouchcancel = () => cancelVoice()
-        btn.onclick = null
+        btn.onmousedown   = (e) => startVoiceRecord(e)
+        btn.onmouseup     = (e) => stopVoiceRecord(e)
+        btn.onmouseleave  = (e) => stopVoiceRecord(e)
+        btn.ontouchstart  = (e) => { e.preventDefault(); startVoiceRecord(e) }
+        btn.ontouchend    = (e) => stopVoiceRecord(e)
+        btn.ontouchcancel = () => cancelVoiceRecord()
+        btn.onclick       = null
         btn.title = 'Зажать для записи'
     } else {
-        btn.onmousedown  = null
-        btn.onmouseup    = null
-        btn.onmouseleave = null
-        btn.ontouchstart = null
-        btn.ontouchend   = null
+        btn.onmousedown   = null
+        btn.onmouseup     = null
+        btn.onmouseleave  = null
+        btn.ontouchstart  = null
+        btn.ontouchend    = null
+        btn.ontouchcancel = null
         btn.onclick = () => {
             if (!voiceTapActive) {
                 voiceTapActive = true
-                startVoice(null)
+                startVoiceRecord(null)
             } else {
                 voiceTapActive = false
-                stopVoice(null)
+                commitVoice()
             }
         }
         btn.title = 'Нажать для начала/конца записи'
     }
 }
 
-// Аудио-анализатор для визуализации волны
+// ── Голосовая запись ──────────────────────────────────────────────────
 let voiceAnalyser = null
 let voiceWaveAnim = null
+let voiceStream   = null
+
+function showRecordArea() {
+    const inputArea  = document.getElementById('inputArea')
+    const recordArea = document.getElementById('voiceRecordArea')
+    if (!inputArea || !recordArea) return
+
+    // Строим бары волны один раз
+    const waveEl = document.getElementById('voiceRecordWave')
+    if (waveEl && !waveEl.children.length) {
+        for (let i = 0; i < 28; i++) {
+            const b = document.createElement('div')
+            b.className = 'vrec-bar'
+            waveEl.appendChild(b)
+        }
+    }
+
+    inputArea.classList.add('input-hidden')
+    recordArea.classList.add('record-visible')
+}
+
+function hideRecordArea() {
+    const inputArea  = document.getElementById('inputArea')
+    const recordArea = document.getElementById('voiceRecordArea')
+    if (!inputArea || !recordArea) return
+    recordArea.classList.remove('record-visible')
+    inputArea.classList.remove('input-hidden')
+}
 
 async function startVoiceRecord(e) {
     if (e) e.preventDefault()
     if (!currentChat) { showToast('Выберите чат'); return }
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') return
 
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true })
         voiceChunks = []
         voiceCancelled = false
         voiceTouchStartX = e?.touches?.[0]?.clientX ?? 0
@@ -1554,35 +1584,34 @@ async function startVoiceRecord(e) {
             ? 'audio/webm;codecs=opus'
             : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg'
 
-        mediaRecorder = new MediaRecorder(stream, { mimeType })
-        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) voiceChunks.push(e.data) }
+        mediaRecorder = new MediaRecorder(voiceStream, { mimeType })
+        mediaRecorder.ondataavailable = ev => { if (ev.data.size > 0) voiceChunks.push(ev.data) }
         mediaRecorder.onstop = () => {
-            stream.getTracks().forEach(t => t.stop())
+            if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null }
             stopWaveAnimation()
             if (!voiceCancelled) sendVoiceMessage()
         }
         mediaRecorder.start(100)
 
-        // Аудио-анализатор для реальной волны
+        // Web Audio API — реальная амплитуда
         try {
             const ctx = new AudioContext()
-            const source = ctx.createMediaStreamSource(stream)
+            const source = ctx.createMediaStreamSource(voiceStream)
             voiceAnalyser = ctx.createAnalyser()
-            voiceAnalyser.fftSize = 64
+            voiceAnalyser.fftSize = 128
             source.connect(voiceAnalyser)
-            startWaveAnimation()
-        } catch (_) { /* браузер без Web Audio API */ }
+        } catch (_) {}
 
         voiceStartTime = Date.now()
-        document.getElementById('voiceRecordingBar').style.display = 'flex'
-        document.getElementById('sendBtn').style.display = 'none'
-        document.getElementById('voiceBtn').classList.add('recording')
+        showRecordArea()
         if (navigator.vibrate) navigator.vibrate(40)
+        startWaveAnimation()
 
         voiceTimer = setInterval(() => {
             const sec = Math.floor((Date.now() - voiceStartTime) / 1000)
             const m = Math.floor(sec / 60), s = sec % 60
-            document.getElementById('voiceRecTime').textContent = `${m}:${s.toString().padStart(2,'0')}`
+            const el = document.getElementById('voiceRecTime')
+            if (el) el.textContent = `${m}:${s.toString().padStart(2,'0')}`
         }, 500)
 
     } catch (err) {
@@ -1591,25 +1620,45 @@ async function startVoiceRecord(e) {
     }
 }
 
-function startWaveAnimation() {
-    const bar = document.getElementById('voiceRecordingBar')
-    // Создаём мини-волну в баре если её нет
-    let wave = bar.querySelector('.rec-wave')
-    if (!wave) {
-        wave = document.createElement('div')
-        wave.className = 'rec-wave'
-        for (let i = 0; i < 20; i++) {
-            const b = document.createElement('div')
-            b.className = 'rec-wave-bar'
-            wave.appendChild(b)
-        }
-        // Вставляем после таймера
-        const time = bar.querySelector('.voice-rec-time')
-        if (time && time.nextSibling) bar.insertBefore(wave, time.nextSibling)
-        else bar.appendChild(wave)
-    }
+// Для режима hold — отпускание кнопки
+function stopVoiceRecord(e) {
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') return
+    if (e) e.preventDefault()
+    const endX = e?.changedTouches?.[0]?.clientX ?? voiceTouchStartX
+    if (voiceTouchStartX - endX > 80) { cancelVoiceRecord(); return }
+    const dur = Date.now() - voiceStartTime
+    if (dur < 500) { cancelVoiceRecord(); showToast('Слишком короткое'); return }
+    clearInterval(voiceTimer)
+    mediaRecorder.stop()
+    // hideRecordArea вызовется после анимации в sendVoiceMessage
+}
 
-    const bars = wave.querySelectorAll('.rec-wave-bar')
+// Кнопка ✈ в строке записи (режим tap или явная отправка)
+function commitVoice() {
+    if (!mediaRecorder || mediaRecorder.state === 'inactive') return
+    const dur = Date.now() - voiceStartTime
+    if (dur < 500) { cancelVoiceRecord(); showToast('Слишком короткое'); return }
+    clearInterval(voiceTimer)
+    mediaRecorder.stop()
+}
+
+function cancelVoiceRecord() {
+    voiceCancelled = true
+    clearInterval(voiceTimer)
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop()
+    else {
+        if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null }
+        stopWaveAnimation()
+    }
+    hideRecordArea()
+    voiceChunks = []
+    if (navigator.vibrate) navigator.vibrate([20, 20])
+}
+
+function startWaveAnimation() {
+    const waveEl = document.getElementById('voiceRecordWave')
+    if (!waveEl) return
+    const bars = waveEl.querySelectorAll('.vrec-bar')
     const dataArr = voiceAnalyser ? new Uint8Array(voiceAnalyser.frequencyBinCount) : null
 
     function draw() {
@@ -1618,10 +1667,9 @@ function startWaveAnimation() {
             let h
             if (dataArr && voiceAnalyser) {
                 voiceAnalyser.getByteFrequencyData(dataArr)
-                h = Math.max(15, (dataArr[i % dataArr.length] / 255) * 100)
+                h = Math.max(10, (dataArr[i % dataArr.length] / 255) * 100)
             } else {
-                // Фолбэк — случайная анимация
-                h = 15 + Math.random() * 85
+                h = 10 + Math.abs(Math.sin(Date.now() / 200 + i * 0.4)) * 90
             }
             b.style.height = h + '%'
         })
@@ -1634,35 +1682,7 @@ function stopWaveAnimation() {
     voiceAnalyser = null
 }
 
-function stopVoiceRecord(e) {
-    if (!mediaRecorder || mediaRecorder.state === 'inactive') return
-    if (e) e.preventDefault()
 
-    // Смахивание влево — отмена
-    const endX = e?.changedTouches?.[0]?.clientX ?? voiceTouchStartX
-    if (voiceTouchStartX - endX > 80) {
-        cancelVoiceRecord(); return
-    }
-
-    const duration = Date.now() - voiceStartTime
-    if (duration < 500) { cancelVoiceRecord(); showToast('Слишком короткое'); return }
-
-    clearInterval(voiceTimer)
-    document.getElementById('voiceRecordingBar').style.display = 'none'
-    document.getElementById('sendBtn').style.display = 'flex'
-    document.getElementById('voiceBtn').classList.remove('recording')
-    mediaRecorder.stop()
-}
-
-function cancelVoiceRecord() {
-    voiceCancelled = true
-    clearInterval(voiceTimer)
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop()
-    document.getElementById('voiceRecordingBar').style.display = 'none'
-    document.getElementById('sendBtn').style.display = 'flex'
-    document.getElementById('voiceBtn').classList.remove('recording')
-    voiceChunks = []
-}
 
 async function sendVoiceMessage() {
     if (!voiceChunks.length || !currentChat) return
@@ -1670,16 +1690,20 @@ async function sendVoiceMessage() {
     const blob = new Blob(voiceChunks, { type: mediaRecorder.mimeType })
     const duration = Math.round((Date.now() - voiceStartTime) / 1000)
 
-    // Показываем плейсхолдер сразу — пользователь видит что отправка идёт
+    // Скрываем строку записи с анимацией
+    hideRecordArea()
+
+    // Плейсхолдер в чате — появляется снизу
     const messagesDiv = document.getElementById('messages')
     const placeholder = document.createElement('div')
     placeholder.className = 'message voice-message me voice-sending'
+    placeholder.style.cssText = 'opacity:0; transform:translateY(16px); transition:opacity 0.25s ease,transform 0.25s ease'
     placeholder.innerHTML = `
         <div class="voice-player">
             <button class="voice-play-btn" disabled><i class="fas fa-spinner fa-spin"></i></button>
             <div class="voice-wave-wrap">
                 <div class="voice-wave-bars">
-                    ${Array.from({length: 20}, () =>
+                    ${Array.from({length: 20}, (_, i) =>
                         `<div class="voice-wave-bar" style="height:${15+Math.random()*85}%"></div>`
                     ).join('')}
                 </div>
@@ -1689,6 +1713,11 @@ async function sendVoiceMessage() {
         </div>`
     messagesDiv.appendChild(placeholder)
     messagesDiv.scrollTop = messagesDiv.scrollHeight
+    // Запускаем анимацию появления
+    requestAnimationFrame(() => {
+        placeholder.style.opacity = '1'
+        placeholder.style.transform = 'translateY(0)'
+    })
 
     try {
         const res = await fetch('/api/voice/upload', {
@@ -1846,6 +1875,7 @@ function createVoicePlayer(url, isMe, duration) {
 }
 
 window.startVoiceRecord = startVoiceRecord
+window.commitVoice = commitVoice
 window.stopVoiceRecord  = stopVoiceRecord
 window.cancelVoiceRecord = cancelVoiceRecord
 
