@@ -165,7 +165,7 @@
                     <button class="voice-btn" id="voiceBtn">
                         <i class="fas fa-microphone"></i>
                     </button>
-                    <button class="video-msg-btn" id="videomsgBtn" title="Видео сообщение">
+                    <button class="video-msg-btn" id="videomsgBtn" title="Видео сообщение" onclick="if(window.openVideoRecorder)openVideoRecorder();else alert('JS не загрузился');">
                         <i class="fas fa-video"></i>
                     </button>
                     <button onclick="send()" class="send-btn" id="sendBtn" style="display:none;">
@@ -684,6 +684,6 @@
 
 <!-- Скрипты -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
-<script src="/app.js" defer></script>
+<script src="/app.js"></script>
 </body>
 </html>
