@@ -3079,7 +3079,12 @@ async function openVideoRecorder() {
         const preview = document.getElementById('videoPreview')
         preview.srcObject = videoStream
     } catch (e) {
-        showToast('Нет доступа к камере')
+        let msg = 'Нет доступа к камере'
+        if (e.name === 'NotAllowedError')  msg = 'Камера заблокирована. Разрешите доступ в настройках браузера'
+        if (e.name === 'NotFoundError')    msg = 'Камера не найдена'
+        if (e.name === 'NotReadableError') msg = 'Камера занята другим приложением'
+        if (e.name === 'OverconstrainedError') msg = 'Камера не поддерживает нужный формат'
+        showToast(msg)
         closeVideoRecorder()
     }
 }
@@ -3151,10 +3156,68 @@ function onVideoRecordStop() {
     // Показываем превью записанного
     const playback = document.getElementById('videoPlayback')
     const preview  = document.getElementById('videoPreview')
+    const ring     = document.getElementById('videoProgressRing')
+    const circPreview = 2 * Math.PI * 105
+
     playback.src = URL.createObjectURL(videoBlob)
     preview.style.display = 'none'
     playback.style.display = 'block'
     playback.load()
+
+    // Обновляем кольцо прогресса при воспроизведении
+    playback.ontimeupdate = () => {
+        if (!playback.duration || !isFinite(playback.duration)) return
+        const pct = playback.currentTime / playback.duration
+        if (ring) ring.style.strokeDashoffset = circPreview * (1 - pct)
+    }
+    playback.onended = () => {
+        if (ring) ring.style.strokeDashoffset = circPreview
+    }
+
+    // Перемотка кликом и drag по кружку в модалке
+    const circle = document.querySelector('.video-recorder-circle')
+    if (circle && !circle._seekListener) {
+        circle._seekListener = true
+        let isScrubbing = false
+
+        function getPreviewAnglePct(e) {
+            const rect = circle.getBoundingClientRect()
+            const cx = rect.left + rect.width / 2
+            const cy = rect.top + rect.height / 2
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY
+            let angle = Math.atan2(clientX - cx, -(clientY - cy))
+            if (angle < 0) angle += 2 * Math.PI
+            return angle / (2 * Math.PI)
+        }
+
+        const onDown = (e) => {
+            if (!playback.duration || playback.style.display === 'none') return
+            isScrubbing = true
+            const wasPaused = playback.paused
+            playback.pause()
+            playback.currentTime = getPreviewAnglePct(e) * playback.duration
+            if (!wasPaused) playback._wasPlaying = true
+            e.preventDefault()
+        }
+        const onMove = (e) => {
+            if (!isScrubbing || !playback.duration) return
+            playback.currentTime = getPreviewAnglePct(e) * playback.duration
+            e.preventDefault()
+        }
+        const onUp = () => {
+            if (!isScrubbing) return
+            isScrubbing = false
+            if (playback._wasPlaying) { playback.play().catch(()=>{}); playback._wasPlaying = false }
+        }
+
+        circle.addEventListener('mousedown', onDown)
+        circle.addEventListener('touchstart', onDown, { passive: false })
+        document.addEventListener('mousemove', onMove)
+        document.addEventListener('mouseup', onUp)
+        document.addEventListener('touchmove', onMove, { passive: false })
+        document.addEventListener('touchend', onUp)
+    }
 
     document.getElementById('videoRecorderActions').style.display = 'none'
     document.getElementById('videoSendActions').style.display = 'flex'
@@ -3209,10 +3272,14 @@ async function sendVideoMessage() {
             body: blobToSend
         })
         const data = await res.json()
+        if (!res.ok) {
+            placeholder.style.opacity = '0'
+            setTimeout(() => placeholder.remove(), 200)
+            showToast('Ошибка: ' + (data.error || res.status))
+            return
+        }
         placeholder.style.opacity = '0'
         setTimeout(() => placeholder.remove(), 200)
-
-        if (!res.ok) { showToast(data.error || 'Ошибка'); return }
 
         const videoText = `[VIDEO:${duration}]/api/video/${data.video_id}[/VIDEO]`
         if (ws && ws.readyState === WebSocket.OPEN) {
@@ -3252,12 +3319,62 @@ function createVideoPlayer(url, isMe) {
     video.preload = 'metadata'
     video.className = 'video-msg-el'
 
+    // SVG прогресс-кольцо
+    const r = 96, circ = 2 * Math.PI * r
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    svg.setAttribute('viewBox', '0 0 200 200')
+    svg.className = 'video-msg-ring'
+    const bgCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+    bgCircle.setAttribute('cx','100'); bgCircle.setAttribute('cy','100'); bgCircle.setAttribute('r', r)
+    bgCircle.className = 'vmr-bg'
+    const fillCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
+    fillCircle.setAttribute('cx','100'); fillCircle.setAttribute('cy','100'); fillCircle.setAttribute('r', r)
+    fillCircle.className = 'vmr-fill'
+    fillCircle.style.strokeDasharray = circ
+    fillCircle.style.strokeDashoffset = circ
+    svg.appendChild(bgCircle)
+    svg.appendChild(fillCircle)
+
     const playBtn = document.createElement('button')
     playBtn.className = 'video-msg-play'
     playBtn.innerHTML = '<i class="fas fa-play"></i>'
 
+    // Таймер
+    const timeEl = document.createElement('span')
+    timeEl.className = 'video-msg-time'
+    timeEl.textContent = '0:00'
+
     let playing = false
-    playBtn.onclick = () => {
+
+    function updateRing() {
+        if (!video.duration) return
+        const pct = video.currentTime / video.duration
+        fillCircle.style.strokeDashoffset = circ * (1 - pct)
+        const left = Math.max(0, Math.floor(video.duration - video.currentTime))
+        timeEl.textContent = `${Math.floor(left/60)}:${(left%60).toString().padStart(2,'0')}`
+    }
+
+    video.addEventListener('loadedmetadata', () => {
+        if (isFinite(video.duration)) {
+            const d = Math.floor(video.duration)
+            timeEl.textContent = `${Math.floor(d/60)}:${(d%60).toString().padStart(2,'0')}`
+        }
+    })
+    video.addEventListener('timeupdate', updateRing)
+    video.addEventListener('ended', () => {
+        playing = false
+        playBtn.innerHTML = '<i class="fas fa-play"></i>'
+        playBtn.style.opacity = '1'
+        video.currentTime = 0
+        fillCircle.style.strokeDashoffset = circ
+    })
+    video.addEventListener('error', () => {
+        playBtn.innerHTML = '<i class="fas fa-triangle-exclamation" style="color:#ff9500;font-size:12px;"></i>'
+        playBtn.disabled = true
+    })
+
+    playBtn.onclick = (e) => {
+        e.stopPropagation()
         if (playing) {
             video.pause()
             playBtn.innerHTML = '<i class="fas fa-play"></i>'
@@ -3269,19 +3386,65 @@ function createVideoPlayer(url, isMe) {
         }
         playing = !playing
     }
-    video.addEventListener('ended', () => {
-        playing = false
-        playBtn.innerHTML = '<i class="fas fa-play"></i>'
-        playBtn.style.opacity = '1'
-        video.currentTime = 0
+
+    // Перемотка — клик и drag по кольцу
+    function getAnglePct(e) {
+        const rect = svg.getBoundingClientRect()
+        const cx = rect.left + rect.width / 2
+        const cy = rect.top + rect.height / 2
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY
+        let angle = Math.atan2(clientX - cx, -(clientY - cy))
+        if (angle < 0) angle += 2 * Math.PI
+        return angle / (2 * Math.PI)
+    }
+
+    let scrubbing = false
+    const wasPlaying = () => playing
+
+    svg.addEventListener('mousedown', (e) => {
+        if (!video.duration) return
+        scrubbing = true
+        if (playing) { video.pause(); }
+        video.currentTime = getAnglePct(e) * video.duration
+        updateRing()
+        e.preventDefault()
     })
-    video.addEventListener('error', () => {
-        playBtn.innerHTML = '<i class="fas fa-triangle-exclamation" style="color:#ff9500;font-size:12px;"></i>'
-        playBtn.disabled = true
-    })
+    svg.addEventListener('touchstart', (e) => {
+        if (!video.duration) return
+        scrubbing = true
+        if (playing) { video.pause(); }
+        video.currentTime = getAnglePct(e) * video.duration
+        updateRing()
+        e.preventDefault()
+    }, { passive: false })
+
+    const onScrubMove = (e) => {
+        if (!scrubbing || !video.duration) return
+        const pt = e.touches ? e.touches[0] : e
+        let angle = Math.atan2(pt.clientX - (svg.getBoundingClientRect().left + svg.getBoundingClientRect().width/2),
+                              -(pt.clientY - (svg.getBoundingClientRect().top  + svg.getBoundingClientRect().height/2)))
+        if (angle < 0) angle += 2 * Math.PI
+        video.currentTime = (angle / (2 * Math.PI)) * video.duration
+        updateRing()
+        e.preventDefault()
+    }
+    const onScrubEnd = () => {
+        if (!scrubbing) return
+        scrubbing = false
+        // Возобновляем если было играет
+        if (playing) video.play().catch(()=>{})
+    }
+
+    document.addEventListener('mousemove', onScrubMove)
+    document.addEventListener('mouseup', onScrubEnd)
+    document.addEventListener('touchmove', onScrubMove, { passive: false })
+    document.addEventListener('touchend', onScrubEnd)
 
     wrap.appendChild(video)
+    wrap.appendChild(svg)
     wrap.appendChild(playBtn)
+    wrap.appendChild(timeEl)
     return wrap
 }
 
