@@ -1825,27 +1825,26 @@ async function sendVoiceMessage() {
     }
 }
 
-// Переключение кнопки send/mic в зависимости от текста
-// Инициализируем режим голосовой записи при загрузке
+// Переключение кнопок send/mic/video в зависимости от текста
+function updateInputButtons() {
+    const hasText = (document.getElementById('text')?.value.trim().length ?? 0) > 0
+    const sendBtn  = document.getElementById('sendBtn')
+    const voiceBtn = document.getElementById('voiceBtn')
+    const videoBtn = document.getElementById('videomsgBtn')
+    if (sendBtn)  sendBtn.style.display  = hasText ? 'flex' : 'none'
+    if (voiceBtn) voiceBtn.style.display = hasText ? 'none' : 'flex'
+    if (videoBtn) videoBtn.style.display = hasText ? 'none' : 'flex'
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     updateVoiceBtnBehavior()
-    // Показываем кнопки по умолчанию (без текста)
-    const sendBtn = document.getElementById('sendBtn')
-    const videoBtn = document.getElementById('videomsgBtn')
-    if (sendBtn) sendBtn.style.display = 'none'
-    if (videoBtn) videoBtn.style.display = 'flex'
+    updateInputButtons()
 })
-// Fallback если DOMContentLoaded уже сработал
-if (document.readyState !== 'loading') updateVoiceBtnBehavior()
+if (document.readyState !== 'loading') { updateVoiceBtnBehavior(); updateInputButtons() }
 
-document.getElementById('text').addEventListener('input', function() {
-    const hasText = this.value.trim().length > 0
-    document.getElementById('sendBtn').style.display = hasText ? 'flex' : 'none'
-    document.getElementById('voiceBtn').style.display = hasText ? 'none' : 'flex'
-    // Кнопка видео — всегда видна когда нет текста
-    const videoBtn = document.getElementById('videomsgBtn')
-    if (videoBtn) videoBtn.style.display = hasText ? 'none' : 'flex'
-})
+document.getElementById('text')?.addEventListener('input', updateInputButtons)
+
+function updateInputButtonsOLD_REMOVED() {}
 
 // Также на десктопе — зажать кнопку мышью
 document.getElementById('voiceBtn')?.addEventListener('mousedown', e => {
@@ -2329,6 +2328,8 @@ function send() {
     }))
 
     document.getElementById('text').value = ''
+    updateInputButtons()
+    updateInputButtons()
 }
 
 // ============= КОНТЕКСТНОЕ МЕНЮ =============
