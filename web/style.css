@@ -3142,3 +3142,54 @@ body {
     .video-preview-el, .video-playback-el { width: 220px; height: 220px; }
     .video-msg-circle { width: 160px; height: 160px; }
 }
+
+/* Прогресс-кольцо видео сообщения */
+.video-msg-ring {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+    pointer-events: none;
+    border-radius: 50%;
+}
+.video-msg-ring { pointer-events: auto; cursor: pointer; }
+.vmr-bg {
+    fill: none;
+    stroke: rgba(255,255,255,0.2);
+    stroke-width: 5;
+}
+.vmr-fill {
+    fill: none;
+    stroke: white;
+    stroke-width: 5;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.1s linear;
+}
+.message.other .vmr-fill { stroke: #667eea; }
+.message.other .vmr-bg   { stroke: rgba(102,126,234,0.2); }
+
+/* Таймер под кружком */
+.video-msg-time {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 11px;
+    color: #888;
+    white-space: nowrap;
+}
+.message.me .video-msg-time { color: rgba(255,255,255,0.7); bottom: -18px; }
+
+/* Перемотка кружка — курсор pointer на кольце */
+.video-msg-ring {
+    pointer-events: auto;
+    cursor: pointer;
+}
+.video-msg-ring:hover .vmr-fill {
+    stroke-width: 5;
+}
+/* Кольцо в предпросмотре модалки */
+.video-recorder-circle {
+    cursor: pointer;
+}
