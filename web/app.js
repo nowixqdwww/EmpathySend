@@ -1844,6 +1844,9 @@ if (document.readyState !== 'loading') { updateVoiceBtnBehavior(); updateInputBu
 
 document.getElementById('text')?.addEventListener('input', updateInputButtons)
 
+// Кнопка записи видео
+document.getElementById('videomsgBtn')?.addEventListener('click', () => openVideoRecorder())
+
 function updateInputButtonsOLD_REMOVED() {}
 
 // Также на десктопе — зажать кнопку мышью
