@@ -4068,17 +4068,16 @@ function resetChatThemeStyles() {
 
 // ── Открытие модалки ─────────────────────────────────────────
 function openChatThemeModal() {
-    // Сохраняем телефон ДО hideContextMenus который сбрасывает selectedChatPhone
     const phone = selectedChatPhone || currentChat
     hideContextMenus()
     if (!phone) return
-    selectedChatPhone = phone
     const modal = document.getElementById('chatThemeModal')
+    // Сохраняем телефон прямо в DOM — не зависит от глобальных переменных
+    modal.dataset.chatPhone = phone
     modal.style.display = 'flex'
 
-    // Загружаем текущую тему чата
     try {
-        const saved = localStorage.getItem(getChatThemeKey(selectedChatPhone))
+        const saved = localStorage.getItem(getChatThemeKey(phone))
         pendingChatTheme = saved ? JSON.parse(saved) : {}
     } catch(e) { pendingChatTheme = {} }
 
@@ -4087,14 +4086,17 @@ function openChatThemeModal() {
     updateChatThemePreview()
 }
 
+function getChatThemePhone() {
+    return document.getElementById('chatThemeModal')?.dataset?.chatPhone || null
+}
+
 function closeChatThemeModal() {
-    document.getElementById('chatThemeModal').style.display = 'none'
-    // Откатываем live preview — восстанавливаем сохранённую тему чата
-    if (selectedChatPhone === currentChat) {
-        loadChatTheme(currentChat)
-    }
+    const modal = document.getElementById('chatThemeModal')
+    const phone = modal?.dataset?.chatPhone
+    modal.style.display = 'none'
+    if (phone && phone === currentChat) loadChatTheme(currentChat)
     pendingChatTheme = {}
-    selectedChatPhone = null
+    if (modal) delete modal.dataset.chatPhone
 }
 
 function renderChatBubbleSwatches() {
@@ -4194,18 +4196,15 @@ function updateChatThemePreview() {
     }
 
     // Live preview — применяем к реальному чату если это текущий чат
-    if (selectedChatPhone && selectedChatPhone === currentChat) {
-        applyChatTheme(pendingChatTheme)
-    }
+    const _phone = getChatThemePhone()
+    if (_phone && _phone === currentChat) applyChatTheme(pendingChatTheme)
 }
 
 async function saveChatTheme() {
-    alert('saveChatTheme: selectedChatPhone=' + selectedChatPhone + ' currentChat=' + currentChat + ' pending=' + JSON.stringify(pendingChatTheme).slice(0,100))
-    if (!selectedChatPhone) return
-    localStorage.setItem(getChatThemeKey(selectedChatPhone), JSON.stringify(pendingChatTheme))
-    if (selectedChatPhone === currentChat) {
-        applyChatTheme(pendingChatTheme)
-    }
+    const phone = getChatThemePhone()
+    if (!phone) { showToast('Ошибка: чат не определён'); return }
+    localStorage.setItem(getChatThemeKey(phone), JSON.stringify(pendingChatTheme))
+    if (phone === currentChat) applyChatTheme(pendingChatTheme)
     // Сохраняем на сервер
     try {
         const allChatThemes = {}
@@ -4230,13 +4229,13 @@ async function saveChatTheme() {
     } catch(e) { console.warn('saveChatTheme server error:', e) }
     showToast('Тема чата применена ✓')
     closeChatThemeModal()
-    selectedChatPhone = null
 }
 
 async function resetChatTheme() {
-    if (!selectedChatPhone) return
-    localStorage.removeItem(getChatThemeKey(selectedChatPhone))
-    if (selectedChatPhone === currentChat) resetChatThemeStyles()
+    const phone = getChatThemePhone()
+    if (!phone) return
+    localStorage.removeItem(getChatThemeKey(phone))
+    if (phone === currentChat) resetChatThemeStyles()
     // Синкаем с сервером
     try {
         const allChatThemes = {}
