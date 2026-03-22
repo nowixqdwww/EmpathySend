@@ -347,6 +347,27 @@ function showLoginForm() {
     document.getElementById('loginScreen').style.display = 'flex'
 }
 
+function normalizePhone(phone) {
+    // Оставляем только цифры
+    let digits = phone.replace(/[^0-9]/g, '')
+    // Российские номера: 8xxx → +7xxx, 7xxx → +7xxx
+    if (digits.length === 11 && digits.startsWith('8')) {
+        digits = '7' + digits.slice(1)
+    }
+    if (digits.length === 11 && digits.startsWith('7')) {
+        return '+' + digits
+    }
+    // 10 цифр — добавляем +7
+    if (digits.length === 10) {
+        return '+7' + digits
+    }
+    // Если уже был + в начале — возвращаем с +
+    if (phone.trim().startsWith('+')) {
+        return '+' + digits
+    }
+    return '+' + digits
+}
+
 async function register() {
     const phone = document.getElementById('registerPhone').value.trim()
     const password = document.getElementById('registerPassword').value
@@ -374,16 +395,7 @@ async function register() {
         return
     }
 
-    let cleanPhone = phone.replace(/[^0-9]/g, '')
-    if (!cleanPhone.startsWith('+')) {
-        if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) {
-            cleanPhone = '+' + cleanPhone
-        } else if (cleanPhone.length === 10) {
-            cleanPhone = '+7' + cleanPhone
-        } else {
-            cleanPhone = '+' + cleanPhone
-        }
-    }
+    const cleanPhone = normalizePhone(phone)
 
     try {
         const res = await fetch('/auth/register', {
@@ -399,14 +411,28 @@ async function register() {
 
         const data = await res.json()
 
-        if (data.error) {
-            showToast(data.error)
+        if (!res.ok || data.error) {
+            showToast(data.error || 'Ошибка регистрации')
             return
         }
 
-        showToast('Регистрация успешна! Теперь войдите')
-        showLoginForm()
-        document.getElementById('loginPhone').value = cleanPhone
+        // Автоматически логиним после регистрации
+        showToast('Регистрация успешна! Выполняется вход...')
+        const loginRes = await fetch('/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: cleanPhone, password: password })
+        })
+        const loginData = await loginRes.json()
+        if (!loginRes.ok || loginData.error) {
+            // Fallback — показываем форму входа
+            showLoginForm()
+            document.getElementById('loginPhone').value = cleanPhone
+            showToast('Зарегистрированы! Теперь войдите')
+            return
+        }
+        currentUser = loginData.phone
+        completeLogin()
 
     } catch (error) {
         console.error('Register error:', error)
@@ -428,16 +454,7 @@ async function login() {
         return
     }
 
-    let cleanPhone = phone.replace(/[^0-9]/g, '')
-    if (!cleanPhone.startsWith('+')) {
-        if (cleanPhone.length === 11 && cleanPhone.startsWith('7')) {
-            cleanPhone = '+' + cleanPhone
-        } else if (cleanPhone.length === 10) {
-            cleanPhone = '+7' + cleanPhone
-        } else {
-            cleanPhone = '+' + cleanPhone
-        }
-    }
+    const cleanPhone = normalizePhone(phone)
 
     try {
         const res = await fetch('/auth/login', {
@@ -3098,6 +3115,7 @@ let videoStartTime = null
 let videoTimer = null
 let videoMaxDuration = 60  // секунд
 let videoBlob = null
+let videoActualDuration = 0  // точная длительность в секундах
 
 async function openVideoRecorder() {
     if (!currentChat) { showToast('Сначала откройте чат'); return }
@@ -3219,6 +3237,7 @@ function toggleVideoRecord() {
 function onVideoRecordStop() {
     const mimeType = videoRecorder?.mimeType || 'video/webm'
     videoBlob = new Blob(videoChunks, { type: mimeType })
+    videoActualDuration = Math.round((Date.now() - videoStartTime) / 1000)
 
     const playback = document.getElementById('videoPlayback')
     const preview  = document.getElementById('videoPreview')
@@ -3365,7 +3384,7 @@ async function sendVideoMessage() {
     // Сохраняем до closeVideoRecorder который обнуляет эти переменные
     const blobToSend = videoBlob
     const chatTo = currentChat
-    const duration = Math.round((Date.now() - videoStartTime) / 1000)
+    const duration = videoActualDuration || Math.round((Date.now() - videoStartTime) / 1000)
     closeVideoRecorder()
 
     // Плейсхолдер в чате
