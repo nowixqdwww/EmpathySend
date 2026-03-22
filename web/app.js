@@ -2492,7 +2492,7 @@ async function deleteChat() {
     }
     if (wasOpen) {
         currentChat = null
-        applyChatTheme(phone)
+        resetChatThemeStyles()
     document.getElementById('messages').innerHTML = ''
         document.getElementById('emptyChat').style.display = 'flex'
         document.getElementById('chatBlock').style.display = 'none'
@@ -4284,7 +4284,7 @@ async function saveChatTheme() {
     if (pendingChatWallpaper) {
         chatThemes[currentChat] = { wallpaper: pendingChatWallpaper }
     }
-    applyChatTheme(currentChat)
+    loadChatTheme(currentChat)
     localStorage.setItem('chatThemes_' + currentUser, JSON.stringify(chatThemes))
 
     // Сохраняем на сервер (без base64 изображений)
@@ -4309,7 +4309,7 @@ async function saveChatTheme() {
 async function resetChatTheme() {
     if (!currentChat) return
     delete chatThemes[currentChat]
-    applyChatTheme(currentChat)
+    loadChatTheme(currentChat)
     localStorage.setItem('chatThemes_' + currentUser, JSON.stringify(chatThemes))
     try {
         const toSave = { ...chatThemes }
