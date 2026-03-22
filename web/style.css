@@ -3661,3 +3661,112 @@ button:active:not(:disabled) {
     .theme-presets { grid-template-columns: repeat(2, 1fr); }
     .wallpaper-grid { grid-template-columns: repeat(3, 1fr); }
 }
+
+/* ── Выпадающее меню чата ── */
+.chat-dropdown-menu {
+    position: absolute;
+    top: calc(100% - 4px);
+    right: 12px;
+    background: rgba(30,30,32,0.95);
+    backdrop-filter: blur(20px);
+    border-radius: 14px;
+    padding: 6px;
+    min-width: 190px;
+    z-index: 200;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    border: 1px solid rgba(255,255,255,0.08);
+    animation: contextIn 0.2s var(--spring, ease) both;
+}
+.chat-menu-item {
+    padding: 11px 14px;
+    border-radius: 10px;
+    font-size: 15px;
+    color: rgba(255,255,255,0.9);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    transform: scale(1);
+    transition: color 0.12s, transform 0.1s;
+}
+.chat-menu-item::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.15);
+    opacity: 0;
+    transform: scale(0.88);
+    transition: opacity 0.18s, transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    pointer-events: none;
+}
+.chat-menu-item:hover::before { opacity: 1; transform: scale(1); }
+.chat-menu-item:active { transform: scale(0.97); }
+.chat-menu-item:active::before { transform: scale(0.96); }
+.chat-menu-item.danger { color: #FF453A; }
+.chat-menu-item.danger::before { background: rgba(255,67,58,0.2); }
+.chat-menu-item i { width: 18px; text-align: center; opacity: 0.8; position: relative; z-index: 1; }
+
+.context-menu-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    color: #1c1c1e;
+    border-radius: 10px;
+    position: relative;
+    transition: color 0.12s;
+    margin: 1px 0;
+    transform: scale(1);
+}
+
+/* OVERRIDE — Фон через pseudo — для пружинной анимации */
+.context-menu-item::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    background: var(--accent, #0A84FF);
+    opacity: 0;
+    transform: scale(0.88);
+    transition: opacity 0.18s ease, transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    pointer-events: none;
+}
+
+.context-menu-item:hover::before {
+    opacity: 0.12;
+    transform: scale(1);
+}
+
+.context-menu-item:active::before {
+    opacity: 0.2;
+    transform: scale(0.96);
+    transition: opacity 0.08s, transform 0.1s ease;
+}
+
+.context-menu-item:active {
+    transform: scale(0.98);
+    transition: transform 0.08s ease;
+}
+
+.context-menu-item.delete {
+    color: #FF3B30;
+}
+.context-menu-item.delete::before {
+    background: #FF3B30;
+}
+
+.context-menu-item i {
+    position: relative;
+    z-index: 1;
+    width: 16px;
+    text-align: center;
+    opacity: 0.75;
+}
+.context-menu-item span, .context-menu-item > *:not(i)::before {
+    position: relative;
+    z-index: 1;
+}
