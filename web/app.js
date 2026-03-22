@@ -1160,7 +1160,8 @@ function addMessage(user, text, messageId = null, isRead = false) {
         div.className = 'message me-video ' + (isMe ? 'me' : 'other')
         if (messageId) div.dataset.messageId = messageId
         const vidUrl = videoMatch[2]
-        const player = createVideoPlayer(vidUrl, isMe)
+        const vidDuration = parseInt(videoMatch[1] || '0')
+        const player = createVideoPlayer(vidUrl, isMe, vidDuration)
         div.appendChild(player)
         if (isMe) {
             const ticks = document.createElement('span')
@@ -3412,7 +3413,7 @@ function resetVideoRing() {
 
 // Создаём видео-плеер в сообщении
     // Внешний контейнер — больше круга, чтобы кольцо было видно
-function createVideoPlayer(url, isMe) {
+function createVideoPlayer(url, isMe, knownDuration) {
     const outer = document.createElement('div')
     outer.className = 'video-msg-outer'
     outer.style.cssText = 'position:relative;width:216px;height:216px;flex-shrink:0'
@@ -3444,7 +3445,7 @@ function createVideoPlayer(url, isMe) {
 
     // Круглый видео-элемент внутри
     const circle = document.createElement('div')
-    circle.style.cssText = 'position:absolute;inset:8px;border-radius:50%;overflow:hidden;background:#111;z-index:1'
+    circle.style.cssText = 'position:absolute;inset:8px;border-radius:50%;overflow:hidden;background:transparent;z-index:1'
 
     const video = document.createElement('video')
     video.src = url; video.playsInline = true; video.preload = 'metadata'
@@ -3458,21 +3459,23 @@ function createVideoPlayer(url, isMe) {
     // Таймер
     const timeEl = document.createElement('span')
     timeEl.style.cssText = 'position:absolute;bottom:14px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:600;color:white;text-shadow:0 1px 4px rgba(0,0,0,0.7);white-space:nowrap;z-index:4;pointer-events:none'
-    timeEl.textContent = '0:00'
+    timeEl.textContent = knownDuration ? fmt(knownDuration) : '0:00'
 
     let playing = false
 
     function fmt(s) { s = Math.max(0, Math.floor(s)); return `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}` }
 
     function updateRing() {
-        if (!video.duration || !isFinite(video.duration)) return
-        const pct = video.currentTime / video.duration
+        const dur = (isFinite(video.duration) && video.duration > 0) ? video.duration : (knownDuration || 0)
+        if (!dur) return
+        const pct = video.currentTime / dur
         fillC.setAttribute('stroke-dashoffset', String(circ * (1 - pct)))
-        timeEl.textContent = fmt(video.duration - video.currentTime)
+        timeEl.textContent = fmt(dur - video.currentTime)
     }
 
     video.addEventListener('loadedmetadata', () => {
-        if (isFinite(video.duration)) timeEl.textContent = fmt(video.duration)
+        const d = isFinite(video.duration) && video.duration > 0 ? video.duration : knownDuration
+        if (d) timeEl.textContent = fmt(d)
     })
     video.addEventListener('timeupdate', updateRing)
     video.addEventListener('ended', () => {
@@ -3480,7 +3483,8 @@ function createVideoPlayer(url, isMe) {
         playBtn.innerHTML = '<i class="fas fa-play"></i>'
         video.currentTime = 0
         fillC.setAttribute('stroke-dashoffset', String(circ))
-        if (isFinite(video.duration)) timeEl.textContent = fmt(video.duration)
+        const endDur = (isFinite(video.duration) && video.duration > 0) ? video.duration : (knownDuration || 0)
+        if (endDur) timeEl.textContent = fmt(endDur)
         showPlayBtn()
     })
     video.addEventListener('error', () => {
