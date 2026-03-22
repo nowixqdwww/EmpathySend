@@ -3449,18 +3449,7 @@ function createVideoPlayer(url, isMe) {
         }
     }
 
-    // Клик на кружок — показать/скрыть кнопку
-    outer.addEventListener('click', (e) => {
-        if (e.target === playBtn || e.target.closest('button')) return
-        if (playing) {
-            // Показываем на 2 сек потом прячем
-            showPlayBtn()
-            clearTimeout(outer._hideTimer)
-            outer._hideTimer = setTimeout(hidePlayBtn, 2000)
-        } else {
-            showPlayBtn()
-        }
-    })
+
 
     // Перемотка drag по SVG кольцу
     svg.style.pointerEvents = 'auto'
@@ -3477,28 +3466,38 @@ function createVideoPlayer(url, isMe) {
     }
 
     let scrubbing = false
-    // Drag-перемотка на wrap (SVG pointer-events:none)
+    let dragStartX = 0, dragStartY = 0, dragMoved = false
+    const DRAG_THRESHOLD = 6  // px — меньше этого считается кликом
+
     svg.style.pointerEvents = 'auto'
     outer.addEventListener('mousedown', (e) => {
-        if (!video.duration) return
-        scrubbing = true; if (playing) video.pause()
-        video.currentTime = getAnglePct(e) * video.duration; updateRing(); e.preventDefault()
+        if (e.target === playBtn || e.target.closest('button')) return
+        dragStartX = e.clientX; dragStartY = e.clientY; dragMoved = false
+        scrubbing = true
+        e.preventDefault()
     })
     outer.addEventListener('touchstart', (e) => {
-        if (!video.duration) return
-        scrubbing = true; if (playing) video.pause()
-        video.currentTime = getAnglePct(e) * video.duration; updateRing(); e.preventDefault()
+        if (e.target === playBtn || e.target.closest('button')) return
+        dragStartX = e.touches[0].clientX; dragStartY = e.touches[0].clientY; dragMoved = false
+        scrubbing = true
+        e.preventDefault()
     }, { passive: false })
     let pendingSeek = null
     const onMove = (e) => {
         if (!scrubbing || !video.duration) return
+        const mx = e.touches ? e.touches[0].clientX : e.clientX
+        const my = e.touches ? e.touches[0].clientY : e.clientY
+        // Проверяем порог — только тогда считаем drag
+        if (!dragMoved) {
+            const dx = mx - dragStartX, dy = my - dragStartY
+            if (Math.sqrt(dx*dx + dy*dy) < DRAG_THRESHOLD) return
+            dragMoved = true
+            if (playing) { video.pause(); playing = false; playBtn.innerHTML = '<i class="fas fa-play"></i>' }
+        }
         e.preventDefault()
         const pct = getAnglePct(e)
-        // Обновляем кольцо сразу для плавности визуала
         fillC.setAttribute('stroke-dashoffset', String(circ * (1 - pct)))
-        const left = Math.max(0, video.duration * (1 - pct))
-        timeEl.textContent = fmt(left)
-        // Seek throttle — применяем не чаще 4 раз в секунду
+        timeEl.textContent = fmt(Math.max(0, video.duration * (1 - pct)))
         if (pendingSeek !== null) return
         pendingSeek = pct
         setTimeout(() => {
@@ -3510,7 +3509,18 @@ function createVideoPlayer(url, isMe) {
             pendingSeek = null
         }, 80)
     }
-    const onUp = () => { if (!scrubbing) return; scrubbing = false; if (playing) video.play().catch(()=>{}) }
+    const onUp = () => {
+        if (!scrubbing) return
+        scrubbing = false
+        if (!dragMoved) {
+            // Это был клик — показываем кнопку
+            showPlayBtn()
+            if (playing) {
+                clearTimeout(outer._hideTimer)
+                outer._hideTimer = setTimeout(hidePlayBtn, 2000)
+            }
+        }
+    }
     document.addEventListener('mousemove', onMove)
     document.addEventListener('mouseup', onUp)
     document.addEventListener('touchmove', onMove, { passive: false })
