@@ -527,6 +527,7 @@ function closePasswordSetup() {
 }
 
 function completeLogin() {
+    loadTheme()
     document.getElementById('loginScreen').style.display = 'none'
     document.getElementById('app').style.display = 'flex'
     document.getElementById('sidebar').classList.add('open')
@@ -2301,6 +2302,8 @@ function openChat(phone, displayName) {
     if (currentChat === phone) return
     
     currentChat = phone
+    // Применяем тему этого чата
+    loadChatTheme(phone)
     
     fetch(`/user/${phone}`)
         .then(res => res.json())
@@ -3645,3 +3648,498 @@ window.saveCameraSettings = saveCameraSettings
 window.deleteSticker = deleteSticker
 window.showReactionsPanel = showReactionsPanel
 window.addReaction = addReaction
+
+// ============= СИСТЕМА ТЕМ =============
+
+const THEMES = [
+    {
+        id: 'default', name: 'Ночной', emoji: '🌙',
+        sidebar: 'linear-gradient(170deg,#1c3a47 0%,#1e424f 60%,#1a3d4a 100%)',
+        accent: '#0A84FF', bubble: '#0A84FF', bg: '#f2f2f7'
+    },
+    {
+        id: 'mesh', name: 'Закат', emoji: '🌅',
+        sidebar: '#1e2a35; background-image: radial-gradient(ellipse at 15% 60%,#1a3a5c 0%,transparent 55%),radial-gradient(ellipse at 80% 20%,#5c2a2a 0%,transparent 50%),radial-gradient(ellipse at 70% 75%,#7a2e2e 0%,transparent 45%)',
+        accent: '#FF6B6B', bubble: '#c0392b', bg: '#f2f2f7'
+    },
+    {
+        id: 'forest', name: 'Лес', emoji: '🌲',
+        sidebar: 'linear-gradient(170deg,#1a2f1a 0%,#1e3d1e 60%,#162b16 100%)',
+        accent: '#30d158', bubble: '#1a7a3a', bg: '#f0f4f0'
+    },
+    {
+        id: 'lavender', name: 'Лаванда', emoji: '💜',
+        sidebar: 'linear-gradient(170deg,#2a1a3e 0%,#352050 60%,#2a1a3e 100%)',
+        accent: '#BF5AF2', bubble: '#7B2FBE', bg: '#f5f0ff'
+    },
+    {
+        id: 'rose', name: 'Розовый', emoji: '🌸',
+        sidebar: 'linear-gradient(170deg,#3d1a2a 0%,#4f1e35 60%,#3d1a2a 100%)',
+        accent: '#FF375F', bubble: '#c0185f', bg: '#fff0f4'
+    },
+    {
+        id: 'gold', name: 'Золото', emoji: '✨',
+        sidebar: 'linear-gradient(170deg,#2a220a 0%,#3d3210 60%,#2a220a 100%)',
+        accent: '#FFD60A', bubble: '#b8860b', bg: '#fffbf0'
+    },
+]
+
+const ACCENT_COLORS = [
+    '#0A84FF','#30d158','#FF375F','#FF9F0A','#BF5AF2','#FF6B35','#00C7BE','#FF3B30',
+]
+
+const MY_BUBBLE_COLORS = [
+    '#0A84FF','#30d158','#c0392b','#8e44ad','#e67e22','#16a085','#2980b9','#1a1a2e',
+]
+
+const WALLPAPERS = [
+    { id: 'none',    name: 'Нет',     preview: '#f2f2f7', type: 'color', value: '#f2f2f7' },
+    { id: 'dark',    name: 'Тёмный',  preview: '#1c1c1e', type: 'color', value: '#1c1c1e' },
+    { id: 'dots',    name: 'Точки',   preview: '#f5f5f5', type: 'pattern', value: 'dots' },
+    { id: 'grid',    name: 'Сетка',   preview: '#f0f0f0', type: 'pattern', value: 'grid' },
+    { id: 'waves',   name: 'Волны',   preview: '#e8f4f8', type: 'pattern', value: 'waves' },
+    { id: 'mesh1',   name: 'Меш 1',   preview: 'linear-gradient(135deg,#667eea,#764ba2)', type: 'gradient', value: 'linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)' },
+    { id: 'mesh2',   name: 'Рассвет', preview: 'linear-gradient(135deg,#f093fb,#f5576c)', type: 'gradient', value: 'linear-gradient(135deg,#2d1b69,#11998e)' },
+    { id: 'mesh3',   name: 'Океан',   preview: 'linear-gradient(135deg,#4facfe,#00f2fe)', type: 'gradient', value: 'linear-gradient(160deg,#0d1b2a,#1b4332,#0d1b2a)' },
+]
+
+let currentTheme = {}
+let pendingWallpaper = null
+
+// ── Инициализация ────────────────────────────────────────────
+async function loadTheme() {
+    if (!currentUser) return
+    try {
+        // Сначала localStorage для быстрого применения
+        const local = localStorage.getItem('theme_' + currentUser)
+        if (local) applyTheme(JSON.parse(local))
+
+        // Потом сервер
+        const res = await fetch(`/api/theme/${encodeURIComponent(currentUser)}`)
+        const data = await res.json()
+        if (data.theme && Object.keys(data.theme).length) {
+            currentTheme = data.theme
+            applyTheme(currentTheme)
+            localStorage.setItem('theme_' + currentUser, JSON.stringify(currentTheme))
+        }
+    } catch(e) { console.warn('loadTheme error:', e) }
+}
+
+function applyTheme(theme) {
+    if (!theme) return
+    const root = document.documentElement
+
+    if (theme.accent)  root.style.setProperty('--accent', theme.accent)
+    if (theme.sidebar) {
+        const sidebar = document.querySelector('.sidebar')
+        if (sidebar) sidebar.style.background = theme.sidebar
+    }
+    if (theme.bubble) {
+        root.style.setProperty('--bubble-me', theme.bubble)
+        // Динамически обновляем CSS для .message.me
+        let styleEl = document.getElementById('dynamic-theme-style')
+        if (!styleEl) {
+            styleEl = document.createElement('style')
+            styleEl.id = 'dynamic-theme-style'
+            document.head.appendChild(styleEl)
+        }
+        styleEl.textContent = `
+            .message.me { background: ${theme.bubble} !important; }
+            .voice-player.me, .message.me .voice-player { background: ${theme.bubble} !important; }
+            .send-btn, .voice-send-btn { background: ${theme.accent || 'var(--accent)'} !important; }
+            .voice-btn, .video-msg-btn { color: ${theme.accent || 'var(--accent)'} !important; }
+            .unread-badge { background: ${theme.accent || 'var(--accent)'} !important; }
+        `
+    }
+    if (theme.wallpaper) applyWallpaper(theme.wallpaper)
+}
+
+function applyWallpaper(wp) {
+    const messagesEl = document.getElementById('messages')
+    if (!messagesEl) return
+    if (!wp || wp.type === 'color') {
+        messagesEl.style.background = wp?.value || '#f2f2f7'
+        messagesEl.style.backgroundImage = ''
+    } else if (wp.type === 'gradient') {
+        messagesEl.style.background = wp.value
+        messagesEl.style.backgroundImage = ''
+    } else if (wp.type === 'pattern') {
+        const patterns = {
+            dots:  { bg: '#f8f8f8', img: 'radial-gradient(circle,#00000015 1px,transparent 1px)', size: '20px 20px' },
+            grid:  { bg: '#f8f8f8', img: 'linear-gradient(#0000000a 1px,transparent 1px),linear-gradient(90deg,#0000000a 1px,transparent 1px)', size: '24px 24px' },
+            waves: { bg: '#e8f4f8', img: 'repeating-linear-gradient(45deg,#00000008 0,#00000008 1px,transparent 0,transparent 50%)', size: '10px 10px' },
+        }
+        const p = patterns[wp.value] || patterns.dots
+        messagesEl.style.background = p.bg
+        messagesEl.style.backgroundImage = p.img
+        messagesEl.style.backgroundSize = p.size
+    } else if (wp.type === 'image') {
+        messagesEl.style.backgroundImage = `url(${wp.value})`
+        messagesEl.style.backgroundSize = 'cover'
+        messagesEl.style.backgroundPosition = 'center'
+    }
+}
+
+// ── Открытие модалки тем ─────────────────────────────────────
+function openThemeModal() {
+    const modal = document.getElementById('themeModal')
+    modal.style.display = 'flex'
+    renderThemePresets()
+    renderAccentSwatches()
+    renderBubbleSwatches()
+}
+function closeThemeModal() {
+    document.getElementById('themeModal').style.display = 'none'
+}
+
+function renderThemePresets() {
+    const container = document.getElementById('themePresets')
+    container.innerHTML = ''
+    THEMES.forEach(t => {
+        const el = document.createElement('div')
+        el.className = 'theme-preset-item' + (currentTheme.id === t.id ? ' active' : '')
+        el.innerHTML = `<div class="preset-preview" style="background:${t.sidebar.split(';')[0]}"></div><span>${t.emoji} ${t.name}</span>`
+        el.onclick = () => {
+            document.querySelectorAll('.theme-preset-item').forEach(x => x.classList.remove('active'))
+            el.classList.add('active')
+            currentTheme = { ...currentTheme, ...t }
+            previewTheme(currentTheme)
+        }
+        container.appendChild(el)
+    })
+}
+
+function renderAccentSwatches() {
+    const container = document.getElementById('accentSwatches')
+    container.innerHTML = ''
+    ACCENT_COLORS.forEach(color => {
+        const el = document.createElement('div')
+        el.className = 'color-swatch' + (currentTheme.accent === color ? ' active' : '')
+        el.style.background = color
+        el.onclick = () => {
+            document.querySelectorAll('#accentSwatches .color-swatch').forEach(x => x.classList.remove('active'))
+            el.classList.add('active')
+            document.getElementById('accentColorPicker').value = color
+            previewAccent(color)
+        }
+        container.appendChild(el)
+    })
+}
+
+function renderBubbleSwatches() {
+    const container = document.getElementById('myBubbleSwatches')
+    container.innerHTML = ''
+    MY_BUBBLE_COLORS.forEach(color => {
+        const el = document.createElement('div')
+        el.className = 'color-swatch' + (currentTheme.bubble === color ? ' active' : '')
+        el.style.background = color
+        el.onclick = () => {
+            document.querySelectorAll('#myBubbleSwatches .color-swatch').forEach(x => x.classList.remove('active'))
+            el.classList.add('active')
+            document.getElementById('myBubblePicker').value = color
+            previewBubble('me', color)
+        }
+        container.appendChild(el)
+    })
+}
+
+function previewAccent(color) {
+    currentTheme.accent = color
+    previewTheme(currentTheme)
+}
+function previewBubble(who, color) {
+    currentTheme.bubble = color
+    previewTheme(currentTheme)
+}
+function previewTheme(theme) {
+    // Обновляем предпросмотр в модалке
+    const msgs = document.querySelectorAll('#themePreviewChat .theme-preview-msg.me')
+    msgs.forEach(m => m.style.background = theme.bubble || '#0A84FF')
+    const root = document.documentElement
+    if (theme.accent) root.style.setProperty('--preview-accent', theme.accent)
+}
+
+async function saveTheme() {
+    applyTheme(currentTheme)
+    localStorage.setItem('theme_' + currentUser, JSON.stringify(currentTheme))
+    try {
+        await fetch(`/api/theme/${encodeURIComponent(currentUser)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(currentTheme)
+        })
+    } catch(e) {}
+    showToast('Тема применена ✓')
+    closeThemeModal()
+}
+
+// ── Обои ─────────────────────────────────────────────────────
+function openWallpaperModal() {
+    const modal = document.getElementById('wallpaperModal')
+    modal.style.display = 'flex'
+    renderWallpaperGrid()
+}
+function closeWallpaperModal() {
+    document.getElementById('wallpaperModal').style.display = 'none'
+}
+
+function renderWallpaperGrid() {
+    const grid = document.getElementById('wallpaperGrid')
+    grid.innerHTML = ''
+    WALLPAPERS.forEach(wp => {
+        const el = document.createElement('div')
+        el.className = 'wallpaper-item' + (currentTheme.wallpaper?.id === wp.id ? ' active' : '')
+        el.style.background = wp.preview
+        el.innerHTML = `<span>${wp.name}</span>`
+        el.onclick = () => {
+            document.querySelectorAll('.wallpaper-item').forEach(x => x.classList.remove('active'))
+            el.classList.add('active')
+            pendingWallpaper = { id: wp.id, type: wp.type, value: wp.value }
+            applyWallpaper(pendingWallpaper)
+        }
+        grid.appendChild(el)
+    })
+}
+
+function handleWallpaperUpload(input) {
+    const file = input.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = e => {
+        pendingWallpaper = { id: 'custom', type: 'image', value: e.target.result }
+        applyWallpaper(pendingWallpaper)
+    }
+    reader.readAsDataURL(file)
+}
+
+async function saveWallpaper() {
+    if (!pendingWallpaper) {
+        closeWallpaperModal()
+        return
+    }
+    currentTheme.wallpaper = pendingWallpaper
+    localStorage.setItem('theme_' + currentUser, JSON.stringify(currentTheme))
+    try {
+        // Не сохраняем base64 изображения на сервере — слишком большие
+        const serverTheme = { ...currentTheme }
+        if (serverTheme.wallpaper?.type === 'image') serverTheme.wallpaper = { id: 'custom', type: 'color', value: '#1c1c1e' }
+        await fetch(`/api/theme/${encodeURIComponent(currentUser)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(serverTheme)
+        })
+    } catch(e) {}
+    showToast('Обои применены ✓')
+    closeWallpaperModal()
+}
+
+window.openThemeModal    = openThemeModal
+window.closeThemeModal   = closeThemeModal
+window.openWallpaperModal  = openWallpaperModal
+window.closeWallpaperModal = closeWallpaperModal
+window.saveTheme         = saveTheme
+window.saveWallpaper     = saveWallpaper
+window.previewAccent     = previewAccent
+window.previewBubble     = previewBubble
+window.handleWallpaperUpload = handleWallpaperUpload
+
+// ============= ТЕМА ЧАТА =============
+
+let pendingChatTheme = {}
+
+function getChatThemeKey(phone) {
+    return `chat_theme_${currentUser}_${phone}`
+}
+
+function loadChatTheme(phone) {
+    if (!phone) return
+    try {
+        const saved = localStorage.getItem(getChatThemeKey(phone))
+        if (saved) applyChatTheme(JSON.parse(saved))
+        else resetChatThemeStyles()
+    } catch(e) {}
+}
+
+function applyChatTheme(theme) {
+    if (!theme) return
+    const messagesEl = document.getElementById('messages')
+    if (!messagesEl) return
+
+    // Обои
+    if (theme.wallpaper) {
+        applyWallpaper(theme.wallpaper) // используем существующую функцию
+    } else {
+        // Применяем глобальную тему обоев
+        if (currentTheme?.wallpaper) applyWallpaper(currentTheme.wallpaper)
+        else messagesEl.style.cssText = ''
+    }
+
+    // Цвет пузырьков — динамический стиль для этого чата
+    let chatStyle = document.getElementById('chat-theme-style')
+    if (!chatStyle) {
+        chatStyle = document.createElement('style')
+        chatStyle.id = 'chat-theme-style'
+        document.head.appendChild(chatStyle)
+    }
+    if (theme.bubble) {
+        chatStyle.textContent = `.message.me { background: ${theme.bubble} !important; }`
+    } else {
+        chatStyle.textContent = ''
+    }
+}
+
+function resetChatThemeStyles() {
+    // Убираем стиль чата, применяем глобальную тему
+    const chatStyle = document.getElementById('chat-theme-style')
+    if (chatStyle) chatStyle.textContent = ''
+    if (currentTheme?.wallpaper) applyWallpaper(currentTheme.wallpaper)
+    else {
+        const messagesEl = document.getElementById('messages')
+        if (messagesEl) messagesEl.style.cssText = ''
+    }
+}
+
+// ── Открытие модалки ─────────────────────────────────────────
+function openChatThemeModal() {
+    hideContextMenus()
+    if (!selectedChatPhone) return
+    const modal = document.getElementById('chatThemeModal')
+    modal.style.display = 'flex'
+
+    // Загружаем текущую тему чата
+    try {
+        const saved = localStorage.getItem(getChatThemeKey(selectedChatPhone))
+        pendingChatTheme = saved ? JSON.parse(saved) : {}
+    } catch(e) { pendingChatTheme = {} }
+
+    renderChatBubbleSwatches()
+    renderChatWallpaperGrid()
+    updateChatThemePreview()
+}
+
+function closeChatThemeModal() {
+    document.getElementById('chatThemeModal').style.display = 'none'
+    pendingChatTheme = {}
+}
+
+function renderChatBubbleSwatches() {
+    const container = document.getElementById('chatBubbleSwatches')
+    container.innerHTML = ''
+    MY_BUBBLE_COLORS.forEach(color => {
+        const el = document.createElement('div')
+        el.className = 'color-swatch' + (pendingChatTheme.bubble === color ? ' active' : '')
+        el.style.background = color
+        el.onclick = () => {
+            container.querySelectorAll('.color-swatch').forEach(x => x.classList.remove('active'))
+            el.classList.add('active')
+            document.getElementById('chatBubblePicker').value = color
+            previewChatBubble(color)
+        }
+        container.appendChild(el)
+    })
+    if (pendingChatTheme.bubble) {
+        document.getElementById('chatBubblePicker').value = pendingChatTheme.bubble
+    }
+}
+
+function renderChatWallpaperGrid() {
+    const grid = document.getElementById('chatWallpaperGrid')
+    grid.innerHTML = ''
+    WALLPAPERS.forEach(wp => {
+        const el = document.createElement('div')
+        el.className = 'wallpaper-item' + (pendingChatTheme.wallpaper?.id === wp.id ? ' active' : '')
+        el.style.background = wp.preview
+        el.innerHTML = `<span>${wp.name}</span>`
+        el.onclick = () => {
+            grid.querySelectorAll('.wallpaper-item').forEach(x => x.classList.remove('active'))
+            el.classList.add('active')
+            pendingChatTheme.wallpaper = { id: wp.id, type: wp.type, value: wp.value }
+            updateChatThemePreview()
+        }
+        grid.appendChild(el)
+    })
+}
+
+function previewChatBubble(color) {
+    pendingChatTheme.bubble = color
+    updateChatThemePreview()
+}
+
+function previewChatWallpaper(type, value) {
+    pendingChatTheme.wallpaper = { id: 'custom', type, value }
+    updateChatThemePreview()
+}
+
+function handleChatWallpaperUpload(input) {
+    const file = input.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = e => {
+        pendingChatTheme.wallpaper = { id: 'custom', type: 'image', value: e.target.result }
+        updateChatThemePreview()
+    }
+    reader.readAsDataURL(file)
+}
+
+function updateChatThemePreview() {
+    const preview = document.getElementById('chatThemePreview')
+    if (!preview) return
+
+    // Обои предпросмотра
+    if (pendingChatTheme.wallpaper) {
+        const wp = pendingChatTheme.wallpaper
+        if (wp.type === 'color') {
+            preview.style.background = wp.value
+        } else if (wp.type === 'gradient') {
+            preview.style.background = wp.value
+        } else if (wp.type === 'image') {
+            preview.style.backgroundImage = `url(${wp.value})`
+            preview.style.backgroundSize = 'cover'
+        } else if (wp.type === 'pattern') {
+            const patterns = {
+                dots:  { bg:'#f8f8f8', img:'radial-gradient(circle,#00000015 1px,transparent 1px)', size:'20px 20px' },
+                grid:  { bg:'#f8f8f8', img:'linear-gradient(#0000000a 1px,transparent 1px),linear-gradient(90deg,#0000000a 1px,transparent 1px)', size:'24px 24px' },
+                waves: { bg:'#e8f4f8', img:'repeating-linear-gradient(45deg,#00000008 0,#00000008 1px,transparent 0,transparent 50%)', size:'10px 10px' },
+            }
+            const p = patterns[wp.value] || patterns.dots
+            preview.style.background = p.bg
+            preview.style.backgroundImage = p.img
+            preview.style.backgroundSize = p.size
+        }
+    } else {
+        preview.style.cssText = ''
+    }
+
+    // Цвет пузырьков
+    const myMsgs = preview.querySelectorAll('.theme-preview-msg.me')
+    myMsgs.forEach(m => {
+        m.style.background = pendingChatTheme.bubble || 'var(--accent)'
+    })
+}
+
+function saveChatTheme() {
+    if (!selectedChatPhone) return
+    localStorage.setItem(getChatThemeKey(selectedChatPhone), JSON.stringify(pendingChatTheme))
+    // Применяем если это текущий чат
+    if (selectedChatPhone === currentChat) {
+        applyChatTheme(pendingChatTheme)
+    }
+    showToast('Тема чата применена ✓')
+    closeChatThemeModal()
+}
+
+function resetChatTheme() {
+    if (!selectedChatPhone) return
+    localStorage.removeItem(getChatThemeKey(selectedChatPhone))
+    if (selectedChatPhone === currentChat) resetChatThemeStyles()
+    closeChatThemeModal()
+    showToast('Тема чата сброшена')
+}
+
+window.openChatThemeModal  = openChatThemeModal
+window.closeChatThemeModal = closeChatThemeModal
+window.saveChatTheme       = saveChatTheme
+window.resetChatTheme      = resetChatTheme
+window.previewChatBubble   = previewChatBubble
+window.previewChatWallpaper = previewChatWallpaper
+window.handleChatWallpaperUpload = handleChatWallpaperUpload
