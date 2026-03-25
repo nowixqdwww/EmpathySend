@@ -4052,3 +4052,16 @@ button:active:not(:disabled) {
     color: white;
 }
 .music-card-play:active { transform: scale(0.88); }
+
+/* ── Ссылка на профиль в пересланном сообщении ── */
+.fwd-name-link {
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline dotted;
+    text-underline-offset: 2px;
+    transition: opacity 0.15s;
+}
+.fwd-name-link:hover { opacity: 0.75; }
+.fwd-name-link:active { opacity: 0.5; }
+.message.me .fwd-name-link { color: rgba(255,255,255,0.95); }
+.message.other .fwd-name-link { color: var(--accent); }
