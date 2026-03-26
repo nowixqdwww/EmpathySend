@@ -49,8 +49,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/messenger")
 
 # ═══ Вставьте сюда токен вашего Telegram-бота ═══════════════════════════
 # Получить: https://t.me/BotFather → /newbot → скопировать токен
-JAMENDO_CLIENT_ID = os.getenv("JAMENDO_CLIENT_ID", "")  # Получить на developer.jamendo.com
-TG_BOT_TOKEN = os.getenv("TOKEN", "")
+TG_BOT_TOKEN = "ВСТАВЬТЕ_ТОКЕН_СЮДА"
 # ════════════════════════════════════════════════════════════════════════
 
 async def get_db():
@@ -84,16 +83,17 @@ async def init_db():
             )
         """)
         
-        # Проверяем и добавляем колонку password если нужно
-        column_exists = await conn.fetchval("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.columns 
-                WHERE table_name = 'users' AND column_name = 'password'
-            )
-        """)
-        if not column_exists:
-            await conn.execute("ALTER TABLE users ADD COLUMN password TEXT")
-            logger.info("Added password column to users table")
+        # Проверяем и добавляем колонки если нужно
+        for col, typ in [('password', 'TEXT'), ('last_seen', 'TIMESTAMP')]:
+            exists = await conn.fetchval(f"""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_name = 'users' AND column_name = '{col}'
+                )
+            """)
+            if not exists:
+                await conn.execute(f"ALTER TABLE users ADD COLUMN {col} {typ}")
+                logger.info(f"Added {col} column to users table")
         
         # Таблица настроек конфиденциальности
         await conn.execute("""
@@ -206,22 +206,6 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS theme_settings (
                 phone TEXT PRIMARY KEY,
                 theme_data JSONB NOT NULL DEFAULT '{}',
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (phone) REFERENCES users(phone) ON DELETE CASCADE
-            )
-        """)
-
-        # Таблица музыкального статуса
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS music_status (
-                phone TEXT PRIMARY KEY,
-                track_id TEXT,
-                track_name TEXT,
-                artist_name TEXT,
-                cover_url TEXT,
-                preview_url TEXT,
-                jamendo_url TEXT,
-                is_playing BOOLEAN DEFAULT FALSE,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (phone) REFERENCES users(phone) ON DELETE CASCADE
             )
@@ -1029,54 +1013,49 @@ async def save_theme(phone: str, request: Request):
         logger.error(f"save_theme error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# ============= JAMENDO МУЗЫКА =============
+# ============= DEEZER МУЗЫКА (без API key) =============
+
+def _deezer_track_fmt(t: dict) -> dict:
+    """Нормализуем трек Deezer в единый формат."""
+    return {
+        "id": str(t.get("id", "")),
+        "name": t.get("title", ""),
+        "artist_name": t.get("artist", {}).get("name", ""),
+        "image": t.get("album", {}).get("cover_medium", ""),
+        "audio": t.get("preview", ""),   # 30-сек MP3, бесплатно
+        "shareurl": t.get("link", ""),
+        "duration": t.get("duration", 0),
+    }
 
 @app.get("/api/jamendo/search")
-async def jamendo_search(q: str = "", limit: int = 20, offset: int = 0):
-    """Поиск треков через Jamendo API."""
-    if not JAMENDO_CLIENT_ID:
-        return JSONResponse(status_code=503, content={"error": "Jamendo не настроен"})
+async def deezer_search(q: str = "", limit: int = 25, offset: int = 0):
+    """Поиск треков через Deezer API (не требует ключа)."""
     try:
         import urllib.request, urllib.parse, json as _j
-        params = urllib.parse.urlencode({
-            "client_id": JAMENDO_CLIENT_ID,
-            "format": "json",
-            "limit": limit,
-            "offset": offset,
-            "search": q,
-            "imagesize": "200",
-            "audioformat": "mp32",
-            "include": "musicinfo",
-            "groupby": "artist_id",
-        })
-        url = f"https://api.jamendo.com/v3.0/tracks/?{params}"
-        with urllib.request.urlopen(url, timeout=8) as r:
+        params = urllib.parse.urlencode({"q": q, "limit": limit, "index": offset, "output": "json"})
+        url = f"https://api.deezer.com/search?{params}"
+        req = urllib.request.Request(url, headers={"User-Agent": "NonBlock/1.0"})
+        with urllib.request.urlopen(req, timeout=10) as r:
             data = _j.loads(r.read())
-        return {"ok": True, "tracks": data.get("results", []), "total": data.get("headers", {}).get("results_count", 0)}
+        tracks = [_deezer_track_fmt(t) for t in data.get("data", []) if t.get("preview")]
+        return {"ok": True, "tracks": tracks, "total": data.get("total", 0)}
     except Exception as e:
-        logger.error(f"Jamendo search error: {e}")
+        logger.error(f"Deezer search error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/jamendo/trending")
-async def jamendo_trending(limit: int = 20):
-    """Популярные треки."""
-    if not JAMENDO_CLIENT_ID:
-        return JSONResponse(status_code=503, content={"error": "Jamendo не настроен"})
+async def deezer_trending(limit: int = 25):
+    """Топ треки Deezer (chart)."""
     try:
-        import urllib.request, urllib.parse, json as _j
-        params = urllib.parse.urlencode({
-            "client_id": JAMENDO_CLIENT_ID,
-            "format": "json",
-            "limit": limit,
-            "boost": "popularity_week",
-            "imagesize": "200",
-            "audioformat": "mp32",
-        })
-        url = f"https://api.jamendo.com/v3.0/tracks/?{params}"
-        with urllib.request.urlopen(url, timeout=8) as r:
+        import urllib.request, json as _j
+        url = f"https://api.deezer.com/chart/0/tracks?limit={limit}&output=json"
+        req = urllib.request.Request(url, headers={"User-Agent": "NonBlock/1.0"})
+        with urllib.request.urlopen(req, timeout=10) as r:
             data = _j.loads(r.read())
-        return {"ok": True, "tracks": data.get("results", [])}
+        tracks = [_deezer_track_fmt(t) for t in data.get("data", []) if t.get("preview")]
+        return {"ok": True, "tracks": tracks}
     except Exception as e:
+        logger.error(f"Deezer trending error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/music-status/{phone}")
@@ -1491,6 +1470,19 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                         "text": text
                     })
 
+                elif action == "delivered":
+                    # Получатель подтверждает доставку — показываем 2 галочки отправителю
+                    msg_id = data.get("id")
+                    to = data.get("to")
+                    if msg_id and to and to in clients:
+                        try:
+                            await clients[to].send_json({
+                                "action": "delivered",
+                                "id": msg_id
+                            })
+                        except:
+                            clients.pop(to, None)
+
                 elif action == "typing":
                     to = data.get("to")
                     if to and to in clients:
@@ -1521,7 +1513,7 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                     if chat_user:
                         conn = await get_db()
                         messages = await conn.fetch("""
-                            SELECT id, sender, text FROM messages
+                            SELECT id, sender, text, is_read FROM messages
                             WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
                             AND is_deleted = 0
                             ORDER BY timestamp
@@ -1529,8 +1521,8 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                         await conn.close()
                         
                         await ws.send_json({
-                            "action": "history", 
-                            "messages": [[m['id'], m['sender'], m['text']] for m in messages]
+                            "action": "history",
+                            "messages": [[m['id'], m['sender'], m['text'], m['is_read']] for m in messages]
                         })
 
             except WebSocketDisconnect:
@@ -1542,6 +1534,26 @@ async def websocket_endpoint(ws: WebSocket, user: str):
     finally:
         clients.pop(user, None)
         logger.info(f"User {user} disconnected. Total: {len(clients)}")
+        # Сохраняем last_seen
+        try:
+            conn = await get_db()
+            await conn.execute("UPDATE users SET last_seen = NOW() WHERE phone = $1", user)
+            await conn.close()
+            # Рассылаем last_seen всем онлайн-контактам
+            import datetime
+            now_iso = datetime.datetime.utcnow().isoformat() + 'Z'
+            for uid, ws2 in list(clients.items()):
+                try:
+                    await ws2.send_json({
+                        "action": "last_seen",
+                        "from": user,
+                        "last_seen": now_iso,
+                        "online": False
+                    })
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.error(f"Error saving last_seen: {e}")
 
 # ============= СТАТИЧЕСКИЕ ФАЙЛЫ =============
 
