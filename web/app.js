@@ -2308,6 +2308,69 @@ function createChatElement(chat) {
     return div
 }
 
+// Обновляет чат в списке: last message, unread badge, позиция
+async function updateChatInList(phone, lastText, incrementUnread = false) {
+    const cleanPh = cleanPhone(phone)
+    let chatEl = document.getElementById(`chat-${cleanPh}`)
+    const list = document.getElementById('chatList')
+    if (!list) return
+
+    if (!chatEl) {
+        // Чат не существует — загружаем данные пользователя и создаём элемент
+        try {
+            const res = await fetch(`/user/${phone}`)
+            const user = await res.json()
+            const displayName = user.name || user.username || phone
+            const avatarHtml = user.avatar
+                ? `<img src="/avatars/${user.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
+                : `<span>${displayName[0]?.toUpperCase() || '?'}</span>`
+            chatEl = document.createElement('div')
+            chatEl.className = 'chatItem'
+            chatEl.id = `chat-${cleanPh}`
+            chatEl.innerHTML = `
+                <div class="chat-avatar">${avatarHtml}</div>
+                <div class="chat-info">
+                    <div class="chat-name">${escapeHtml(displayName)}</div>
+                    <div class="chat-last-message">${formatLastMessage(lastText || '')}</div>
+                </div>
+                <div class="chat-status ${user.online ? '' : 'offline'}"></div>`
+            chatEl.onclick = () => openChat(phone, displayName)
+            list.prepend(chatEl)
+        } catch(e) { return }
+        if (incrementUnread) {
+            const badge = document.createElement('div')
+            badge.className = 'unread-badge'
+            badge.textContent = '1'
+            const statusDot = chatEl.querySelector('.chat-status')
+            if (statusDot) chatEl.insertBefore(badge, statusDot)
+            else chatEl.appendChild(badge)
+        }
+        return
+    }
+
+    // Обновляем последнее сообщение
+    const lastEl = chatEl.querySelector('.chat-last-message')
+    if (lastEl) lastEl.textContent = formatLastMessage(lastText)
+
+    // Unread badge
+    if (incrementUnread) {
+        let badge = chatEl.querySelector('.unread-badge')
+        if (!badge) {
+            badge = document.createElement('div')
+            badge.className = 'unread-badge'
+            const statusDot = chatEl.querySelector('.chat-status')
+            if (statusDot) chatEl.insertBefore(badge, statusDot)
+            else chatEl.appendChild(badge)
+        }
+        const cur = parseInt(badge.textContent) || 0
+        badge.textContent = cur + 1
+        badge.style.display = 'flex'
+    }
+
+    // Перемещаем наверх
+    list.prepend(chatEl)
+}
+
 async function loadChats() {
     if (!currentUser) {
         console.error('loadChats: currentUser is null')
@@ -2364,6 +2427,8 @@ function openChat(phone, displayName) {
         .then(user => {
             const name = user.name || user.username || phone
             document.getElementById('chatUserName').innerText = name
+            // Сохраняем last_seen
+            if (user.last_seen) lastSeenMap[phone] = user.last_seen
             document.getElementById('chatUserPhone').innerText = formatPhone(phone)
             
             const chatAvatar = document.getElementById('chatAvatarText')
@@ -2392,8 +2457,15 @@ function openChat(phone, displayName) {
     
     loadMessages()
     
+    // Сбрасываем unread badge
+    const chatElCurrent = document.getElementById(`chat-${cleanPhone(phone)}`)
+    if (chatElCurrent) {
+        const badge = chatElCurrent.querySelector('.unread-badge')
+        if (badge) badge.remove()
+        chatElCurrent.classList.add('active')
+    }
     document.querySelectorAll('.chatItem').forEach(el => {
-        el.classList.remove('active')
+        if (el.id !== `chat-${cleanPhone(phone)}`) el.classList.remove('active')
     })
     
     const activeChat = document.getElementById(`chat-${cleanPhone(phone)}`)
@@ -2412,29 +2484,17 @@ function loadMessages() {
 }
 
 function send() {
-    if (!currentChat) {
-        showToast('Выберите чат')
-        return
-    }
-
-    if (!ws || ws.readyState !== WebSocket.OPEN) {
-        showToast('Нет соединения с сервером')
-        return
-    }
+    if (!currentChat) { showToast('Выберите чат'); return }
+    if (!ws || ws.readyState !== WebSocket.OPEN) { showToast('Нет соединения с сервером'); return }
 
     const text = document.getElementById('text').value.trim()
-
     if (!text) return
 
-    ws.send(JSON.stringify({
-        action: 'send',
-        to: currentChat,
-        text: text
-    }))
-
+    ws.send(JSON.stringify({ action: 'send', to: currentChat, text }))
     document.getElementById('text').value = ''
     updateInputButtons()
-    updateInputButtons()
+    // Сразу обновляем список чатов (создаёт если новый)
+    updateChatInList(currentChat, text, false)
 }
 
 // ============= КОНТЕКСТНОЕ МЕНЮ =============
@@ -2684,7 +2744,15 @@ function connect() {
             if (data.action === 'messages_read') {
                 if (data.ids) data.ids.forEach(id => {
                     const el = document.querySelector(`[data-message-id="${id}"]`)
-                    if (el) { const t = el.querySelector('.msg-ticks'); if (t) t.classList.add('read') }
+                    if (el) {
+                        const t = el.querySelector('.msg-ticks')
+                        if (t) {
+                            t.classList.add('read')
+                            // Показываем вторую галочку если скрыта
+                            const tick2 = t.querySelector('.tick-second')
+                            if (tick2) tick2.style.display = ''
+                        }
+                    }
                 })
             }
 
@@ -2698,40 +2766,37 @@ function connect() {
             }
 
             if (data.action === 'message') {
-                addMessage(data.from, data.text, data.id, false)
-                if (currentChat === data.from && ws && ws.readyState === WebSocket.OPEN) {
+                // Подтверждаем доставку
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ action: 'delivered', id: data.id, to: data.from }))
+                }
+
+                // Добавляем в DOM только если это открытый чат
+                if (currentChat === data.from) {
+                    addMessage(data.from, data.text, data.id, false)
+                    // Отмечаем прочитанным
                     ws.send(JSON.stringify({ action: 'read', from: data.from, id: data.id }))
                 }
-                
-                const cleanFrom = cleanPhone(data.from)
-                const existingChat = document.getElementById(`chat-${cleanFrom}`)
-                
-                if (!existingChat) {
-                    loadChats()
-                } else {
-                    const list = document.getElementById('chatList')
-                    list.prepend(existingChat)
-                    
-                    const lastMsgElement = existingChat.querySelector('.chat-last-message')
-                    if (lastMsgElement) {
-                        lastMsgElement.innerText = formatLastMessage(data.text)
-                    }
-                }
-                
-                if (currentChat !== data.from) {
-                    showToast('Новое сообщение')
+
+                // Обновляем список чатов
+                const isOpen = currentChat === data.from
+                updateChatInList(data.from, data.text, !isOpen)
+
+                // Уведомление если чат не открыт
+                if (!isOpen) {
+                    showToast(`Новое сообщение`)
                     if (window.navigator.vibrate) window.navigator.vibrate(200)
                 }
             }
 
             if (data.action === 'message_sent') {
-                // null = отправлено (1 галочка), false = доставлено (2 серых)
                 addMessage(currentUser, data.text, data.id, null)
-                // Если получатель онлайн — сразу 2 галочки
                 if (data.delivered) {
                     const el = document.querySelector(`[data-message-id="${data.id}"] .msg-ticks .tick-second`)
                     if (el) el.style.display = ''
                 }
+                // Обновляем last message в списке чатов
+                if (currentChat) updateChatInList(currentChat, data.text, false)
             }
 
             if (data.action === 'history') {
