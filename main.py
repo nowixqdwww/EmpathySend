@@ -1189,24 +1189,22 @@ async def get_users(me: str):
         result = []
         for contact in contacts:
             phone = contact['contact']
-            
             user_data = await conn.fetchrow(
-                "SELECT phone, username, name, avatar FROM users WHERE phone = $1",
-                phone
+                "SELECT phone, username, name, avatar FROM users WHERE phone = $1", phone
             )
-            
             if not user_data:
                 continue
-            
             last_msg = await conn.fetchrow("""
-                SELECT text FROM messages 
-                WHERE (sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1)
+                SELECT text, timestamp FROM messages
+                WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
                 AND is_deleted = 0
                 ORDER BY timestamp DESC LIMIT 1
             """, me, phone)
-            
+            unread = await conn.fetchval("""
+                SELECT COUNT(*) FROM messages
+                WHERE sender = $1 AND receiver = $2 AND is_read = 0 AND is_deleted = 0
+            """, phone, me)
             display_name = user_data['name'] or user_data['username'] or phone
-            
             result.append({
                 "phone": user_data['phone'],
                 "username": user_data['username'],
@@ -1215,8 +1213,10 @@ async def get_users(me: str):
                 "avatar": f"/avatars/{user_data['avatar']}" if user_data['avatar'] else None,
                 "online": phone in clients,
                 "last": last_msg['text'] if last_msg else None,
-                "unread": 0
+                "last_ts": last_msg['timestamp'].isoformat() if last_msg and last_msg['timestamp'] else None,
+                "unread": unread or 0
             })
+        result.sort(key=lambda x: x['last_ts'] or '', reverse=True)
         
         await conn.close()
         return result
@@ -1471,17 +1471,34 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                     })
 
                 elif action == "delivered":
-                    # Получатель подтверждает доставку — показываем 2 галочки отправителю
                     msg_id = data.get("id")
                     to = data.get("to")
                     if msg_id and to and to in clients:
                         try:
-                            await clients[to].send_json({
-                                "action": "delivered",
-                                "id": msg_id
-                            })
+                            await clients[to].send_json({"action": "delivered", "id": msg_id})
                         except:
                             clients.pop(to, None)
+
+                elif action == "read":
+                    # Помечаем сообщения прочитанными и уведомляем отправителя
+                    from_user = data.get("from")  # от кого пришли сообщения
+                    if from_user:
+                        conn = await get_db()
+                        updated = await conn.fetch("""
+                            UPDATE messages SET is_read = 1
+                            WHERE sender = $1 AND receiver = $2 AND is_read = 0
+                            RETURNING id
+                        """, from_user, user)
+                        await conn.close()
+                        ids = [r['id'] for r in updated]
+                        if ids and from_user in clients:
+                            try:
+                                await clients[from_user].send_json({
+                                    "action": "messages_read",
+                                    "ids": ids
+                                })
+                            except:
+                                clients.pop(from_user, None)
 
                 elif action == "typing":
                     to = data.get("to")
@@ -1511,19 +1528,33 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                 elif action == "history":
                     chat_user = data.get("user")
                     if chat_user:
-                        conn = await get_db()
-                        messages = await conn.fetch("""
+                        conn2 = await get_db()
+                        messages = await conn2.fetch("""
                             SELECT id, sender, text, is_read FROM messages
                             WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
                             AND is_deleted = 0
                             ORDER BY timestamp
                         """, user, chat_user)
-                        await conn.close()
-                        
                         await ws.send_json({
                             "action": "history",
                             "messages": [[m['id'], m['sender'], m['text'], m['is_read']] for m in messages]
                         })
+                        # Помечаем входящие как прочитанные и уведомляем отправителя
+                        updated = await conn2.fetch("""
+                            UPDATE messages SET is_read = 1
+                            WHERE sender = $2 AND receiver = $1 AND is_read = 0
+                            RETURNING id
+                        """, user, chat_user)
+                        await conn2.close()
+                        read_ids = [r['id'] for r in updated]
+                        if read_ids and chat_user in clients:
+                            try:
+                                await clients[chat_user].send_json({
+                                    "action": "messages_read",
+                                    "ids": read_ids
+                                })
+                            except:
+                                clients.pop(chat_user, None)
 
             except WebSocketDisconnect:
                 break
