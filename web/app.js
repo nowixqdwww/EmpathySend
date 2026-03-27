@@ -2316,6 +2316,7 @@ function updateChatInList(phone, lastText, incrementUnread = false) {
     const cleanPh = cleanPhone(phone)
     let chatEl = document.getElementById(`chat-${cleanPh}`)
     const list = document.getElementById('chatList')
+    console.log('[updateChatInList]', phone, 'cleanPh=', cleanPh, 'chatEl=', !!chatEl, 'list=', !!list)
     if (!list) return
 
     if (!chatEl) {
@@ -2729,6 +2730,7 @@ function connect() {
             if (data.action === 'pong') return
 
             if (data.action === 'status') {
+                console.log('[WS status]', data)
                 if (data.from) {
                     if (!window.clients) window.clients = {}
                     window.clients[data.from] = data.online
@@ -2752,6 +2754,7 @@ function connect() {
             }
 
             if (data.action === 'last_seen') {
+                console.log('[WS last_seen]', data)
                 if (data.from && data.last_seen) {
                     lastSeenMap[data.from] = data.last_seen
                     if (currentChat === data.from) updateChatStatusText(data.from, false)
@@ -2759,6 +2762,7 @@ function connect() {
             }
 
             if (data.action === 'messages_read') {
+                console.log('[WS messages_read]', data.ids)
                 if (data.ids) data.ids.forEach(id => {
                     const el = document.querySelector(`[data-message-id="${id}"]`)
                     if (el) {
