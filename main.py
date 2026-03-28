@@ -45,7 +45,8 @@ app.mount("/avatars", StaticFiles(directory=AVATAR_DIR), name="avatars")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 # Подключение к PostgreSQL
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost/messenger")
+_raw_db_url = os.getenv("DATABASE_URL", "postgresql://localhost/messenger")
+DATABASE_URL = _raw_db_url.replace("postgres://", "postgresql://", 1)
 
 # ═══ Вставьте сюда токен вашего Telegram-бота ═══════════════════════════
 # Получить: https://t.me/BotFather → /newbot → скопировать токен
@@ -53,8 +54,22 @@ TG_BOT_TOKEN = "ВСТАВЬТЕ_ТОКЕН_СЮДА"
 # ════════════════════════════════════════════════════════════════════════
 
 async def get_db():
-    conn = await asyncpg.connect(DATABASE_URL)
-    return conn
+    # SSL для облачных БД (Railway, Render, Heroku, Neon)
+    ssl_hosts = ["railway.app", "render.com", "heroku", "amazonaws", "neon.tech", "supabase"]
+    use_ssl = any(h in DATABASE_URL for h in ssl_hosts)
+    try:
+        if use_ssl:
+            import ssl as _ssl
+            ctx = _ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = _ssl.CERT_NONE
+            conn = await asyncpg.connect(DATABASE_URL, ssl=ctx)
+        else:
+            conn = await asyncpg.connect(DATABASE_URL)
+        return conn
+    except Exception as e:
+        logger.error(f"DB connection failed: {e}")
+        raise
 
 # Функция для создания безопасного имени файла
 def create_safe_filename(phone: str, extension: str) -> str:
@@ -237,8 +252,18 @@ async def init_db():
 @app.on_event("startup")
 async def startup():
     import asyncio
-    # Запускаем init_db в фоне чтобы порт забиндился немедленно
-    asyncio.create_task(init_db())
+    # Создаём нужные директории
+    os.makedirs("web", exist_ok=True)
+    os.makedirs(AVATAR_DIR, exist_ok=True)
+    os.makedirs(STICKER_DIR, exist_ok=True)
+    # Запускаем init_db в фоне — сервер стартует немедленно даже если БД недоступна
+    async def safe_init():
+        try:
+            await init_db()
+            logger.info("Database initialized successfully")
+        except Exception as e:
+            logger.error(f"Database init failed: {e}")
+    asyncio.create_task(safe_init())
 
 clients = {}
 
@@ -1612,18 +1637,37 @@ async def websocket_endpoint(ws: WebSocket, user: str):
         except Exception as e:
             logger.error(f"Error saving last_seen: {e}")
 
-# ============= СТАТИЧЕСКИЕ ФАЙЛЫ =============
-
-if os.path.exists("web"):
-    app.mount("/", StaticFiles(directory="web", html=True), name="web")
-
-@app.get("/")
-async def root():
-    return FileResponse("web/index.html")
+# ============= HEALTH + СТАТИЧЕСКИЕ ФАЙЛЫ =============
 
 @app.get("/health")
 async def health():
     return {"status": "healthy", "connections": len(clients)}
+
+@app.get("/ping")
+async def ping():
+    return "pong"
+
+# Статика — монтируем если папка web существует
+# Используем HTMLResponse чтобы index.html отдавался по /
+import pathlib
+_web_dir = pathlib.Path("web")
+if _web_dir.exists() and _web_dir.is_dir():
+    # Явные роуты для основных файлов — они не перехватываются StaticFiles
+    @app.get("/app.js")
+    async def serve_js():
+        return FileResponse("web/app.js", media_type="application/javascript")
+    @app.get("/style.css")
+    async def serve_css():
+        return FileResponse("web/style.css", media_type="text/css")
+    @app.get("/")
+    async def serve_index():
+        return FileResponse("web/index.html")
+    # Монтируем статику для остальных файлов
+    app.mount("/", StaticFiles(directory="web", html=True), name="web")
+else:
+    @app.get("/")
+    async def root():
+        return {"status": "ok", "message": "NonBlock Messenger API"}
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
