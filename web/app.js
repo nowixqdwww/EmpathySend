@@ -29,10 +29,7 @@ let currentAvatarFile = null
 let userStickers = []
 let popularStickers = [
     '/static/stickers/popular/1.svg',
-    '/static/stickers/popular/2.svg',
-    '/static/stickers/popular/3.svg',
-    '/static/stickers/popular/4.svg',
-    '/static/stickers/popular/5.svg'
+    '/static/stickers/popular/2.svg'
 ]
 
 // Глобальный объект для хранения онлайн статусов
