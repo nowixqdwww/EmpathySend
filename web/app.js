@@ -2903,7 +2903,7 @@ async function searchUsers(query) {
     }
     
     try {
-        const res = await fetch(`/search-users/${encodeURIComponent(query)}`)
+        const res = await fetch(`/search-users/${encodeURIComponent(query)}?me=${encodeURIComponent(currentUser || "")}`)
         const data = await res.json()
         displaySearchResults(data.users)
         
