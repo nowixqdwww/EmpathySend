@@ -3,22 +3,86 @@
    Accent: Teal #0d7377 / iOS Blue #0A84FF
 ═══════════════════════════════════════ */
 :root {
+    /* Акцент */
     --accent: #0A84FF;
     --accent-teal: #0d7377;
     --accent-teal-2: #14a085;
+
+    /* Фоны */
     --bg-primary: #f2f2f7;
-    --bg-secondary: white;
+    --bg-secondary: #ffffff;
     --bg-tertiary: rgba(242,242,247,0.95);
+    --bg-elevated: #ffffff;
+    --bg-input: #ffffff;
+
+    /* Текст */
     --text-primary: #1c1c1e;
     --text-secondary: #6d6d72;
     --text-tertiary: #aeaeb2;
+
+    /* Границы и тени */
     --border: rgba(0,0,0,0.08);
+    --border-strong: rgba(0,0,0,0.14);
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
     --shadow-md: 0 4px 16px rgba(0,0,0,0.1);
+
+    /* Пузырьки */
+    --bubble-me: var(--accent);
+    --bubble-other: #ffffff;
+    --bubble-me-text: #ffffff;
+    --bubble-other-text: #1c1c1e;
+
+    /* Хедер/футер чата */
+    --chat-header-bg: rgba(242,242,247,0.95);
+    --input-area-bg: rgba(242,242,247,0.95);
+
+    /* Модалки */
+    --modal-bg: #ffffff;
+    --modal-overlay: rgba(0,0,0,0.4);
+
+    /* Контекстное меню */
+    --ctx-menu-bg: rgba(255,255,255,0.95);
+    --ctx-menu-text: #1c1c1e;
+
+    /* Сообщения фон */
+    --messages-bg: #f2f2f7;
+
     --radius-sm: 10px;
     --radius-md: 14px;
     --radius-lg: 20px;
     --radius-xl: 28px;
+}
+
+/* ── Тёмная тема ─────────────────────────────────────────── */
+[data-theme="dark"] {
+    --bg-primary: #1c1c1e;
+    --bg-secondary: #2c2c2e;
+    --bg-tertiary: rgba(28,28,30,0.95);
+    --bg-elevated: #3a3a3c;
+    --bg-input: #3a3a3c;
+
+    --text-primary: #ffffff;
+    --text-secondary: #ebebf5cc;
+    --text-tertiary: #ebebf566;
+
+    --border: rgba(255,255,255,0.08);
+    --border-strong: rgba(255,255,255,0.14);
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.4);
+
+    --bubble-other: #3a3a3c;
+    --bubble-other-text: #ffffff;
+
+    --chat-header-bg: rgba(28,28,30,0.95);
+    --input-area-bg: rgba(28,28,30,0.95);
+
+    --modal-bg: #2c2c2e;
+    --modal-overlay: rgba(0,0,0,0.6);
+
+    --ctx-menu-bg: rgba(44,44,46,0.97);
+    --ctx-menu-text: #ffffff;
+
+    --messages-bg: #1c1c1e;
 }
 
 * {
@@ -31,7 +95,7 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background: #f2f2f7;
+    background: var(--bg-primary);
     height: 100vh;
     overflow: hidden;
 }
@@ -752,7 +816,7 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    background: #f2f2f7;
+    background: var(--bg-primary);
     height: 100vh;
     overflow: hidden;
 }
@@ -1014,8 +1078,8 @@ body {
 .input-area {
     display: flex;
     padding: 10px 12px;
-    background: rgba(242,242,247,0.95);
-    border-top: 1px solid rgba(0,0,0,0.08);
+    background: var(--input-area-bg);
+    border-top: 1px solid var(--border);
     gap: 8px;
     align-items: center;
     flex-shrink: 0;
@@ -1389,7 +1453,7 @@ body {
 }
 
 .modal-content {
-    background: white;
+    background: var(--modal-bg);
     border-radius: 20px;
     width: 90%;
     max-width: 400px;
@@ -3585,7 +3649,7 @@ button:active:not(:disabled) {
     border-radius: 16px 16px 4px 16px;
 }
 .theme-preview-msg.other {
-    background: white;
+    background: var(--bubble-other);
     color: #1c1c1e;
     align-self: flex-start;
     border-radius: 16px 16px 16px 4px;
@@ -3665,7 +3729,7 @@ button:active:not(:disabled) {
     position: absolute;
     top: calc(100% - 4px);
     right: 12px;
-    background: rgba(30,30,32,0.95);
+    background: var(--ctx-menu-bg);
     backdrop-filter: blur(20px);
     border-radius: 14px;
     padding: 6px;
@@ -3679,7 +3743,7 @@ button:active:not(:disabled) {
     padding: 11px 14px;
     border-radius: 10px;
     font-size: 15px;
-    color: rgba(255,255,255,0.9);
+    color: var(--ctx-menu-text);
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -3713,7 +3777,7 @@ button:active:not(:disabled) {
     align-items: center;
     gap: 10px;
     font-size: 14px;
-    color: #1c1c1e;
+    color: var(--ctx-menu-text);
     border-radius: 10px;
     position: relative;
     transition: color 0.12s;
@@ -4068,7 +4132,7 @@ button:active:not(:disabled) {
 
 /* ── Анимация кнопок ввода ──────────────────────────────── */
 .input-btn-animated {
-    transition: transform 0.6s cubic-bezier(0.34,1.56,0.64,1), opacity 0.15s ease;
+    transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), opacity 0.15s ease;
     transform-origin: center;
 }
 .input-btn-animated.btn-hidden {
@@ -4088,5 +4152,87 @@ button:active:not(:disabled) {
 }
 /* Send btn отдельно — появляется справа */
 #sendBtn.input-btn-animated {
-    transform-origin: center;
+    transform-origin: right center;
 }
+
+/* ══════════════════════════════════════════
+   Глобальное применение тем — покрывает всё
+══════════════════════════════════════════ */
+
+/* Все белые фоны → --bg-secondary */
+.modal-content,
+.modal-body,
+.sticker-modal,
+.emoji-picker,
+.reactions-panel,
+.settings-section,
+.forward-modal-content,
+.profile-view,
+.theme-modal-content,
+.music-player-content {
+    background: var(--modal-bg) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Все оверлеи */
+.modal { background: var(--modal-overlay) !important; }
+
+/* Контекстные меню */
+.context-menu,
+.chat-dropdown-menu {
+    background: var(--ctx-menu-bg) !important;
+    border-color: var(--border) !important;
+}
+.context-menu-item,
+.chat-menu-item { color: var(--ctx-menu-text) !important; }
+
+/* Область сообщений */
+#messages { background: var(--messages-bg) !important; }
+
+/* Хедер чата и инпут */
+.chat-header { background: var(--chat-header-bg) !important; border-color: var(--border) !important; }
+.input-area  { background: var(--input-area-bg)  !important; border-color: var(--border) !important; }
+
+/* Поле ввода */
+#text, .message-input {
+    background: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Пузырьки */
+.message.other { background: var(--bubble-other) !important; color: var(--bubble-other-text) !important; }
+
+/* Пустой чат */
+.empty-chat { background: var(--messages-bg) !important; }
+.empty-chat h3 { color: var(--text-primary) !important; }
+.empty-chat p  { color: var(--text-secondary) !important; }
+
+/* Все тексты в модалках */
+.modal-header h2, .modal-header h3 { color: var(--text-primary) !important; }
+.field-value { color: var(--text-primary) !important; }
+.profile-view-field label { color: var(--text-secondary) !important; }
+.settings-item-title { color: var(--text-primary) !important; }
+.settings-item-description { color: var(--text-secondary) !important; }
+
+/* Инпуты в модалках */
+.login-input, .edit-input, .settings-select, .edit-textarea {
+    background: var(--bg-input) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-strong) !important;
+}
+.login-input::placeholder, .edit-input::placeholder { color: var(--text-secondary) !important; }
+
+/* Разделители */
+.settings-item { border-color: var(--border) !important; }
+
+/* Имя и статус в хедере */
+.chat-user-name { color: var(--text-primary) !important; }
+.chat-user-status { color: var(--accent) !important; }
+.chat-user-status.offline { color: var(--text-secondary) !important; }
+
+/* Voice recording bar */
+.voice-recording-bar { background: var(--bg-secondary) !important; }
+
+/* Превью пересланного */
+.fwd-header { color: var(--text-secondary) !important; }
+.message.other .fwd-header { color: var(--text-secondary) !important; }
