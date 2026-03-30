@@ -29,7 +29,10 @@ let currentAvatarFile = null
 let userStickers = []
 let popularStickers = [
     '/static/stickers/popular/1.svg',
-    '/static/stickers/popular/2.svg'
+    '/static/stickers/popular/2.svg',
+    '/static/stickers/popular/3.svg',
+    '/static/stickers/popular/4.svg',
+    '/static/stickers/popular/5.svg'
 ]
 
 // Глобальный объект для хранения онлайн статусов
@@ -3857,34 +3860,39 @@ window.addReaction = addReaction
 
 const THEMES = [
     {
-        id: 'default', name: 'Ночной', emoji: '🌙',
+        id: 'default', name: 'Светлый', emoji: '☀️',
         sidebar: 'linear-gradient(170deg,#1c3a47 0%,#1e424f 60%,#1a3d4a 100%)',
-        accent: '#0A84FF', bubble: '#0A84FF', bg: '#f2f2f7'
+        accent: '#0A84FF', bubble: '#0A84FF', dark: false
+    },
+    {
+        id: 'dark', name: 'Тёмный', emoji: '🌙',
+        sidebar: 'linear-gradient(170deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%)',
+        accent: '#0A84FF', bubble: '#0A84FF', dark: true
     },
     {
         id: 'mesh', name: 'Закат', emoji: '🌅',
         sidebar: '#1e2a35; background-image: radial-gradient(ellipse at 15% 60%,#1a3a5c 0%,transparent 55%),radial-gradient(ellipse at 80% 20%,#5c2a2a 0%,transparent 50%),radial-gradient(ellipse at 70% 75%,#7a2e2e 0%,transparent 45%)',
-        accent: '#FF6B6B', bubble: '#c0392b', bg: '#f2f2f7'
+        accent: '#FF6B6B', bubble: '#c0392b', dark: true
     },
     {
         id: 'forest', name: 'Лес', emoji: '🌲',
         sidebar: 'linear-gradient(170deg,#1a2f1a 0%,#1e3d1e 60%,#162b16 100%)',
-        accent: '#30d158', bubble: '#1a7a3a', bg: '#f0f4f0'
+        accent: '#30d158', bubble: '#1a7a3a', dark: true
     },
     {
         id: 'lavender', name: 'Лаванда', emoji: '💜',
         sidebar: 'linear-gradient(170deg,#2a1a3e 0%,#352050 60%,#2a1a3e 100%)',
-        accent: '#BF5AF2', bubble: '#7B2FBE', bg: '#f5f0ff'
+        accent: '#BF5AF2', bubble: '#7B2FBE', dark: true
     },
     {
         id: 'rose', name: 'Розовый', emoji: '🌸',
         sidebar: 'linear-gradient(170deg,#3d1a2a 0%,#4f1e35 60%,#3d1a2a 100%)',
-        accent: '#FF375F', bubble: '#c0185f', bg: '#fff0f4'
+        accent: '#FF375F', bubble: '#c0185f', dark: true
     },
     {
         id: 'gold', name: 'Золото', emoji: '✨',
         sidebar: 'linear-gradient(170deg,#2a220a 0%,#3d3210 60%,#2a220a 100%)',
-        accent: '#FFD60A', bubble: '#b8860b', bg: '#fffbf0'
+        accent: '#FFD60A', bubble: '#b8860b', dark: true
     },
 ]
 
