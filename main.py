@@ -455,7 +455,7 @@ async def get_user(phone: str):
             "username": user['username'],
             "name": user['name'],
             "bio": user['bio'] or "",
-            "avatar": f"/avatars/{user['avatar']}" if user['avatar'] else None
+            "avatar": user['avatar'] if user['avatar'] else None
         }
         
     except Exception as e:
@@ -507,38 +507,17 @@ async def upload_avatar(phone: str, file: UploadFile = File(...)):
     try:
         if not file.content_type.startswith('image/'):
             return JSONResponse(status_code=400, content={"error": "File must be an image"})
-        
         content = await file.read()
-        
         if len(content) > 5 * 1024 * 1024:
             return JSONResponse(status_code=400, content={"error": "File too large (max 5MB)"})
-        
-        file_extension = os.path.splitext(file.filename)[1]
-        filename = create_safe_filename(phone, file_extension)
-        file_path = os.path.join(AVATAR_DIR, filename)
-        
+        # Сохраняем как data URI прямо в БД — не зависит от диска
+        import base64 as _b64
+        mime = file.content_type or 'image/jpeg'
+        data_uri = f"data:{mime};base64,{_b64.b64encode(content).decode()}"
         conn = await get_db()
-        
-        old = await conn.fetchval(
-            "SELECT avatar FROM users WHERE phone = $1",
-            phone
-        )
-        if old:
-            old_path = os.path.join(AVATAR_DIR, old)
-            if os.path.exists(old_path):
-                os.remove(old_path)
-        
-        with open(file_path, "wb") as buffer:
-            buffer.write(content)
-        
-        await conn.execute(
-            "UPDATE users SET avatar = $1 WHERE phone = $2",
-            filename, phone
-        )
+        await conn.execute("UPDATE users SET avatar = $1 WHERE phone = $2", data_uri, phone)
         await conn.close()
-        
-        return {"avatar": f"/avatars/{filename}"}
-        
+        return {"avatar": data_uri}
     except Exception as e:
         logger.error(f"Error uploading avatar: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
@@ -553,7 +532,7 @@ async def remove_avatar(phone: str):
             phone
         )
         
-        if avatar:
+        if avatar and not avatar.startswith('data:'):
             file_path = os.path.join(AVATAR_DIR, avatar)
             if os.path.exists(file_path):
                 os.remove(file_path)
@@ -1161,7 +1140,7 @@ async def search_user(data: SearchUser):
             "username": user['username'],
             "name": user['name'],
             "bio": user['bio'] or "",
-            "avatar": f"/avatars/{user['avatar']}" if user['avatar'] else None
+            "avatar": user['avatar'] if user['avatar'] else None
         }
         
     except Exception as e:
@@ -1169,17 +1148,20 @@ async def search_user(data: SearchUser):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/search-users/{query}")
-async def search_users(query: str):
+async def search_users(query: str, request: Request):
     try:
         if len(query) < 2:
             return {"users": []}
         
         conn = await get_db()
         
+        # me берём из query params
+        me = request.query_params.get("me", "")
         users = await conn.fetch("""
             SELECT phone, username, name, avatar 
             FROM users 
-            WHERE username ILIKE $1 OR name ILIKE $1
+            WHERE (username ILIKE $1 OR name ILIKE $1)
+            AND phone != $4
             ORDER BY 
                 CASE 
                     WHEN username ILIKE $2 THEN 1
@@ -1187,7 +1169,7 @@ async def search_users(query: str):
                     ELSE 3
                 END
             LIMIT 10
-        """, f'%{query}%', f'{query}%', f'%{query}')
+        """, f'%{query}%', f'{query}%', f'%{query}', me)
         
         await conn.close()
         
@@ -1197,7 +1179,7 @@ async def search_users(query: str):
                 "phone": user['phone'],
                 "username": user['username'],
                 "name": user['name'],
-                "avatar": f"/avatars/{user['avatar']}" if user['avatar'] else None,
+                "avatar": user['avatar'] if user['avatar'] else None,
                 "displayName": user['name'] or user['username'] or user['phone']
             })
         
@@ -1245,7 +1227,7 @@ async def get_users(me: str):
                 "username": user_data['username'],
                 "name": user_data['name'],
                 "displayName": display_name,
-                "avatar": f"/avatars/{user_data['avatar']}" if user_data['avatar'] else None,
+                "avatar": user_data['avatar'] if user_data['avatar'] else None,
                 "online": phone in clients,
                 "last": last_msg['text'] if last_msg else None,
                 "last_ts": last_msg['timestamp'].isoformat() if last_msg and last_msg['timestamp'] else None,
