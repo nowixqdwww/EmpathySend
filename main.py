@@ -719,7 +719,7 @@ async def import_sticker_pack(phone: str, request: Request):
         token = TG_BOT_TOKEN.strip()  # убираем случайные пробелы/переносы
         if not token or token == "ВСТАВЬТЕ_ТОКЕН_СЮДА":
             return JSONResponse(status_code=400, content={
-                "error": "Токен бота не настроен. Вставьте токен в переменную TG_BOT_TOKEN в main.py"
+                "error": "Токен бота не настроен. Напишите @monkkiq в Telegram или на почту supp-nonblock@yandex.com"
             })
         if ":" not in token:
             return JSONResponse(status_code=400, content={
