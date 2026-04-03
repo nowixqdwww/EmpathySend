@@ -313,7 +313,7 @@ async function refreshOnlineStatuses() {
 
 function checkPasswordStrength(password) {
     const strength = {
-        length: password.length >= 8,
+        length: password.length >= 6,
         number: /\d/.test(password),
         letter: /[a-zA-Z]/.test(password)
     }
@@ -325,7 +325,7 @@ function checkPasswordStrength(password) {
     const saveBtn = document.getElementById('savePasswordBtn')
     
     if (reqLength) {
-        reqLength.innerHTML = (strength.length ? '✅' : '❌') + ' Минимум 8 символов'
+        reqLength.innerHTML = (strength.length ? '✅' : '❌') + ' Минимум 6 символов'
         reqLength.className = 'requirement' + (strength.length ? ' met' : '')
     }
     
@@ -3941,6 +3941,13 @@ function applyTheme(theme) {
     if (!theme) return
     const root = document.documentElement
 
+    // Тёмный/светлый режим — ключевое
+    if (theme.dark) {
+        root.setAttribute('data-theme', 'dark')
+    } else {
+        root.removeAttribute('data-theme')
+    }
+
     if (theme.accent)  root.style.setProperty('--accent', theme.accent)
     if (theme.sidebar) {
         const sidebar = document.querySelector('.sidebar')
@@ -3948,7 +3955,6 @@ function applyTheme(theme) {
     }
     if (theme.bubble) {
         root.style.setProperty('--bubble-me', theme.bubble)
-        // Динамически обновляем CSS для .message.me
         let styleEl = document.getElementById('dynamic-theme-style')
         if (!styleEl) {
             styleEl = document.createElement('style')
@@ -3966,7 +3972,6 @@ function applyTheme(theme) {
         `
     }
     if (theme.wallpaper) {
-        // Применяем глобальные обои только если у чата нет своей темы
         if (!currentChat || !chatThemes[currentChat]?.wallpaper) {
             applyWallpaper(theme.wallpaper)
         }
