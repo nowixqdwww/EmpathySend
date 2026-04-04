@@ -4460,3 +4460,26 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
     background: #3a3a3c !important;
     color: #ffffff !important;
 }
+
+/* ── Крестики в модалках тем ── */
+.modal-close-btn {
+    background: none !important;
+    border: none !important;
+    cursor: pointer;
+    font-size: 18px;
+    color: var(--text-secondary);
+    padding: 6px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+    line-height: 1;
+}
+.modal-close-btn:hover { background: var(--bg-primary) !important; }
+[data-theme="dark"] .modal-close-btn { color: rgba(235,235,245,0.6) !important; }
+[data-theme="dark"] .modal-close-btn:hover { background: rgba(255,255,255,0.08) !important; }
+
+/* ── Полоса прокрутки (scrollbar) ── */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { display: none; }
