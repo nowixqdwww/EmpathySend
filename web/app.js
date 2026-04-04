@@ -2847,6 +2847,11 @@ function connect() {
                 data.messages.forEach(m => addMessage(m[1], m[2], m[0], m[3] === 1))
             }
 
+            if (['call_offer','call_answer','call_ice','call_reject','call_end','call_busy'].includes(data.action)) {
+                handleCallSignal(data)
+                return
+            }
+
             if (data.action === 'typing') {
                 if (currentChat === data.from) {
                     document.getElementById('chatUserStatus').textContent = 'печатает...'
@@ -4445,3 +4450,373 @@ window.resetChatTheme      = resetChatTheme
 window.previewChatBubble   = previewChatBubble
 window.previewChatWallpaper = previewChatWallpaper
 window.handleChatWallpaperUpload = handleChatWallpaperUpload
+
+
+// ============= WEBRTC ЗВОНКИ =============
+
+const STUN_SERVERS = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' },
+    ]
+}
+
+let peerConnection = null
+let localStream    = null
+let callType       = null   // 'audio' | 'video'
+let callDirection  = null   // 'outgoing' | 'incoming'
+let callPeer       = null   // phone
+let callTimer      = null
+let callSeconds    = 0
+let micMuted       = false
+let camOff         = false
+let incomingOffer  = null   // сохраняем offer для принятия
+
+// ── Начать исходящий звонок ───────────────────────────────
+async function startCall(type) {
+    if (!currentChat) return
+    if (peerConnection) { showToast('Вы уже в звонке'); return }
+
+    callType      = type
+    callDirection = 'outgoing'
+    callPeer      = currentChat
+
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: type === 'video' ? { facingMode: 'user', width: 640, height: 640 } : false
+        })
+    } catch(e) {
+        showToast('Нет доступа к микрофону/камере')
+        return
+    }
+
+    // Показываем экран звонка
+    showActiveCallScreen(callPeer, 'Вызов...')
+    if (type === 'video') {
+        document.getElementById('localVideo').srcObject = localStream
+        document.getElementById('toggleCamBtn').style.display = 'flex'
+    }
+
+    peerConnection = new RTCPeerConnection(STUN_SERVERS)
+    setupPeerEvents()
+    localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream))
+
+    const offer = await peerConnection.createOffer()
+    await peerConnection.setLocalDescription(offer)
+
+    ws.send(JSON.stringify({
+        action: 'call_offer',
+        to: callPeer,
+        sdp: offer.sdp,
+        callType: type,
+        callerName: currentUserProfile?.name || currentUserProfile?.username || currentUser
+    }))
+
+    // Таймаут если не отвечают
+    window._callTimeout = setTimeout(() => {
+        if (callDirection === 'outgoing' && peerConnection) {
+            showToast('Нет ответа')
+            endCall()
+        }
+    }, 45000)
+}
+
+// ── Принять входящий звонок ───────────────────────────────
+async function acceptCall(withVideo) {
+    if (!incomingOffer) return
+    hideIncomingCallScreen()
+
+    callDirection = 'incoming'
+    const useVideo = withVideo === 'video' && callType === 'video'
+
+    try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: useVideo ? { facingMode: 'user', width: 640, height: 640 } : false
+        })
+    } catch(e) {
+        showToast('Нет доступа к микрофону')
+        sendCallSignal('call_end', callPeer)
+        return
+    }
+
+    showActiveCallScreen(callPeer, 'Соединение...')
+    if (useVideo) {
+        document.getElementById('localVideo').srcObject = localStream
+        document.getElementById('toggleCamBtn').style.display = 'flex'
+    }
+
+    peerConnection = new RTCPeerConnection(STUN_SERVERS)
+    setupPeerEvents()
+    localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream))
+
+    await peerConnection.setRemoteDescription({ type: 'offer', sdp: incomingOffer.sdp })
+    const answer = await peerConnection.createAnswer()
+    await peerConnection.setLocalDescription(answer)
+
+    ws.send(JSON.stringify({ action: 'call_answer', to: callPeer, sdp: answer.sdp }))
+    incomingOffer = null
+    startCallTimer()
+}
+
+// ── Отклонить входящий ───────────────────────────────────
+function rejectCall() {
+    stopRingtone()
+    if (callPeer) sendCallSignal('call_reject', callPeer)
+    hideIncomingCallScreen()
+    resetCallState()
+}
+
+// ── Завершить звонок ─────────────────────────────────────
+function endCall() {
+    stopRingtone()
+    clearTimeout(window._callTimeout)
+    if (callPeer) sendCallSignal('call_end', callPeer)
+    cleanupCall()
+}
+
+function sendCallSignal(action, to) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action, to }))
+    }
+}
+
+function cleanupCall() {
+    stopCallTimer()
+    if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null }
+    if (peerConnection) { peerConnection.close(); peerConnection = null }
+    hideActiveCallScreen()
+    hideIncomingCallScreen()
+    resetCallState()
+}
+
+function resetCallState() {
+    callType = null; callDirection = null; callPeer = null
+    micMuted = false; camOff = false; incomingOffer = null
+}
+
+// ── PeerConnection события ───────────────────────────────
+function setupPeerEvents() {
+    peerConnection.onicecandidate = e => {
+        if (e.candidate && callPeer) {
+            ws.send(JSON.stringify({
+                action: 'call_ice',
+                to: callPeer,
+                candidate: e.candidate
+            }))
+        }
+    }
+
+    peerConnection.ontrack = e => {
+        const remoteVideo = document.getElementById('remoteVideo')
+        if (!remoteVideo.srcObject) remoteVideo.srcObject = new MediaStream()
+        remoteVideo.srcObject.addTrack(e.track)
+        if (callType !== 'video') remoteVideo.style.display = 'none'
+    }
+
+    peerConnection.onconnectionstatechange = () => {
+        const state = peerConnection?.connectionState
+        const statusEl = document.getElementById('callStatus')
+        if (state === 'connected') {
+            if (statusEl) statusEl.textContent = formatCallTime(0)
+            startCallTimer()
+        } else if (state === 'failed' || state === 'disconnected') {
+            showToast('Соединение прервано')
+            endCall()
+        }
+    }
+
+    peerConnection.oniceconnectionstatechange = () => {
+        if (peerConnection?.iceConnectionState === 'connected') {
+            const statusEl = document.getElementById('callStatus')
+            if (statusEl && statusEl.textContent === 'Соединение...') startCallTimer()
+        }
+    }
+}
+
+// ── Обработка входящих сигналов (в WS onmessage) ─────────
+async function handleCallSignal(data) {
+    switch (data.action) {
+        case 'call_offer':
+            if (peerConnection) {
+                sendCallSignal('call_busy', data.from)
+                return
+            }
+            callPeer = data.from
+            callType = data.callType || 'audio'
+            callDirection = 'incoming'
+            incomingOffer = data
+            showIncomingCallScreen(data.from, data.callerName, callType)
+            playRingtone()
+            break
+
+        case 'call_answer':
+            if (!peerConnection) return
+            clearTimeout(window._callTimeout)
+            await peerConnection.setRemoteDescription({ type: 'answer', sdp: data.sdp })
+            break
+
+        case 'call_ice':
+            if (!peerConnection) return
+            try {
+                await peerConnection.addIceCandidate(data.candidate)
+            } catch(e) {}
+            break
+
+        case 'call_reject':
+            showToast('Звонок отклонён')
+            cleanupCall()
+            break
+
+        case 'call_end':
+            if (data.reason === 'offline') showToast('Пользователь не в сети')
+            else showToast('Звонок завершён')
+            cleanupCall()
+            break
+
+        case 'call_busy':
+            showToast('Абонент занят')
+            cleanupCall()
+            break
+    }
+}
+
+// ── Управление во время звонка ────────────────────────────
+function toggleMic() {
+    if (!localStream) return
+    micMuted = !micMuted
+    localStream.getAudioTracks().forEach(t => t.enabled = !micMuted)
+    const btn = document.getElementById('muteMicBtn')
+    if (btn) {
+        btn.innerHTML = micMuted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>'
+        btn.classList.toggle('active', micMuted)
+    }
+}
+
+function toggleCamera() {
+    if (!localStream) return
+    camOff = !camOff
+    localStream.getVideoTracks().forEach(t => t.enabled = !camOff)
+    const btn = document.getElementById('toggleCamBtn')
+    if (btn) {
+        btn.innerHTML = camOff ? '<i class="fas fa-video-slash"></i>' : '<i class="fas fa-video"></i>'
+        btn.classList.toggle('active', camOff)
+    }
+    document.getElementById('localVideo').style.opacity = camOff ? '0' : '1'
+}
+
+function toggleSpeaker() {
+    const btn = document.getElementById('speakerBtn')
+    btn?.classList.toggle('active')
+    // На мобиле можно переключить через setSinkId если поддерживается
+}
+
+// ── Таймер звонка ────────────────────────────────────────
+function startCallTimer() {
+    stopCallTimer()
+    callSeconds = 0
+    const statusEl = document.getElementById('callStatus')
+    callTimer = setInterval(() => {
+        callSeconds++
+        if (statusEl) statusEl.textContent = formatCallTime(callSeconds)
+    }, 1000)
+}
+function stopCallTimer() {
+    if (callTimer) { clearInterval(callTimer); callTimer = null }
+}
+function formatCallTime(s) {
+    const m = Math.floor(s / 60), sec = s % 60
+    return `${m}:${sec.toString().padStart(2,'0')}`
+}
+
+// ── UI ───────────────────────────────────────────────────
+function showIncomingCallScreen(phone, name, type) {
+    const screen = document.getElementById('incomingCallScreen')
+    if (!screen) return
+    const displayName = name || phone
+    document.getElementById('incomingCallName').textContent = displayName
+    document.getElementById('incomingCallType').textContent =
+        type === 'video' ? '📹 Входящий видео звонок' : '📞 Входящий аудио звонок'
+
+    // Аватар
+    const av = document.getElementById('incomingCallAvatar')
+    const cached = userCache[phone]
+    if (cached?.avatar) av.innerHTML = `<img src="${cached.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
+    else av.innerHTML = `<span>${(displayName[0]||'?').toUpperCase()}</span>`
+
+    // Кнопки ответа
+    document.getElementById('acceptVideoBtn').style.display = type === 'video' ? 'flex' : 'none'
+
+    screen.style.display = 'flex'
+    screen.style.animation = 'callSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1)'
+}
+function hideIncomingCallScreen() {
+    const s = document.getElementById('incomingCallScreen')
+    if (s) s.style.display = 'none'
+}
+
+function showActiveCallScreen(phone, status) {
+    const screen = document.getElementById('activeCallScreen')
+    if (!screen) return
+    const cached = userCache[phone]
+    const name = cached?.name || cached?.username || phone
+
+    document.getElementById('activeCallName').textContent = name
+    document.getElementById('callStatus').textContent = status
+
+    const av = document.getElementById('activeCallAvatar')
+    if (cached?.avatar) av.innerHTML = `<img src="${cached.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
+    else av.innerHTML = `<span>${(name[0]||'?').toUpperCase()}</span>`
+
+    // Сброс кнопок
+    document.getElementById('muteMicBtn').innerHTML = '<i class="fas fa-microphone"></i>'
+    document.getElementById('muteMicBtn').classList.remove('active')
+    document.getElementById('toggleCamBtn').style.display = 'none'
+
+    screen.style.display = 'flex'
+}
+function hideActiveCallScreen() {
+    const s = document.getElementById('activeCallScreen')
+    if (s) { s.style.display = 'none' }
+    const rv = document.getElementById('remoteVideo')
+    const lv = document.getElementById('localVideo')
+    if (rv) rv.srcObject = null
+    if (lv) lv.srcObject = null
+}
+
+// ── Рингтон (синтезированный через Web Audio) ────────────
+let _ringtoneCtx = null, _ringtoneNodes = []
+function playRingtone() {
+    stopRingtone()
+    try {
+        _ringtoneCtx = new AudioContext()
+        function beep() {
+            if (!_ringtoneCtx) return
+            const osc = _ringtoneCtx.createOscillator()
+            const gain = _ringtoneCtx.createGain()
+            osc.connect(gain); gain.connect(_ringtoneCtx.destination)
+            osc.frequency.value = 440
+            gain.gain.setValueAtTime(0.3, _ringtoneCtx.currentTime)
+            gain.gain.exponentialRampToValueAtTime(0.001, _ringtoneCtx.currentTime + 0.4)
+            osc.start(); osc.stop(_ringtoneCtx.currentTime + 0.4)
+            _ringtoneNodes.push(osc)
+        }
+        beep()
+        window._ringtoneInterval = setInterval(beep, 1200)
+    } catch(e) {}
+}
+function stopRingtone() {
+    if (window._ringtoneInterval) { clearInterval(window._ringtoneInterval); window._ringtoneInterval = null }
+    if (_ringtoneCtx) { try { _ringtoneCtx.close() } catch(e) {}; _ringtoneCtx = null }
+    _ringtoneNodes = []
+}
+
+window.startCall    = startCall
+window.acceptCall   = acceptCall
+window.rejectCall   = rejectCall
+window.endCall      = endCall
+window.toggleMic    = toggleMic
+window.toggleCamera = toggleCamera
+window.toggleSpeaker = toggleSpeaker
