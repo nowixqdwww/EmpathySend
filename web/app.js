@@ -4610,18 +4610,36 @@ function setupPeerEvents() {
     }
 
     peerConnection.ontrack = e => {
-        const remoteVideo = document.getElementById('remoteVideo')
-        if (!remoteVideo.srcObject) remoteVideo.srcObject = new MediaStream()
-        remoteVideo.srcObject.addTrack(e.track)
-        if (callType !== 'video') remoteVideo.style.display = 'none'
+        if (e.track.kind === 'video') {
+            // Видеодорожка — в <video>
+            const remoteVideo = document.getElementById('remoteVideo')
+            if (!remoteVideo.srcObject) remoteVideo.srcObject = new MediaStream()
+            remoteVideo.srcObject.addTrack(e.track)
+            remoteVideo.style.display = 'block'
+            document.getElementById('callAvatarWrap').style.display = 'none'
+        } else {
+            // Аудиодорожка — в отдельный <audio> чтобы точно воспроизводилось
+            let remoteAudio = document.getElementById('remoteCallAudio')
+            if (!remoteAudio) {
+                remoteAudio = document.createElement('audio')
+                remoteAudio.id = 'remoteCallAudio'
+                remoteAudio.autoplay = true
+                remoteAudio.playsInline = true
+                document.body.appendChild(remoteAudio)
+            }
+            if (!remoteAudio.srcObject) remoteAudio.srcObject = new MediaStream()
+            remoteAudio.srcObject.addTrack(e.track)
+            remoteAudio.play().catch(() => {})
+        }
     }
 
     peerConnection.onconnectionstatechange = () => {
         const state = peerConnection?.connectionState
-        const statusEl = document.getElementById('callStatus')
         if (state === 'connected') {
-            if (statusEl) statusEl.textContent = formatCallTime(0)
+            playCallConnectedSound()
             startCallTimer()
+            document.getElementById('activeCallStatus').style.display = 'none'
+            document.getElementById('callTimer').style.display = 'block'
         } else if (state === 'failed' || state === 'disconnected') {
             showToast('Соединение прервано')
             endCall()
@@ -4629,9 +4647,12 @@ function setupPeerEvents() {
     }
 
     peerConnection.oniceconnectionstatechange = () => {
-        if (peerConnection?.iceConnectionState === 'connected') {
-            const statusEl = document.getElementById('callStatus')
-            if (statusEl && statusEl.textContent === 'Соединение...') startCallTimer()
+        const s = peerConnection?.iceConnectionState
+        if (s === 'connected' || s === 'completed') {
+            playCallConnectedSound()
+            startCallTimer()
+            document.getElementById('activeCallStatus').style.display = 'none'
+            document.getElementById('callTimer').style.display = 'block'
         }
     }
 }
@@ -4819,4 +4840,10 @@ window.rejectCall   = rejectCall
 window.endCall      = endCall
 window.toggleMic    = toggleMic
 window.toggleCamera = toggleCamera
+window.toggleSpeaker = toggleSpeaker
+window.acceptCall   = acceptCall
+window.rejectCall   = rejectCall
+window.endCall      = endCall
+window.toggleMic    = toggleMic
+window.toggleVideo  = toggleVideo
 window.toggleSpeaker = toggleSpeaker
