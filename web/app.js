@@ -4544,8 +4544,14 @@ async function acceptCall(withVideo) {
 
     showActiveCallScreen(callPeer, 'Соединение...')
     if (useVideo) {
-        document.getElementById('localVideo').srcObject = localStream
-        document.getElementById('toggleCamBtn').style.display = 'flex'
+        const lv = document.getElementById('localVideo')
+        const rv = document.getElementById('remoteVideo')
+        const aw = document.getElementById('callAvatarWrap')
+        if (lv) { lv.srcObject = localStream; lv.style.display = 'block' }
+        if (rv) rv.style.display = 'block'
+        if (aw) aw.style.display = 'none'
+        const camBtn = document.getElementById('toggleCamBtn')
+        if (camBtn) camBtn.style.display = 'flex'
     }
 
     peerConnection = new RTCPeerConnection(STUN_SERVERS)
@@ -4638,8 +4644,10 @@ function setupPeerEvents() {
         if (state === 'connected') {
             playCallConnectedSound()
             startCallTimer()
-            document.getElementById('activeCallStatus').style.display = 'none'
-            document.getElementById('callTimer').style.display = 'block'
+            const statusEl = document.getElementById('activeCallStatus')
+            const timerEl = document.getElementById('callTimer')
+            if (statusEl) statusEl.style.display = 'none'
+            if (timerEl) timerEl.style.display = 'block'
         } else if (state === 'failed' || state === 'disconnected') {
             showToast('Соединение прервано')
             endCall()
@@ -4676,6 +4684,8 @@ async function handleCallSignal(data) {
         case 'call_answer':
             if (!peerConnection) return
             clearTimeout(window._callTimeout)
+            stopRingtone()
+            playCallConnectedSound()
             await peerConnection.setRemoteDescription({ type: 'answer', sdp: data.sdp })
             break
 
@@ -4687,17 +4697,23 @@ async function handleCallSignal(data) {
             break
 
         case 'call_reject':
+            stopRingtone()
+            playCallDeclinedSound()
             showToast('Звонок отклонён')
             cleanupCall()
             break
 
         case 'call_end':
+            stopRingtone()
+            playCallEndSound()
             if (data.reason === 'offline') showToast('Пользователь не в сети')
             else showToast('Звонок завершён')
             cleanupCall()
             break
 
         case 'call_busy':
+            stopRingtone()
+            playCallDeclinedSound()
             showToast('Абонент занят')
             cleanupCall()
             break
@@ -4738,10 +4754,10 @@ function toggleSpeaker() {
 function startCallTimer() {
     stopCallTimer()
     callSeconds = 0
-    const statusEl = document.getElementById('callStatus')
     callTimer = setInterval(() => {
         callSeconds++
-        if (statusEl) statusEl.textContent = formatCallTime(callSeconds)
+        const el = document.getElementById('callTimer')
+        if (el) el.textContent = formatCallTime(callSeconds)
     }, 1000)
 }
 function stopCallTimer() {
@@ -4754,58 +4770,100 @@ function formatCallTime(s) {
 
 // ── UI ───────────────────────────────────────────────────
 function showIncomingCallScreen(phone, name, type) {
-    const screen = document.getElementById('incomingCallScreen')
+    const screen = document.getElementById('incomingCallModal')
     if (!screen) return
     const displayName = name || phone
-    document.getElementById('incomingCallName').textContent = displayName
-    document.getElementById('incomingCallType').textContent =
-        type === 'video' ? '📹 Входящий видео звонок' : '📞 Входящий аудио звонок'
 
-    // Аватар
+    const nameEl = document.getElementById('incomingCallName')
+    const typeEl = document.getElementById('incomingCallType')
+    if (nameEl) nameEl.textContent = displayName
+    if (typeEl) typeEl.textContent = type === 'video' ? 'видео' : 'аудио'
+
     const av = document.getElementById('incomingCallAvatar')
-    const cached = userCache[phone]
-    if (cached?.avatar) av.innerHTML = `<img src="${cached.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
-    else av.innerHTML = `<span>${(displayName[0]||'?').toUpperCase()}</span>`
-
-    // Кнопки ответа
-    document.getElementById('acceptVideoBtn').style.display = type === 'video' ? 'flex' : 'none'
+    if (av) {
+        const cached = userCache[phone]
+        if (cached?.avatar) av.innerHTML = `<img src="${cached.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
+        else av.innerHTML = `<span>${(displayName[0]||'?').toUpperCase()}</span>`
+    }
 
     screen.style.display = 'flex'
-    screen.style.animation = 'callSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1)'
 }
 function hideIncomingCallScreen() {
-    const s = document.getElementById('incomingCallScreen')
+    const s = document.getElementById('incomingCallModal')
     if (s) s.style.display = 'none'
 }
 
 function showActiveCallScreen(phone, status) {
-    const screen = document.getElementById('activeCallScreen')
+    const screen = document.getElementById('activeCallModal')
     if (!screen) return
     const cached = userCache[phone]
     const name = cached?.name || cached?.username || phone
 
-    document.getElementById('activeCallName').textContent = name
-    document.getElementById('callStatus').textContent = status
+    const nameEl = document.getElementById('activeCallName')
+    const statusEl = document.getElementById('activeCallStatus')
+    if (nameEl) nameEl.textContent = name
+    if (statusEl) { statusEl.textContent = status; statusEl.style.display = 'block' }
+
+    const timer = document.getElementById('callTimer')
+    if (timer) { timer.textContent = '0:00'; timer.style.display = 'none' }
 
     const av = document.getElementById('activeCallAvatar')
-    if (cached?.avatar) av.innerHTML = `<img src="${cached.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
-    else av.innerHTML = `<span>${(name[0]||'?').toUpperCase()}</span>`
+    if (av) {
+        if (cached?.avatar) av.innerHTML = `<img src="${cached.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
+        else av.innerHTML = `<span>${(name[0]||'?').toUpperCase()}</span>`
+    }
 
-    // Сброс кнопок
-    document.getElementById('muteMicBtn').innerHTML = '<i class="fas fa-microphone"></i>'
-    document.getElementById('muteMicBtn').classList.remove('active')
-    document.getElementById('toggleCamBtn').style.display = 'none'
+    // Прячем видео при аудио звонке
+    const rv = document.getElementById('remoteVideo')
+    const lv = document.getElementById('localVideo')
+    const aw = document.getElementById('callAvatarWrap')
+    if (rv) rv.style.display = 'none'
+    if (lv) lv.style.display = 'none'
+    if (aw) aw.style.display = 'flex'
+
+    // Камера кнопка только при видео
+    const camBtn = document.getElementById('toggleCamBtn')
+    if (camBtn) camBtn.style.display = callType === 'video' ? 'flex' : 'none'
+
+    // Сброс микрофона
+    const micBtn = document.getElementById('muteMicBtn')
+    if (micBtn) { micBtn.innerHTML = '<i class="fas fa-microphone"></i>'; micBtn.classList.remove('active') }
 
     screen.style.display = 'flex'
 }
 function hideActiveCallScreen() {
-    const s = document.getElementById('activeCallScreen')
-    if (s) { s.style.display = 'none' }
+    const s = document.getElementById('activeCallModal')
+    if (s) s.style.display = 'none'
     const rv = document.getElementById('remoteVideo')
     const lv = document.getElementById('localVideo')
-    if (rv) rv.srcObject = null
-    if (lv) lv.srcObject = null
+    if (rv) { rv.srcObject = null; rv.style.display = 'none' }
+    if (lv) { lv.srcObject = null; lv.style.display = 'none' }
+    const ra = document.getElementById('remoteCallAudio')
+    if (ra) { ra.srcObject = null; ra.remove() }
 }
+
+// ── Звуки звонка ─────────────────────────────────────────
+function makeCallTone(freqs, durs, vol = 0.3) {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)()
+        let t = ctx.currentTime
+        freqs.forEach((freq, i) => {
+            const dur = durs[i] || 0.15
+            const osc = ctx.createOscillator()
+            const gain = ctx.createGain()
+            osc.connect(gain); gain.connect(ctx.destination)
+            osc.frequency.value = freq; osc.type = 'sine'
+            gain.gain.setValueAtTime(vol, t)
+            gain.gain.exponentialRampToValueAtTime(0.001, t + dur)
+            osc.start(t); osc.stop(t + dur)
+            t += dur + 0.05
+        })
+        setTimeout(() => { try { ctx.close() } catch(e) {} }, (t - ctx.currentTime + 0.5) * 1000)
+    } catch(e) {}
+}
+function playCallConnectedSound()  { makeCallTone([880, 1100], [0.12, 0.15]) }
+function playCallEndSound()        { makeCallTone([440, 330, 220], [0.1, 0.12, 0.18], 0.25) }
+function playCallDeclinedSound()   { makeCallTone([330, 220], [0.18, 0.25], 0.25) }
 
 // ── Рингтон (синтезированный через Web Audio) ────────────
 let _ringtoneCtx = null, _ringtoneNodes = []
