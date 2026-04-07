@@ -4738,10 +4738,10 @@ function toggleSpeaker() {
 function startCallTimer() {
     stopCallTimer()
     callSeconds = 0
-    const statusEl = document.getElementById('callStatus')
     callTimer = setInterval(() => {
         callSeconds++
-        if (statusEl) statusEl.textContent = formatCallTime(callSeconds)
+        const el = document.getElementById('callTimer')
+        if (el) el.textContent = formatCallTime(callSeconds)
     }, 1000)
 }
 function stopCallTimer() {
@@ -4757,21 +4757,20 @@ function showIncomingCallScreen(phone, name, type) {
     const screen = document.getElementById('incomingCallModal')
     if (!screen) return
     const displayName = name || phone
-    document.getElementById('incomingCallName').textContent = displayName
-    document.getElementById('incomingCallType').textContent =
-        type === 'video' ? '📹 Входящий видео звонок' : '📞 Входящий аудио звонок'
 
-    // Аватар
+    const nameEl = document.getElementById('incomingCallName')
+    const typeEl = document.getElementById('incomingCallType')
+    if (nameEl) nameEl.textContent = displayName
+    if (typeEl) typeEl.textContent = type === 'video' ? 'видео' : 'аудио'
+
     const av = document.getElementById('incomingCallAvatar')
-    const cached = userCache[phone]
-    if (cached?.avatar) av.innerHTML = `<img src="${cached.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
-    else av.innerHTML = `<span>${(displayName[0]||'?').toUpperCase()}</span>`
-
-    // Кнопки ответа
-    document.getElementById('acceptVideoBtn').style.display = type === 'video' ? 'flex' : 'none'
+    if (av) {
+        const cached = userCache[phone]
+        if (cached?.avatar) av.innerHTML = `<img src="${cached.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
+        else av.innerHTML = `<span>${(displayName[0]||'?').toUpperCase()}</span>`
+    }
 
     screen.style.display = 'flex'
-    screen.style.animation = 'callSlideIn 0.3s cubic-bezier(0.34,1.56,0.64,1)'
 }
 function hideIncomingCallScreen() {
     const s = document.getElementById('incomingCallModal')
@@ -4784,17 +4783,34 @@ function showActiveCallScreen(phone, status) {
     const cached = userCache[phone]
     const name = cached?.name || cached?.username || phone
 
-    document.getElementById('activeCallName').textContent = name
-    document.getElementById('callStatus').textContent = status
+    const nameEl   = document.getElementById('activeCallName')
+    const statusEl = document.getElementById('activeCallStatus')
+    const timerEl  = document.getElementById('callTimer')
+    const av       = document.getElementById('activeCallAvatar')
+    const micBtn   = document.getElementById('muteMicBtn')
+    const camBtn   = document.getElementById('toggleCamBtn')
+    const awrap    = document.getElementById('callAvatarWrap')
+    const rv       = document.getElementById('remoteVideo')
+    const lv       = document.getElementById('localVideo')
 
-    const av = document.getElementById('activeCallAvatar')
-    if (cached?.avatar) av.innerHTML = `<img src="${cached.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
-    else av.innerHTML = `<span>${(name[0]||'?').toUpperCase()}</span>`
+    if (nameEl)   nameEl.textContent = name
+    if (statusEl) { statusEl.textContent = status; statusEl.style.display = 'block' }
+    if (timerEl)  { timerEl.textContent = '0:00'; timerEl.style.display = 'none' }
 
-    // Сброс кнопок
-    document.getElementById('muteMicBtn').innerHTML = '<i class="fas fa-microphone"></i>'
-    document.getElementById('muteMicBtn').classList.remove('active')
-    document.getElementById('toggleCamBtn').style.display = 'none'
+    if (av) {
+        if (cached?.avatar)
+            av.innerHTML = `<img src="${cached.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
+        else
+            av.innerHTML = `<span>${(name[0]||'?').toUpperCase()}</span>`
+    }
+
+    // При аудио — прячем видео, показываем аватар
+    if (rv) rv.style.display = 'none'
+    if (lv) lv.style.display = 'none'
+    if (awrap) awrap.style.display = 'flex'
+    if (camBtn) camBtn.style.display = callType === 'video' ? 'flex' : 'none'
+
+    if (micBtn) { micBtn.innerHTML = '<i class="fas fa-microphone"></i>'; micBtn.classList.remove('active') }
 
     screen.style.display = 'flex'
 }
