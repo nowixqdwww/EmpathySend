@@ -72,6 +72,14 @@ async def get_db():
         raise
 
 # Функция для создания безопасного имени файла
+def get_avatar_url(avatar: str) -> str:
+    """Возвращает правильный URL аватарки — data URI или /avatars/filename"""
+    if not avatar:
+        return None
+    if avatar.startswith('data:') or avatar.startswith('http'):
+        return avatar
+    return f"/avatars/{avatar}"
+
 def create_safe_filename(phone: str, extension: str) -> str:
     phone_hash = hashlib.md5(phone.encode()).hexdigest()[:16]
     return f"avatar_{phone_hash}{extension}"
@@ -455,7 +463,7 @@ async def get_user(phone: str):
             "username": user['username'],
             "name": user['name'],
             "bio": user['bio'] or "",
-            "avatar": user['avatar'] if user['avatar'] else None
+            "avatar": get_avatar_url(user['avatar'])
         }
         
     except Exception as e:
@@ -1140,7 +1148,7 @@ async def search_user(data: SearchUser):
             "username": user['username'],
             "name": user['name'],
             "bio": user['bio'] or "",
-            "avatar": user['avatar'] if user['avatar'] else None
+            "avatar": get_avatar_url(user['avatar'])
         }
         
     except Exception as e:
@@ -1179,7 +1187,7 @@ async def search_users(query: str, request: Request):
                 "phone": user['phone'],
                 "username": user['username'],
                 "name": user['name'],
-                "avatar": user['avatar'] if user['avatar'] else None,
+                "avatar": get_avatar_url(user['avatar']),
                 "displayName": user['name'] or user['username'] or user['phone']
             })
         
@@ -1227,7 +1235,7 @@ async def get_users(me: str):
                 "username": user_data['username'],
                 "name": user_data['name'],
                 "displayName": display_name,
-                "avatar": user_data['avatar'] if user_data['avatar'] else None,
+                "avatar": get_avatar_url(user_data['avatar']),
                 "online": phone in clients,
                 "last": last_msg['text'] if last_msg else None,
                 "last_ts": last_msg['timestamp'].isoformat() if last_msg and last_msg['timestamp'] else None,
