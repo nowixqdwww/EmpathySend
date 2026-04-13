@@ -4454,6 +4454,30 @@ window.handleChatWallpaperUpload = handleChatWallpaperUpload
 
 // ============= WEBRTC ЗВОНКИ =============
 
+// ── Звуки звонка ─────────────────────────────────────────
+function makeCallTone(freqs, durs, vol) {
+    vol = vol || 0.3
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)()
+        let t = ctx.currentTime
+        freqs.forEach(function(f, i) {
+            const dur = durs[i] || 0.15
+            const osc = ctx.createOscillator()
+            const gain = ctx.createGain()
+            osc.connect(gain); gain.connect(ctx.destination)
+            osc.frequency.value = f; osc.type = 'sine'
+            gain.gain.setValueAtTime(vol, t)
+            gain.gain.exponentialRampToValueAtTime(0.001, t + dur)
+            osc.start(t); osc.stop(t + dur)
+            t += dur + 0.05
+        })
+        setTimeout(function() { try { ctx.close() } catch(e) {} }, (t + 0.5) * 1000)
+    } catch(e) {}
+}
+function playCallConnectedSound()  { makeCallTone([880, 1100], [0.12, 0.15]) }
+function playCallEndSound()        { makeCallTone([440, 330, 220], [0.1, 0.12, 0.18], 0.25) }
+function playCallDeclinedSound()   { makeCallTone([330, 220], [0.18, 0.25], 0.25) }
+
 const STUN_SERVERS = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -4869,30 +4893,6 @@ function hideActiveCallScreen() {
     if (rv) rv.srcObject = null
     if (lv) lv.srcObject = null
 }
-
-// ── Звуки звонка ─────────────────────────────────────────
-function makeCallTone(freqs, durs, vol) {
-    vol = vol || 0.3
-    try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)()
-        let t = ctx.currentTime
-        freqs.forEach(function(f, i) {
-            const dur = durs[i] || 0.15
-            const osc = ctx.createOscillator()
-            const gain = ctx.createGain()
-            osc.connect(gain); gain.connect(ctx.destination)
-            osc.frequency.value = f; osc.type = 'sine'
-            gain.gain.setValueAtTime(vol, t)
-            gain.gain.exponentialRampToValueAtTime(0.001, t + dur)
-            osc.start(t); osc.stop(t + dur)
-            t += dur + 0.05
-        })
-        setTimeout(function() { try { ctx.close() } catch(e) {} }, (t + 0.5) * 1000)
-    } catch(e) {}
-}
-function playCallConnectedSound()  { makeCallTone([880, 1100], [0.12, 0.15]) }
-function playCallEndSound()        { makeCallTone([440, 330, 220], [0.1, 0.12, 0.18], 0.25) }
-function playCallDeclinedSound()   { makeCallTone([330, 220], [0.18, 0.25], 0.25) }
 
 // ── Рингтон (синтезированный через Web Audio) ────────────
 let _ringtoneCtx = null, _ringtoneNodes = []
