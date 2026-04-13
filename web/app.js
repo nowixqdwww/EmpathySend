@@ -687,7 +687,7 @@ async function showUserProfile(phone, isMyProfile = false) {
         
         const modalAvatar = document.getElementById('modalAvatarText')
         if (user.avatar && (isMyProfile || settings.avatar_privacy !== 'nobody')) {
-            modalAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerText='?'">`
+            modalAvatar.innerHTML = `<img src="${_getAvatarUrl(user.avatar)}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerText='?'">`
         } else {
             modalAvatar.innerText = '?'
         }
@@ -729,7 +729,7 @@ async function showUserProfile(phone, isMyProfile = false) {
                 
                 const previewAvatar = document.getElementById('previewAvatarText')
                 if (user.avatar) {
-                    previewAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`
+                    previewAvatar.innerHTML = `<img src="${_getAvatarUrl(user.avatar)}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`
                 } else {
                     previewAvatar.innerText = '?'
                 }
@@ -2251,7 +2251,7 @@ function createChatElement(chat) {
     
     let avatarHtml
     if (chat.avatar) {
-        avatarHtml = `<img src="${chat.avatar}" class="chat-avatar-img" alt="avatar" onerror="this.onerror=null; this.parentElement.innerText='?'">`
+        avatarHtml = `<img src="${_getAvatarUrl(chat.avatar)}" class="chat-avatar-img" alt="avatar" onerror="this.onerror=null; this.parentElement.innerText='?'">`
     } else {
         avatarHtml = '?'
     }
@@ -2336,7 +2336,7 @@ function updateChatInList(phone, lastText, incrementUnread = false) {
         const cached = userCache[phone]
         const displayName = cached?.name || cached?.username || phone
         const avatarHtml = cached?.avatar
-            ? `<img src="${cached.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
+            ? `<img src="${_getAvatarUrl(cached.avatar)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
             : `<span>${(displayName[0] || '?').toUpperCase()}</span>`
         chatEl = document.createElement('div')
         chatEl.className = 'chatItem'
@@ -2360,7 +2360,7 @@ function updateChatInList(phone, lastText, incrementUnread = false) {
                 const nameEl = chatEl.querySelector('.chat-name')
                 if (nameEl) nameEl.textContent = user.name || user.username || phone
                 const av = chatEl.querySelector('.chat-avatar')
-                if (av && user.avatar) av.innerHTML = `<img src="${user.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
+                if (av && user.avatar) av.innerHTML = `<img src="${_getAvatarUrl(user.avatar)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
                 const dot = chatEl.querySelector('.chat-status')
                 if (dot) dot.className = `chat-status ${user.online ? '' : 'offline'}`
                 chatEl.onclick = () => openChat(phone, user.name || user.username || phone)
@@ -2466,7 +2466,7 @@ function openChat(phone, displayName) {
             
             const chatAvatar = document.getElementById('chatAvatarText')
             if (user.avatar) {
-                chatAvatar.innerHTML = `<img src="${user.avatar}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerText='?'">`
+                chatAvatar.innerHTML = `<img src="${_getAvatarUrl(user.avatar)}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerText='?'">`
             } else {
                 chatAvatar.innerText = '?'
             }
@@ -2933,7 +2933,7 @@ function displaySearchResults(users) {
         
         let avatarHtml
         if (user.avatar) {
-            avatarHtml = `<img src="${user.avatar}" alt="avatar">`
+            avatarHtml = `<img src="${_getAvatarUrl(user.avatar)}" alt="avatar">`
         } else {
             avatarHtml = '?'
         }
@@ -4495,8 +4495,12 @@ async function startCall(type) {
     // Показываем экран звонка
     showActiveCallScreen(callPeer, 'Вызов...')
     if (type === 'video') {
-        document.getElementById('localVideo').srcObject = localStream
-        document.getElementById('toggleCamBtn').style.display = 'flex'
+        const lv = document.getElementById('localVideo')
+        const aw = document.getElementById('callAvatarWrap')
+        if (lv) { lv.srcObject = localStream; lv.style.display = 'block' }
+        if (aw) aw.style.display = 'none'
+        const camBtn = document.getElementById('toggleCamBtn')
+        if (camBtn) camBtn.style.display = 'flex'
     }
 
     // Разлочиваем AudioContext
@@ -4809,7 +4813,7 @@ function showIncomingCallScreen(phone, name, type) {
     const av = document.getElementById('incomingCallAvatar')
     if (av) {
         const cached = userCache[phone]
-        if (cached?.avatar) av.innerHTML = `<img src="${cached.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
+        if (cached?.avatar) av.innerHTML = `<img src="${_getAvatarUrl(cached.avatar)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
         else av.innerHTML = `<span>${(displayName[0]||'?').toUpperCase()}</span>`
     }
 
@@ -4842,7 +4846,7 @@ function showActiveCallScreen(phone, status) {
 
     if (av) {
         if (cached?.avatar)
-            av.innerHTML = `<img src="${cached.avatar}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
+            av.innerHTML = `<img src="${_getAvatarUrl(cached.avatar)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">`
         else
             av.innerHTML = `<span>${(name[0]||'?').toUpperCase()}</span>`
     }
@@ -4865,6 +4869,30 @@ function hideActiveCallScreen() {
     if (rv) rv.srcObject = null
     if (lv) lv.srcObject = null
 }
+
+// ── Звуки звонка ─────────────────────────────────────────
+function makeCallTone(freqs, durs, vol) {
+    vol = vol || 0.3
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)()
+        let t = ctx.currentTime
+        freqs.forEach(function(f, i) {
+            const dur = durs[i] || 0.15
+            const osc = ctx.createOscillator()
+            const gain = ctx.createGain()
+            osc.connect(gain); gain.connect(ctx.destination)
+            osc.frequency.value = f; osc.type = 'sine'
+            gain.gain.setValueAtTime(vol, t)
+            gain.gain.exponentialRampToValueAtTime(0.001, t + dur)
+            osc.start(t); osc.stop(t + dur)
+            t += dur + 0.05
+        })
+        setTimeout(function() { try { ctx.close() } catch(e) {} }, (t + 0.5) * 1000)
+    } catch(e) {}
+}
+function playCallConnectedSound()  { makeCallTone([880, 1100], [0.12, 0.15]) }
+function playCallEndSound()        { makeCallTone([440, 330, 220], [0.1, 0.12, 0.18], 0.25) }
+function playCallDeclinedSound()   { makeCallTone([330, 220], [0.18, 0.25], 0.25) }
 
 // ── Рингтон (синтезированный через Web Audio) ────────────
 let _ringtoneCtx = null, _ringtoneNodes = []
@@ -4893,6 +4921,15 @@ function stopRingtone() {
     _ringtoneNodes = []
 }
 
+// Хелпер для аватарок — поддерживаем оба формата (старый filename и новый data URI)
+function getAvatarUrl(avatar) {
+    if (!avatar) return null
+    if (avatar.startsWith('data:') || avatar.startsWith('http')) return avatar
+    // Старый формат — filename
+    return '/avatars/' + avatar
+}
+window._getAvatarUrl = getAvatarUrl
+
 window.startCall    = startCall
 window.acceptCall   = acceptCall
 window.rejectCall   = rejectCall
@@ -4904,5 +4941,5 @@ window.acceptCall   = acceptCall
 window.rejectCall   = rejectCall
 window.endCall      = endCall
 window.toggleMic    = toggleMic
-window.toggleVideo  = toggleVideo
+window.toggleVideo  = toggleCamera
 window.toggleSpeaker = toggleSpeaker
