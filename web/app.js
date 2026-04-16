@@ -4482,8 +4482,28 @@ const STUN_SERVERS = {
     iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
         { urls: 'stun:stun.cloudflare.com:3478' },
-    ]
+        // TURN — нужен для работы за строгим NAT (мобильные сети)
+        {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+        {
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+        {
+            urls: 'turns:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        }
+    ],
+    iceCandidatePoolSize: 10
 }
 
 let peerConnection = null
@@ -4496,6 +4516,7 @@ let callSeconds    = 0
 let micMuted       = false
 let camOff         = false
 let incomingOffer  = null   // сохраняем offer для принятия
+let _iceCandidateQueue = [] // буфер ICE кандидатов до setRemoteDescription
 
 // ── Начать исходящий звонок ───────────────────────────────
 async function startCall(type) {
@@ -4595,6 +4616,11 @@ async function acceptCall(withVideo) {
     localStream.getTracks().forEach(t => peerConnection.addTrack(t, localStream))
 
     await peerConnection.setRemoteDescription({ type: 'offer', sdp: incomingOffer.sdp })
+    // Применяем буферизованные ICE кандидаты
+    for (const c of _iceCandidateQueue) {
+        try { await peerConnection.addIceCandidate(c) } catch(e) {}
+    }
+    _iceCandidateQueue = []
     const answer = await peerConnection.createAnswer()
     await peerConnection.setLocalDescription(answer)
 
@@ -4621,11 +4647,11 @@ function rejectCall() {
 function endCall() {
     stopRingtone()
     clearTimeout(window._callTimeout)
-    const peer = callPeer  // сохраняем до cleanupCall который обнуляет
-    if (peer) {
-        ws?.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ action: 'call_end', to: peer }))
+    const peer = callPeer
+    if (peer && ws && ws.readyState === WebSocket.OPEN) {
+        try { ws.send(JSON.stringify({ action: 'call_end', to: peer })) } catch(e) {}
     }
-    playCallEndSound()
+    try { playCallEndSound() } catch(e) {}
     cleanupCall()
 }
 
@@ -4648,6 +4674,7 @@ function resetCallState() {
     callType = null; callDirection = null; callPeer = null
     micMuted = false; camOff = false; incomingOffer = null
     _callConnectedFired = false
+    _iceCandidateQueue = []
 }
 
 // ── PeerConnection события ───────────────────────────────
@@ -4742,25 +4769,33 @@ async function handleCallSignal(data) {
             clearTimeout(window._callTimeout)
             stopRingtone()
             await peerConnection.setRemoteDescription({ type: 'answer', sdp: data.sdp })
+            // Применяем буферизованные ICE кандидаты
+            for (const c of _iceCandidateQueue) {
+                try { await peerConnection.addIceCandidate(c) } catch(e) {}
+            }
+            _iceCandidateQueue = []
             break
 
         case 'call_ice':
             if (!peerConnection) return
-            try {
-                await peerConnection.addIceCandidate(data.candidate)
-            } catch(e) {}
+            if (!data.candidate) break
+            if (peerConnection.remoteDescription) {
+                try { await peerConnection.addIceCandidate(data.candidate) } catch(e) {}
+            } else {
+                _iceCandidateQueue.push(data.candidate)
+            }
             break
 
         case 'call_reject':
             stopRingtone()
-            playCallDeclinedSound()
+            try { playCallDeclinedSound() } catch(e) {}
             showToast('Звонок отклонён')
             cleanupCall()
             break
 
         case 'call_end':
             stopRingtone()
-            playCallEndSound()
+            try { playCallEndSound() } catch(e) {}
             if (data.reason === 'offline') showToast('Пользователь не в сети')
             else showToast('Звонок завершён')
             cleanupCall()
@@ -4768,7 +4803,7 @@ async function handleCallSignal(data) {
 
         case 'call_busy':
             stopRingtone()
-            playCallDeclinedSound()
+            try { playCallDeclinedSound() } catch(e) {}
             showToast('Абонент занят')
             cleanupCall()
             break
