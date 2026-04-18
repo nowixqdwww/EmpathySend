@@ -4647,11 +4647,14 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
     position: fixed;
     inset: 0;
     z-index: 9999;
-    display: flex;
+    display: none;
     align-items: center;
     justify-content: center;
     background: rgba(0,0,0,0.5);
     backdrop-filter: blur(8px);
+}
+.call-modal.active {
+    display: flex;
 }
 
 /* Входящий звонок — по центру */
