@@ -4896,11 +4896,11 @@ function showIncomingCallScreen(phone, name, type) {
         else av.innerHTML = `<span>${(displayName[0]||'?').toUpperCase()}</span>`
     }
 
-    screen.style.display = 'flex'
+    screen.classList.add('active')
 }
 function hideIncomingCallScreen() {
     const s = document.getElementById('incomingCallModal')
-    if (s) s.style.display = 'none'
+    if (s) { s.style.display = ''; s.classList.remove('active') }
 }
 
 function showActiveCallScreen(phone, status) {
@@ -4942,11 +4942,15 @@ function showActiveCallScreen(phone, status) {
 }
 function hideActiveCallScreen() {
     const s = document.getElementById('activeCallModal')
-    if (s) { s.style.display = 'none' }
+    if (s) { s.style.display = ''; s.classList.remove('active') }
     const rv = document.getElementById('remoteVideo')
     const lv = document.getElementById('localVideo')
-    if (rv) rv.srcObject = null
-    if (lv) lv.srcObject = null
+    const aw = document.getElementById('callAvatarWrap')
+    if (rv) { rv.srcObject = null; rv.style.display = 'none' }
+    if (lv) { lv.srcObject = null; lv.style.display = 'none' }
+    if (aw) aw.style.display = 'flex'
+    // Обновляем статусы после звонка
+    setTimeout(refreshOnlineStatuses, 1500)
 }
 
 // ── Рингтон (синтезированный через Web Audio) ────────────
