@@ -4663,8 +4663,26 @@ function sendCallSignal(action, to) {
 
 function cleanupCall() {
     stopCallTimer()
-    if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null }
-    if (peerConnection) { peerConnection.close(); peerConnection = null }
+    // Останавливаем все медиапотоки
+    if (localStream) {
+        localStream.getTracks().forEach(t => t.stop())
+        localStream = null
+    }
+    if (remoteAudio) {
+        remoteAudio.pause()
+        remoteAudio.srcObject = null
+        try { remoteAudio.remove() } catch(e) {}
+        remoteAudio = null
+    }
+    // Закрываем соединение
+    if (peerConnection) {
+        peerConnection.onconnectionstatechange = null
+        peerConnection.oniceconnectionstatechange = null
+        peerConnection.ontrack = null
+        peerConnection.onicecandidate = null
+        peerConnection.close()
+        peerConnection = null
+    }
     hideActiveCallScreen()
     hideIncomingCallScreen()
     resetCallState()
@@ -4716,20 +4734,22 @@ function setupPeerEvents() {
     peerConnection.onconnectionstatechange = () => {
         const state = peerConnection?.connectionState
         if (state === 'connected') onCallConnected()
-        else if (state === 'failed' || state === 'disconnected') {
+        else if (state === 'failed') {
+            // disconnected — временное, ждём failed
             showToast('Соединение прервано')
             cleanupCall()
         }
     }
 
-    // Fallback для mobile Safari — connectionState может не обновляться
+    // Fallback для mobile Safari
     peerConnection.oniceconnectionstatechange = () => {
         const s = peerConnection?.iceConnectionState
         if (s === 'connected' || s === 'completed') onCallConnected()
-        else if (s === 'failed' || s === 'disconnected') {
+        else if (s === 'failed') {
             showToast('Соединение прервано')
             cleanupCall()
         }
+        // 'disconnected' — игнорируем, это временное состояние
     }
 }
 
