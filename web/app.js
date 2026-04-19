@@ -4517,6 +4517,7 @@ let micMuted       = false
 let camOff         = false
 let incomingOffer  = null   // сохраняем offer для принятия
 let _iceCandidateQueue = [] // буфер ICE кандидатов до setRemoteDescription
+let remoteAudio = null   // <audio> элемент для удалённого звука
 
 // ── Начать исходящий звонок ───────────────────────────────
 async function startCall(type) {
@@ -4693,6 +4694,7 @@ function resetCallState() {
     micMuted = false; camOff = false; incomingOffer = null
     _callConnectedFired = false
     _iceCandidateQueue = []
+    remoteAudio = null
 }
 
 // ── PeerConnection события ───────────────────────────────
@@ -4717,8 +4719,7 @@ function setupPeerEvents() {
             document.getElementById('callAvatarWrap').style.display = 'none'
         } else {
             // Аудиодорожка — в отдельный <audio> чтобы точно воспроизводилось
-            let remoteAudio = document.getElementById('remoteCallAudio')
-            if (!remoteAudio) {
+                if (!remoteAudio) {
                 remoteAudio = document.createElement('audio')
                 remoteAudio.id = 'remoteCallAudio'
                 remoteAudio.autoplay = true
