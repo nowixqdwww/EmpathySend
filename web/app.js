@@ -4938,7 +4938,7 @@ function showActiveCallScreen(phone, status) {
 
     if (micBtn) { micBtn.innerHTML = '<i class="fas fa-microphone"></i>'; micBtn.classList.remove('active') }
 
-    screen.style.display = 'flex'
+    screen.classList.add('active')
 }
 function hideActiveCallScreen() {
     const s = document.getElementById('activeCallModal')
