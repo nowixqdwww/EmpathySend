@@ -4809,22 +4809,13 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
 .call-ctrl-btn.active { background: rgba(255,255,255,0.35); }
 
 
-/* ── Мобильная навигационная панель (safe area) ── */
-:root {
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
-}
 
-/* Основной layout занимает весь экран */
-html, body { height: 100%; }
-.app { height: 100dvh; height: 100vh; } /* fallback для старых браузеров */
-
-/* Строка ввода — отступ снизу равный высоте навигационной панели */
-.input-wrap {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    background: var(--input-area-bg);
-}
-
-/* Сайдбар тоже учитывает safe area */
-.sidebar {
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+/* ── Safe area для мобильных ── */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+    .input-area {
+        padding-bottom: calc(10px + env(safe-area-inset-bottom)) !important;
+    }
+    .voice-record-area {
+        padding-bottom: calc(8px + env(safe-area-inset-bottom)) !important;
+    }
 }
