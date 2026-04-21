@@ -1088,6 +1088,7 @@ body {
 .input-area {
     display: flex;
     padding: 10px 12px;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom));
     background: var(--input-area-bg);
     border-top: 1px solid var(--border);
     gap: 8px;
@@ -4176,7 +4177,7 @@ button:active:not(:disabled) {
 body { background: var(--bg-primary); }
 #messages, .empty-chat { background: var(--messages-bg) !important; }
 .chat-header  { background: var(--chat-header-bg) !important; border-color: var(--border) !important; }
-.input-area   { background: var(--input-area-bg)  !important; border-color: var(--border) !important; }
+.input-area   { background: var(--input-area-bg)  !important; border-color: var(--border) !important; padding-bottom: calc(10px + env(safe-area-inset-bottom)) !important; }
 
 /* ── Модалки ── */
 .modal { background: var(--modal-overlay) !important; }
@@ -4805,3 +4806,14 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
 .call-ctrl-btn:active { transform: scale(0.88); }
 .call-ctrl-btn.danger { background: #FF3B30; }
 .call-ctrl-btn.active { background: rgba(255,255,255,0.35); }
+
+/* ── Мобильная навигационная панель ── */
+.app {
+    height: 100dvh !important; /* dvh учитывает мобильный браузер */
+}
+body {
+    padding-bottom: env(safe-area-inset-bottom);
+}
+.chat-block {
+    padding-bottom: env(safe-area-inset-bottom);
+}
