@@ -4935,7 +4935,7 @@ function showActiveCallScreen(phone, status) {
     if (rv) rv.style.display = 'none'
     if (lv) lv.style.display = 'none'
     if (awrap) awrap.style.display = 'flex'
-    if (camBtn) camBtn.style.display = callType === 'video' ? 'flex' : 'none'
+    if (camBtn) camBtn.style.display = 'none'  // видеозвонки отключены
 
     if (micBtn) { micBtn.innerHTML = '<i class="fas fa-microphone"></i>'; micBtn.classList.remove('active') }
 
@@ -4990,16 +4990,16 @@ function getAvatarUrl(avatar) {
 }
 window._getAvatarUrl = getAvatarUrl
 
+function startAudioCall() { startCall('audio') }
+window.startAudioCall = startAudioCall
 window.startCall    = startCall
 window.acceptCall   = acceptCall
 window.rejectCall   = rejectCall
 window.endCall      = endCall
 window.toggleMic    = toggleMic
-window.toggleCamera = toggleCamera
 window.toggleSpeaker = toggleSpeaker
 window.acceptCall   = acceptCall
 window.rejectCall   = rejectCall
 window.endCall      = endCall
 window.toggleMic    = toggleMic
-window.toggleVideo  = toggleCamera
 window.toggleSpeaker = toggleSpeaker
