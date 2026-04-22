@@ -3024,7 +3024,7 @@ body {
 #inputArea.input-hidden {
     opacity: 0;
     transform: translateY(8px);
-    pointer-events: auto;
+    pointer-events: none;
     position: absolute;
     width: 100%;
 }
@@ -3810,7 +3810,7 @@ button:active:not(:disabled) {
     opacity: 0;
     transform: scale(0.88);
     transition: opacity 0.18s ease, transform 0.25s cubic-bezier(0.34,1.56,0.64,1);
-    pointer-events: auto;
+    pointer-events: none;
 }
 
 .context-menu-item:hover::before {
