@@ -189,6 +189,7 @@ function insertEmoji(emoji) {
     try { input.setSelectionRange(s + [...emoji].length, s + [...emoji].length) } catch(_) {}
     input.focus()
     if (navigator.vibrate) navigator.vibrate(10)
+    updateInputButtons()  // обновляем кнопки после вставки эмодзи
 }
 
 function cleanPhone(phone) {
