@@ -4991,6 +4991,28 @@ function getAvatarUrl(avatar) {
 }
 window._getAvatarUrl = getAvatarUrl
 
+// Фикс для клавиатуры на мобильных
+function handleKeyboardFix() {
+    const input = document.querySelector('.message-input');
+    const chatBlock = document.querySelector('.chat-block');
+    const messages = document.querySelector('.messages');
+    
+    if (!input) return;
+    
+    input.addEventListener('focus', () => {
+        setTimeout(() => {
+            if (messages) {
+                messages.scrollTop = messages.scrollHeight;
+            }
+            if (chatBlock) {
+                chatBlock.scrollIntoView({ block: 'end', behavior: 'smooth' });
+            }
+        }, 300);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', handleKeyboardFix);
+
 function startAudioCall() { startCall('audio') }
 window.startAudioCall = startAudioCall
 window.startCall    = startCall
