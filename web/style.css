@@ -4820,3 +4820,66 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
 .voice-record-area {
     padding-bottom: max(8px, calc(8px + env(safe-area-inset-bottom))) !important;
 }
+
+/* ═══════════════════════════════════════════════════════
+   FIX: Клавиатура и панель навигации
+═══════════════════════════════════════════════════════ */
+
+/* 1. Главный контейнер — используем height: 100% вместо dvh */
+.app, .chat-area, .chat-block {
+    height: 100% !important;
+    min-height: -webkit-fill-available;
+}
+
+/* 2. HTML и body — тоже 100% */
+html, body {
+    height: 100%;
+    position: relative;
+}
+
+/* 3. Фикс для iOS — при появлении клавиатуры */
+body {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+}
+
+/* 4. Контейнер сообщений — должен скроллиться, а не растягиваться */
+.messages {
+    flex: 1;
+    min-height: 0; /* CRUCIAL — без этого flex не сжимается */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 5. Chat block — flex колонка с min-height: 0 */
+.chat-block {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0; /* CRUCIAL */
+}
+
+/* 6. Input area — уже есть safe-area-inset-bottom, но добавим динамику */
+.input-area {
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 10px));
+    background: var(--input-area-bg);
+    flex-shrink: 0;
+}
+
+/* 7. Для Android — принудительный сдвиг при фокусе */
+@media (max-width: 768px) {
+    .chat-block:focus-within {
+        /* Небольшой запас, чтобы клавиатура не перекрывала */
+        scroll-margin-bottom: 20px;
+    }
+    
+    /* Убираем position: fixed с body на мобильных при фокусе */
+    body.keyboard-open {
+        position: relative;
+        overflow: visible;
+    }
+}
