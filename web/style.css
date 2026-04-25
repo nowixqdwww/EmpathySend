@@ -3030,7 +3030,7 @@ body {
 
 /* Строка записи */
 .voice-record-area {
-    display: none;
+    display: flex;
     align-items: center;
     gap: 10px;
     padding: 8px 12px;
@@ -3039,10 +3039,10 @@ body {
     transform: translateY(-8px);
     pointer-events: none;
     transition: opacity 0.2s ease, transform 0.2s ease;
-    /*position: absolute;*/
+    position: absolute;
     width: 100%;
     box-sizing: border-box;
-    /*z-index: -1;*/
+    z-index: -1;
     visibility: hidden;
 }
 .voice-record-area.record-visible {
@@ -3052,7 +3052,6 @@ body {
     position: relative;
     z-index: 1;
     visibility: visible;
-    display: flex;
 }
 
 /* Кнопка отмены записи */
