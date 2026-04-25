@@ -4824,3 +4824,6 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
 .voice-record-area {
     padding-bottom: max(8px, calc(8px + env(safe-area-inset-bottom))) !important;
 }
+.voice-record-area {
+    display: none;
+}
