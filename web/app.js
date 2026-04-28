@@ -2549,6 +2549,11 @@ function showContextMenu(event, type, data) {
         selectedMessageElement = data.element
         selectedMessageText = data.text || ''
         selectedMessageSender = data.sender || currentUser
+        // Скрываем "Удалить" для чужих сообщений — иначе 403 от сервера
+        const _deleteBtn = document.querySelector('#messageContextMenu .context-menu-item.delete')
+        if (_deleteBtn) {
+            _deleteBtn.style.display = (selectedMessageSender === currentUser) ? '' : 'none'
+        }
     } else {
         menuId = 'chatContextMenu'
         selectedChatPhone = data.phone
@@ -3728,11 +3733,15 @@ function createVideoPlayer(url, isMe, knownDuration) {
         timeEl.textContent = fmt(Math.max(0, video.duration * (1 - pct)))
         if (pendingSeek !== null) return
         pendingSeek = pct
+        const _capturedPct = pct  // захватываем до таймаута, pendingSeek может стать null
         setTimeout(() => {
-            if (video.duration) {
-                const t = pendingSeek * video.duration
-                if (video.fastSeek) video.fastSeek(t)
-                else video.currentTime = t
+            const dur = video.duration
+            if (pendingSeek !== null && Number.isFinite(dur) && dur > 0) {
+                const t = _capturedPct * dur
+                if (Number.isFinite(t) && t >= 0) {
+                    if (video.fastSeek) video.fastSeek(t)
+                    else video.currentTime = t
+                }
             }
             pendingSeek = null
         }, 80)
@@ -3754,6 +3763,21 @@ function createVideoPlayer(url, isMe, knownDuration) {
     document.addEventListener('mouseup', onUp)
     document.addEventListener('touchmove', onMove, { passive: false })
     document.addEventListener('touchend', onUp)
+
+    // Чистим глобальные слушатели когда элемент убирают из DOM — иначе утечка на каждое видео
+    const _cleanupVideoListeners = () => {
+        document.removeEventListener('mousemove', onMove)
+        document.removeEventListener('mouseup', onUp)
+        document.removeEventListener('touchmove', onMove)
+        document.removeEventListener('touchend', onUp)
+    }
+    const _videoObserver = new MutationObserver(() => {
+        if (!document.contains(outer)) {
+            _cleanupVideoListeners()
+            _videoObserver.disconnect()
+        }
+    })
+    _videoObserver.observe(document.body, { childList: true, subtree: true })
 
     circle.appendChild(video)
     outer.appendChild(circle)
