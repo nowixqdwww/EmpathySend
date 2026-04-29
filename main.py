@@ -53,28 +53,22 @@ DATABASE_URL = _raw_db_url.replace("postgres://", "postgresql://", 1)
 TG_BOT_TOKEN = "ВСТАВЬТЕ_ТОКЕН_СЮДА"
 # ════════════════════════════════════════════════════════════════════════
 
-_db_pool = None
-
-async def _create_pool():
+async def get_db():
+    # SSL для облачных БД (Railway, Render, Heroku, Neon)
     ssl_hosts = ["railway.app", "render.com", "heroku", "amazonaws", "neon.tech", "supabase"]
     use_ssl = any(h in DATABASE_URL for h in ssl_hosts)
-    kwargs = dict(min_size=2, max_size=10, command_timeout=30)
-    if use_ssl:
-        import ssl as _ssl
-        ctx = _ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = _ssl.CERT_NONE
-        kwargs["ssl"] = ctx
-    return await asyncpg.create_pool(DATABASE_URL, **kwargs)
-
-async def get_db():
-    global _db_pool
-    if _db_pool is None:
-        _db_pool = await _create_pool()
     try:
-        return await _db_pool.acquire()
+        if use_ssl:
+            import ssl as _ssl
+            ctx = _ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = _ssl.CERT_NONE
+            conn = await asyncpg.connect(DATABASE_URL, ssl=ctx)
+        else:
+            conn = await asyncpg.connect(DATABASE_URL)
+        return conn
     except Exception as e:
-        logger.error(f"DB acquire failed: {e}")
+        logger.error(f"DB connection failed: {e}")
         raise
 
 # Функция для создания безопасного имени файла
@@ -266,25 +260,18 @@ async def init_db():
 @app.on_event("startup")
 async def startup():
     import asyncio
-    global _db_pool
+    # Создаём нужные директории
     for _d in [AVATAR_DIR, STICKER_DIR]:
         try: os.makedirs(_d, exist_ok=True)
         except Exception: pass
+    # Запускаем init_db в фоне — сервер стартует немедленно даже если БД недоступна
     async def safe_init():
-        global _db_pool
         try:
-            _db_pool = await _create_pool()
             await init_db()
-            logger.info("Database pool ready")
+            logger.info("Database initialized successfully")
         except Exception as e:
             logger.error(f"Database init failed: {e}")
     asyncio.create_task(safe_init())
-
-@app.on_event("shutdown")
-async def shutdown():
-    global _db_pool
-    if _db_pool:
-        await _db_pool.close()
 
 clients = {}
 
