@@ -2879,7 +2879,28 @@ function connect() {
 
             if (data.action === 'history') {
                 document.getElementById('messages').innerHTML = ''
-                data.messages.forEach(m => addMessage(m[1], m[2], m[0], m[3] === 1))
+                data.messages.forEach(m => {
+                    if (m.type === 'call') {
+                        const isMe = m.caller === currentUser
+                        let callStatus
+                        if (m.status === 'completed') callStatus = isMe ? 'outgoing' : 'incoming'
+                        else callStatus = isMe ? 'rejected' : 'missed'
+                        addCallMessage(isMe ? m.callee : m.caller, callStatus, m.duration, m.call_type, true)
+                    } else {
+                        addMessage(m.sender, m.text, m.id, m.is_read === 1)
+                    }
+                })
+            }
+
+            if (data.action === 'call_record') {
+                const isMe = data.caller === currentUser
+                const peer = isMe ? data.callee : data.caller
+                if (currentChat === peer) {
+                    let callStatus
+                    if (data.status === 'completed') callStatus = isMe ? 'outgoing' : 'incoming'
+                    else callStatus = isMe ? 'rejected' : 'missed'
+                    addCallMessage(peer, callStatus, data.duration, data.call_type, true)
+                }
             }
 
             if (['call_offer','call_answer','call_ice','call_reject','call_end','call_busy'].includes(data.action)) {
@@ -4709,9 +4730,6 @@ function endCall() {
         try { ws.send(JSON.stringify({ action: 'call_end', to: peer })) } catch(e) {}
     }
     try { playCallEndSound() } catch(e) {}
-    if (peer && currentChat === peer) {
-        addCallMessage(peer, _dir === 'outgoing' ? 'outgoing' : 'incoming', _dur)
-    }
     cleanupCall()
 }
 
@@ -4870,7 +4888,6 @@ async function handleCallSignal(data) {
             stopRingtone()
             try { playCallDeclinedSound() } catch(e) {}
             showToast('Звонок отклонён')
-            if (currentChat === data.from || currentChat === callPeer) addCallMessage(data.from || callPeer, 'rejected', 0)
             cleanupCall()
             break
 
@@ -4879,14 +4896,8 @@ async function handleCallSignal(data) {
             try { playCallEndSound() } catch(e) {}
             if (data.reason === 'offline') {
                 showToast('Пользователь не в сети')
-                if (currentChat === callPeer) addCallMessage(callPeer, 'missed', 0)
             } else {
                 showToast('Звонок завершён')
-                const _peer = data.from || callPeer
-                if (currentChat === _peer) {
-                    const _type = callDirection === 'outgoing' ? 'outgoing' : 'incoming'
-                    addCallMessage(_peer, _type, callSeconds)
-                }
             }
             cleanupCall()
             break
@@ -4895,7 +4906,6 @@ async function handleCallSignal(data) {
             stopRingtone()
             try { playCallDeclinedSound() } catch(e) {}
             showToast('Абонент занят')
-            if (currentChat === callPeer) addCallMessage(callPeer, 'rejected', 0)
             cleanupCall()
             break
     }
@@ -4944,12 +4954,24 @@ function startCallTimer() {
 function stopCallTimer() {
     if (callTimer) { clearInterval(callTimer); callTimer = null }
 }
-function addCallMessage(peer, type, duration) {
+function addCallMessage(peer, type, duration, callType, fromHistory) {
     // type: "outgoing" | "incoming" | "missed" | "rejected"
     if (!peer) return
+    if (!fromHistory && currentChat !== peer) return
     const isMe = type === "outgoing" || type === "rejected"
-    const icons = { outgoing: "fa-phone-alt", incoming: "fa-phone-alt", missed: "fa-phone-slash", rejected: "fa-phone-slash" }
-    const labels = { outgoing: "Исходящий звонок", incoming: "Входящий звонок", missed: "Пропущенный звонок", rejected: "Отклонённый звонок" }
+    const isVideo = callType === "video"
+    const icons = {
+        outgoing: isVideo ? "fa-video" : "fa-phone-alt",
+        incoming: isVideo ? "fa-video" : "fa-phone-alt",
+        missed:   isVideo ? "fa-video-slash" : "fa-phone-slash",
+        rejected: isVideo ? "fa-video-slash" : "fa-phone-slash"
+    }
+    const labels = {
+        outgoing: "Исходящий " + (isVideo ? "видеозвонок" : "звонок"),
+        incoming: "Входящий " + (isVideo ? "видеозвонок" : "звонок"),
+        missed:   "Пропущенный " + (isVideo ? "видеозвонок" : "звонок"),
+        rejected: "Отклонённый " + (isVideo ? "видеозвонок" : "звонок")
+    }
     const isMissed = type === "missed" || type === "rejected"
     const durStr = duration > 0 ? formatCallTime(duration) : ""
 
