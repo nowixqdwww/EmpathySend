@@ -4062,9 +4062,11 @@ function applyWallpaper(wp) {
     const messagesEl = document.getElementById('messages')
     if (!messagesEl) return
     if (!wp || wp.type === 'color') {
-        messagesEl.style.background = wp?.value || '#f2f2f7'
+        messagesEl.style.removeProperty('--messages-bg')
+        messagesEl.style.background = wp?.value || ''
         messagesEl.style.backgroundImage = ''
     } else if (wp.type === 'gradient') {
+        messagesEl.style.removeProperty('--messages-bg')
         messagesEl.style.background = wp.value
         messagesEl.style.backgroundImage = ''
     } else if (wp.type === 'pattern') {
@@ -4078,7 +4080,9 @@ function applyWallpaper(wp) {
         messagesEl.style.backgroundImage = p.img
         messagesEl.style.backgroundSize = p.size
     } else if (wp.type === 'image') {
-        messagesEl.style.background = 'none'
+        // Override the CSS variable so dark theme doesn't paint over the photo
+        messagesEl.style.setProperty('--messages-bg', 'transparent')
+        messagesEl.style.background = ''
         messagesEl.style.backgroundImage = `url(${wp.value})`
         messagesEl.style.backgroundSize = 'cover'
         messagesEl.style.backgroundPosition = 'center'
