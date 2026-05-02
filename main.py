@@ -218,6 +218,14 @@ async def init_db():
                 logger.info(f"Migrated {migrated} data:URI stickers to BYTEA")
 
             # Таблица голосовых сообщений
+            # Add edited column to messages if missing
+            msg_edited_exists = await conn.fetchval("""
+                SELECT EXISTS (SELECT FROM information_schema.columns
+                WHERE table_name = 'messages' AND column_name = 'edited')
+            """)
+            if not msg_edited_exists:
+                await conn.execute("ALTER TABLE messages ADD COLUMN edited BOOLEAN DEFAULT FALSE")
+
             # Calls log table
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS calls (
@@ -1380,6 +1388,43 @@ async def get_messages(user1: str, user2: str):
             logger.error(f"Error getting messages: {e}")
             return JSONResponse(status_code=500, content={"error": str(e)})
 
+class EditMessage(BaseModel):
+    user: str
+    text: str
+
+@app.patch("/message/{message_id}")
+async def edit_message(message_id: int, data: EditMessage):
+    try:
+        async with db_conn() as conn:
+            row = await conn.fetchrow(
+                "SELECT sender, receiver FROM messages WHERE id = $1 AND is_deleted = 0",
+                message_id
+            )
+            if not row:
+                return JSONResponse(status_code=404, content={"error": "Message not found"})
+            if row["sender"] != data.user:
+                return JSONResponse(status_code=403, content={"error": "Not authorized"})
+            new_text = data.text.strip()
+            if not new_text:
+                return JSONResponse(status_code=400, content={"error": "Empty text"})
+            await conn.execute(
+                "UPDATE messages SET text = $1, edited = TRUE WHERE id = $2",
+                new_text, message_id
+            )
+            receiver = row["receiver"]
+
+        # WS broadcast to both sides
+        payload = {"action": "message_edited", "id": message_id, "text": new_text}
+        for target in (data.user, receiver):
+            if target in clients:
+                try: await clients[target].send_json(payload)
+                except: clients.pop(target, None)
+
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"Error editing message: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
 @app.delete("/message/{message_id}")
 async def delete_message(message_id: int, user: str):
     try:
@@ -1635,7 +1680,7 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                     if chat_user:
                         async with db_conn() as conn2:
                             messages = await conn2.fetch("""
-                                SELECT id, sender, text, is_read, timestamp, 'msg' AS kind FROM messages
+                                SELECT id, sender, text, is_read, edited, timestamp, 'msg' AS kind FROM messages
                                 WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
                                 AND is_deleted = 0
                                 UNION ALL
@@ -1646,7 +1691,7 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                             history = []
                             for m in messages:
                                 if m['kind'] == 'msg':
-                                    history.append({"type": "msg", "id": m['id'], "sender": m['sender'], "text": m['text'], "is_read": m['is_read']})
+                                    history.append({"type": "msg", "id": m['id'], "sender": m['sender'], "text": m['text'], "is_read": m['is_read'], "edited": bool(m['edited'])})
                                 else:
                                     # fetch call details
                                     call_row = await conn2.fetchrow("SELECT caller,callee,call_type,status,duration FROM calls WHERE id=$1", m['id'])
