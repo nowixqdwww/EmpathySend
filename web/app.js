@@ -2785,6 +2785,7 @@ function connect() {
             }
 
             if (data.action === 'messages_read') {
+                const by = data.by
                 if (data.ids) data.ids.forEach(id => {
                     const el = document.querySelector(`[data-message-id="${id}"]`)
                     if (el) {
@@ -2796,8 +2797,11 @@ function connect() {
                         }
                     }
                 })
-                // Скрываем unread badge в списке чатов для текущего собеседника
-                // (это наши исходящие были прочитаны — не трогаем badge)
+                // Hide unread badge in chat list for the person who read
+                if (by) {
+                    const badge = document.querySelector(`#chat-${by.replace(/\D/g,'')} .unread-badge`)
+                    if (badge) badge.style.display = 'none'
+                }
             }
 
             if (data.action === 'message_deleted') {
