@@ -2582,24 +2582,49 @@ function showContextMenu(event, type, data) {
         }
     }
     
+    // Spring open
     menu.style.display = 'block'
     menu.style.left = x + 'px'
     menu.style.top = y + 'px'
-    
-    setTimeout(() => {
+    menu.style.transformOrigin = 'top left'
+    menu.style.transform = 'scale(0.7)'
+    menu.style.opacity = '0'
+    menu.style.transition = 'none'
+
+    requestAnimationFrame(() => {
+        // Corrects position first, then animates
         const rect = menu.getBoundingClientRect()
         if (rect.right > window.innerWidth) {
-            menu.style.left = (window.innerWidth - rect.width - 10) + 'px'
+            x = window.innerWidth - rect.width - 10
+            menu.style.left = x + 'px'
         }
         if (rect.bottom > window.innerHeight) {
-            menu.style.top = (window.innerHeight - rect.height - 10) + 'px'
+            y = window.innerHeight - rect.height - 10
+            menu.style.top = y + 'px'
         }
-    }, 0)
+        // Determine transform-origin from position on screen
+        const fromTop = y < window.innerHeight / 2
+        const fromLeft = x < window.innerWidth / 2
+        menu.style.transformOrigin = `${fromTop ? 'top' : 'bottom'} ${fromLeft ? 'left' : 'right'}`
+
+        requestAnimationFrame(() => {
+            menu.style.transition = 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s ease'
+            menu.style.transform = 'scale(1)'
+            menu.style.opacity = '1'
+        })
+    })
 }
 
 function hideContextMenus() {
-    document.getElementById('messageContextMenu').style.display = 'none'
-    document.getElementById('chatContextMenu').style.display = 'none'
+    ['messageContextMenu', 'chatContextMenu'].forEach(id => {
+        const m = document.getElementById(id)
+        if (m && m.style.display !== 'none') {
+            m.style.transition = 'transform 0.2s cubic-bezier(0.4,0,1,1), opacity 0.15s ease'
+            m.style.transform = 'scale(0.85)'
+            m.style.opacity = '0'
+            setTimeout(() => { m.style.display = 'none'; m.style.transform = ''; m.style.opacity = '' }, 160)
+        }
+    })
     selectedMessageId = null
     selectedMessageElement = null
     selectedMessageText = null
