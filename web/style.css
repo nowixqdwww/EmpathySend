@@ -1899,6 +1899,52 @@ body {
 }
 
 
+/* Call bubbles in chat */
+.call-bubble {
+    display: flex;
+    margin: 4px 12px;
+}
+.call-bubble.me { justify-content: flex-end; }
+.call-bubble.other { justify-content: flex-start; }
+
+.call-bubble-inner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-secondary);
+    border-radius: 16px;
+    padding: 10px 16px;
+    min-width: 160px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
+}
+.call-bubble-inner:active { transform: scale(0.96); }
+
+.call-bubble-icon {
+    font-size: 18px;
+    color: var(--accent, #0A84FF);
+    width: 20px;
+    text-align: center;
+    flex-shrink: 0;
+}
+.call-bubble-inner.missed .call-bubble-icon { color: #FF3B30; }
+
+.call-bubble-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.call-bubble-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+.call-bubble-inner.missed .call-bubble-label { color: #FF3B30; }
+.call-bubble-dur {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
 /* Toast уведомления */
 .toast {
     position: fixed;
