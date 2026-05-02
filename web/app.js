@@ -4703,10 +4703,15 @@ function endCall() {
     stopRingtone()
     clearTimeout(window._callTimeout)
     const peer = callPeer
+    const _dir = callDirection
+    const _dur = callSeconds
     if (peer && ws && ws.readyState === WebSocket.OPEN) {
         try { ws.send(JSON.stringify({ action: 'call_end', to: peer })) } catch(e) {}
     }
     try { playCallEndSound() } catch(e) {}
+    if (peer && currentChat === peer) {
+        addCallMessage(peer, _dir === 'outgoing' ? 'outgoing' : 'incoming', _dur)
+    }
     cleanupCall()
 }
 
@@ -4865,14 +4870,24 @@ async function handleCallSignal(data) {
             stopRingtone()
             try { playCallDeclinedSound() } catch(e) {}
             showToast('Звонок отклонён')
+            if (currentChat === data.from || currentChat === callPeer) addCallMessage(data.from || callPeer, 'rejected', 0)
             cleanupCall()
             break
 
         case 'call_end':
             stopRingtone()
             try { playCallEndSound() } catch(e) {}
-            if (data.reason === 'offline') showToast('Пользователь не в сети')
-            else showToast('Звонок завершён')
+            if (data.reason === 'offline') {
+                showToast('Пользователь не в сети')
+                if (currentChat === callPeer) addCallMessage(callPeer, 'missed', 0)
+            } else {
+                showToast('Звонок завершён')
+                const _peer = data.from || callPeer
+                if (currentChat === _peer) {
+                    const _type = callDirection === 'outgoing' ? 'outgoing' : 'incoming'
+                    addCallMessage(_peer, _type, callSeconds)
+                }
+            }
             cleanupCall()
             break
 
@@ -4880,6 +4895,7 @@ async function handleCallSignal(data) {
             stopRingtone()
             try { playCallDeclinedSound() } catch(e) {}
             showToast('Абонент занят')
+            if (currentChat === callPeer) addCallMessage(callPeer, 'rejected', 0)
             cleanupCall()
             break
     }
@@ -4928,6 +4944,33 @@ function startCallTimer() {
 function stopCallTimer() {
     if (callTimer) { clearInterval(callTimer); callTimer = null }
 }
+function addCallMessage(peer, type, duration) {
+    // type: "outgoing" | "incoming" | "missed" | "rejected"
+    if (!peer) return
+    const isMe = type === "outgoing" || type === "rejected"
+    const icons = { outgoing: "fa-phone-alt", incoming: "fa-phone-alt", missed: "fa-phone-slash", rejected: "fa-phone-slash" }
+    const labels = { outgoing: "Исходящий звонок", incoming: "Входящий звонок", missed: "Пропущенный звонок", rejected: "Отклонённый звонок" }
+    const isMissed = type === "missed" || type === "rejected"
+    const durStr = duration > 0 ? formatCallTime(duration) : ""
+
+    const div = document.createElement("div")
+    div.className = "message call-bubble " + (isMe ? "me" : "other")
+    div.innerHTML = `
+        <div class="call-bubble-inner${isMissed ? " missed" : ""}">
+            <i class="fas ${icons[type]} call-bubble-icon"></i>
+            <div class="call-bubble-info">
+                <span class="call-bubble-label">${labels[type]}</span>
+                ${durStr ? `<span class="call-bubble-dur">${durStr}</span>` : ""}
+            </div>
+        </div>`
+
+    const messagesDiv = document.getElementById("messages")
+    if (messagesDiv) {
+        messagesDiv.appendChild(div)
+        messagesDiv.scrollTop = messagesDiv.scrollHeight
+    }
+}
+
 function formatCallTime(s) {
     const m = Math.floor(s / 60), sec = s % 60
     return `${m}:${sec.toString().padStart(2,'0')}`
