@@ -4230,7 +4230,7 @@ async function saveWallpaper() {
     try {
         // Не сохраняем base64 изображения на сервере — слишком большие
         const serverTheme = { ...currentTheme }
-        if (serverTheme.wallpaper?.type === 'image') serverTheme.wallpaper = { id: 'custom', type: 'color', value: '#1c1c1e' }
+        if (serverTheme.wallpaper?.type === 'image' && serverTheme.wallpaper.value?.startsWith('data:')) serverTheme.wallpaper = { id: 'custom', type: 'color', value: '#1c1c1e' }
         await fetch(`/api/theme/${encodeURIComponent(currentUser)}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -4407,15 +4407,29 @@ function previewChatWallpaper(type, value) {
     updateChatThemePreview()
 }
 
-function handleChatWallpaperUpload(input) {
+async function handleChatWallpaperUpload(input) {
     const file = input.files[0]
     if (!file) return
+    // Show base64 preview immediately while uploading
     const reader = new FileReader()
     reader.onload = e => {
         pendingChatTheme.wallpaper = { id: 'custom', type: 'image', value: e.target.result }
         updateChatThemePreview()
     }
     reader.readAsDataURL(file)
+    // Upload to server and replace base64 with persistent URL
+    try {
+        const fd = new FormData()
+        fd.append('file', file)
+        const res = await fetch('/api/wallpaper/upload', { method: 'POST', body: fd })
+        if (res.ok) {
+            const { url } = await res.json()
+            pendingChatTheme.wallpaper = { id: 'custom', type: 'image', value: url }
+            updateChatThemePreview()
+        } else {
+            showToast('Ошибка загрузки фото')
+        }
+    } catch(e) { showToast('Ошибка загрузки фото') }
 }
 
 function updateChatThemePreview() {
@@ -4477,9 +4491,11 @@ async function saveChatTheme() {
                 try { allChatThemes[phone] = JSON.parse(localStorage.getItem(key)) } catch(e) {}
             }
         }
-        // Убираем base64 изображения
+        // Strip raw base64 (URLs are fine, only drop data: URIs)
         Object.values(allChatThemes).forEach(t => {
-            if (t?.wallpaper?.type === 'image') t.wallpaper = { id:'custom', type:'color', value:'#1c1c1e' }
+            if (t?.wallpaper?.type === 'image' && t.wallpaper.value?.startsWith('data:')) {
+                t.wallpaper = { id:'custom', type:'color', value:'#1c1c1e' }
+            }
         })
         await fetch(`/api/theme/${encodeURIComponent(currentUser + '_chats')}`, {
             method: 'POST',
