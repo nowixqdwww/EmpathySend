@@ -33,14 +33,16 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 AVATAR_DIR = os.path.join(BASE_DIR, "avatars")
 STICKER_DIR = os.path.join(BASE_DIR, "stickers")
 STATIC_DIR = os.path.join(BASE_DIR, "web", "static")
+WALLPAPER_DIR = os.path.join(BASE_DIR, "wallpapers")
 
 # Создаём директории безопасно
-for _d in [AVATAR_DIR, STICKER_DIR, STATIC_DIR]:
+for _d in [AVATAR_DIR, STICKER_DIR, STATIC_DIR, WALLPAPER_DIR]:
     try: os.makedirs(_d, exist_ok=True)
     except Exception: pass
 
 # Монтируем папки
 app.mount("/avatars", StaticFiles(directory=AVATAR_DIR), name="avatars")
+app.mount("/wallpapers", StaticFiles(directory=WALLPAPER_DIR), name="wallpapers")
 # sticker files now served via /sticker-data/{id} from DB
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -564,6 +566,24 @@ async def upload_avatar(phone: str, file: UploadFile = File(...)):
     except Exception as e:
             logger.error(f"Error uploading avatar: {e}")
             return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/api/wallpaper/upload")
+async def upload_wallpaper(file: UploadFile = File(...)):
+    try:
+        if not file.content_type.startswith("image/"):
+            return JSONResponse(status_code=400, content={"error": "File must be an image"})
+        data = await file.read()
+        if len(data) > 10 * 1024 * 1024:
+            return JSONResponse(status_code=400, content={"error": "Max 10MB"})
+        ext = file.filename.rsplit(".", 1)[-1] if file.filename and "." in file.filename else "jpg"
+        fname = f"{hashlib.md5(data).hexdigest()}.{ext}"
+        path = os.path.join(WALLPAPER_DIR, fname)
+        with open(path, "wb") as f:
+            f.write(data)
+        return {"url": f"/wallpapers/{fname}"}
+    except Exception as e:
+        logger.error(f"Error uploading wallpaper: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.delete("/remove-avatar/{phone}")
 async def remove_avatar(phone: str):
