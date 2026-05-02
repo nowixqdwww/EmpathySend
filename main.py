@@ -89,6 +89,17 @@ async def get_db():
         logger.error(f"DB acquire failed: {e}")
         raise
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def db_conn():
+    """Контекст-менеджер пула: release выполняется автоматически при любом исходе."""
+    global _db_pool
+    if _db_pool is None:
+        _db_pool = await _create_pool()
+    async with _db_pool.acquire() as conn:
+        yield conn
+
 # Функция для создания безопасного имени файла
 def get_avatar_url(avatar: str) -> str:
     """Возвращает правильный URL аватарки — data URI или /avatars/filename"""
@@ -109,170 +120,170 @@ def hash_password(password):
 
 # Инициализация базы данных
 async def init_db():
-    conn = await get_db()
-    try:
-        # Таблица пользователей
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                phone TEXT PRIMARY KEY,
-                username TEXT UNIQUE,
-                name TEXT,
-                bio TEXT,
-                avatar TEXT,
-                password TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        # Проверяем и добавляем колонки если нужно
-        for col, typ in [('password', 'TEXT'), ('last_seen', 'TIMESTAMP')]:
-            exists = await conn.fetchval(f"""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.columns
-                    WHERE table_name = 'users' AND column_name = '{col}'
+    async with db_conn() as conn:
+        try:
+            # Таблица пользователей
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    phone TEXT PRIMARY KEY,
+                    username TEXT UNIQUE,
+                    name TEXT,
+                    bio TEXT,
+                    avatar TEXT,
+                    password TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
-            if not exists:
-                await conn.execute(f"ALTER TABLE users ADD COLUMN {col} {typ}")
-                logger.info(f"Added {col} column to users table")
         
-        # Таблица настроек конфиденциальности
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS privacy_settings (
-                phone TEXT PRIMARY KEY,
-                phone_privacy TEXT DEFAULT 'everyone',
-                online_privacy TEXT DEFAULT 'everyone',
-                avatar_privacy TEXT DEFAULT 'everyone',
-                FOREIGN KEY (phone) REFERENCES users(phone) ON DELETE CASCADE
-            )
-        """)
+            # Проверяем и добавляем колонки если нужно
+            for col, typ in [('password', 'TEXT'), ('last_seen', 'TIMESTAMP')]:
+                exists = await conn.fetchval(f"""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.columns
+                        WHERE table_name = 'users' AND column_name = '{col}'
+                    )
+                """)
+                if not exists:
+                    await conn.execute(f"ALTER TABLE users ADD COLUMN {col} {typ}")
+                    logger.info(f"Added {col} column to users table")
         
-        # Таблица сообщений
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS messages (
-                id SERIAL PRIMARY KEY,
-                sender TEXT NOT NULL,
-                receiver TEXT NOT NULL,
-                text TEXT NOT NULL,
-                is_deleted INTEGER DEFAULT 0,
-                is_read INTEGER DEFAULT 0,
-                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        # Таблица стикеров
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS stickers (
-                id SERIAL PRIMARY KEY,
-                user_phone TEXT NOT NULL,
-                sticker_url TEXT NOT NULL,
-                sticker_data BYTEA,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_phone) REFERENCES users(phone) ON DELETE CASCADE
-            )
-        """)
-        # Добавляем sticker_data если не существует
-        col_exists = await conn.fetchval("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.columns
-                WHERE table_name = 'stickers' AND column_name = 'sticker_data'
-            )
-        """)
-        if not col_exists:
-            await conn.execute("ALTER TABLE stickers ADD COLUMN sticker_data BYTEA")
-            logger.info("Added sticker_data column")
-
-        # Мигрируем старые data:URI стикеры в BYTEA
-        import base64 as _b64m
-        old_uris = await conn.fetch(
-            "SELECT id, sticker_url FROM stickers WHERE sticker_url LIKE 'data:%' AND sticker_data IS NULL LIMIT 500"
-        )
-        migrated = 0
-        for row in old_uris:
-            try:
-                header, b64data = row['sticker_url'].split(',', 1)
-                raw = _b64m.b64decode(b64data)
-                new_id = row['id']
-                await conn.execute(
-                    "UPDATE stickers SET sticker_data = $1, sticker_url = $2 WHERE id = $3",
-                    raw, f"/api/sticker-data/{new_id}", new_id
+            # Таблица настроек конфиденциальности
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS privacy_settings (
+                    phone TEXT PRIMARY KEY,
+                    phone_privacy TEXT DEFAULT 'everyone',
+                    online_privacy TEXT DEFAULT 'everyone',
+                    avatar_privacy TEXT DEFAULT 'everyone',
+                    FOREIGN KEY (phone) REFERENCES users(phone) ON DELETE CASCADE
                 )
-                migrated += 1
+            """)
+        
+            # Таблица сообщений
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS messages (
+                    id SERIAL PRIMARY KEY,
+                    sender TEXT NOT NULL,
+                    receiver TEXT NOT NULL,
+                    text TEXT NOT NULL,
+                    is_deleted INTEGER DEFAULT 0,
+                    is_read INTEGER DEFAULT 0,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+        
+            # Таблица стикеров
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS stickers (
+                    id SERIAL PRIMARY KEY,
+                    user_phone TEXT NOT NULL,
+                    sticker_url TEXT NOT NULL,
+                    sticker_data BYTEA,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_phone) REFERENCES users(phone) ON DELETE CASCADE
+                )
+            """)
+            # Добавляем sticker_data если не существует
+            col_exists = await conn.fetchval("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_name = 'stickers' AND column_name = 'sticker_data'
+                )
+            """)
+            if not col_exists:
+                await conn.execute("ALTER TABLE stickers ADD COLUMN sticker_data BYTEA")
+                logger.info("Added sticker_data column")
+
+            # Мигрируем старые data:URI стикеры в BYTEA
+            import base64 as _b64m
+            old_uris = await conn.fetch(
+                "SELECT id, sticker_url FROM stickers WHERE sticker_url LIKE 'data:%' AND sticker_data IS NULL LIMIT 500"
+            )
+            migrated = 0
+            for row in old_uris:
+                try:
+                    header, b64data = row['sticker_url'].split(',', 1)
+                    raw = _b64m.b64decode(b64data)
+                    new_id = row['id']
+                    await conn.execute(
+                        "UPDATE stickers SET sticker_data = $1, sticker_url = $2 WHERE id = $3",
+                        raw, f"/api/sticker-data/{new_id}", new_id
+                    )
+                    migrated += 1
+                except Exception:
+                    pass
+            if migrated:
+                logger.info(f"Migrated {migrated} data:URI stickers to BYTEA")
+
+            # Таблица голосовых сообщений
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS voice_messages (
+                    id SERIAL PRIMARY KEY,
+                    sender TEXT NOT NULL,
+                    data BYTEA,
+                    voice_data BYTEA,
+                    duration INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            # Миграция: добавляем колонку data если её нет
+            data_col = await conn.fetchval("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns
+                    WHERE table_name = 'voice_messages' AND column_name = 'data'
+                )
+            """)
+            if not data_col:
+                await conn.execute("ALTER TABLE voice_messages ADD COLUMN data BYTEA")
+                logger.info("Added data column to voice_messages")
+
+            # Убираем NOT NULL с voice_data чтобы не было конфликтов
+            try:
+                await conn.execute("ALTER TABLE voice_messages ALTER COLUMN voice_data DROP NOT NULL")
             except Exception:
                 pass
-        if migrated:
-            logger.info(f"Migrated {migrated} data:URI stickers to BYTEA")
 
-        # Таблица голосовых сообщений
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS voice_messages (
-                id SERIAL PRIMARY KEY,
-                sender TEXT NOT NULL,
-                data BYTEA,
-                voice_data BYTEA,
-                duration INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        # Миграция: добавляем колонку data если её нет
-        data_col = await conn.fetchval("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.columns
-                WHERE table_name = 'voice_messages' AND column_name = 'data'
-            )
-        """)
-        if not data_col:
-            await conn.execute("ALTER TABLE voice_messages ADD COLUMN data BYTEA")
-            logger.info("Added data column to voice_messages")
+            # Таблица видео сообщений
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS video_messages (
+                    id SERIAL PRIMARY KEY,
+                    sender TEXT NOT NULL,
+                    video_data BYTEA NOT NULL,
+                    duration INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
 
-        # Убираем NOT NULL с voice_data чтобы не было конфликтов
-        try:
-            await conn.execute("ALTER TABLE voice_messages ALTER COLUMN voice_data DROP NOT NULL")
-        except Exception:
+            # Таблица настроек темы
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS theme_settings (
+                    phone TEXT PRIMARY KEY,
+                    theme_data JSONB NOT NULL DEFAULT '{}',
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (phone) REFERENCES users(phone) ON DELETE CASCADE
+                )
+            """)
+
+            # Таблица реакций
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS reactions (
+                    id SERIAL PRIMARY KEY,
+                    message_id INTEGER NOT NULL,
+                    user_phone TEXT NOT NULL,
+                    reaction TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
+                    FOREIGN KEY (user_phone) REFERENCES users(phone) ON DELETE CASCADE,
+                    UNIQUE(message_id, user_phone, reaction)
+                )
+            """)
+        
+            logger.info("Reactions table created")
+        
+            logger.info("Database initialized successfully")
+        except Exception as e:
+            logger.error(f"Error initializing database: {e}")
+        finally:
             pass
-
-        # Таблица видео сообщений
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS video_messages (
-                id SERIAL PRIMARY KEY,
-                sender TEXT NOT NULL,
-                video_data BYTEA NOT NULL,
-                duration INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        # Таблица настроек темы
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS theme_settings (
-                phone TEXT PRIMARY KEY,
-                theme_data JSONB NOT NULL DEFAULT '{}',
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (phone) REFERENCES users(phone) ON DELETE CASCADE
-            )
-        """)
-
-        # Таблица реакций
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS reactions (
-                id SERIAL PRIMARY KEY,
-                message_id INTEGER NOT NULL,
-                user_phone TEXT NOT NULL,
-                reaction TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
-                FOREIGN KEY (user_phone) REFERENCES users(phone) ON DELETE CASCADE,
-                UNIQUE(message_id, user_phone, reaction)
-            )
-        """)
-        
-        logger.info("Reactions table created")
-        
-        logger.info("Database initialized successfully")
-    except Exception as e:
-        logger.error(f"Error initializing database: {e}")
-    finally:
-        await conn.close()
 
 # Запускаем инициализацию при старте
 @app.on_event("startup")
@@ -340,71 +351,67 @@ class DeleteMessage(BaseModel):
 @app.post("/auth/register")
 async def register(user: UserRegister):
     try:
-        conn = await get_db()
+        async with db_conn() as conn:
         
-        existing = await conn.fetchval(
-            "SELECT phone FROM users WHERE phone = $1",
-            user.phone
-        )
-        if existing:
-            await conn.close()
-            return JSONResponse(status_code=400, content={"error": "Пользователь уже существует"})
-        
-        if user.username:
-            existing_username = await conn.fetchval(
-                "SELECT phone FROM users WHERE username = $1",
-                user.username
+            existing = await conn.fetchval(
+                "SELECT phone FROM users WHERE phone = $1",
+                user.phone
             )
-            if existing_username:
-                await conn.close()
-                return JSONResponse(status_code=400, content={"error": "Username уже занят"})
+            if existing:
+                return JSONResponse(status_code=400, content={"error": "Пользователь уже существует"})
         
-        hashed_password = hash_password(user.password)
+            if user.username:
+                existing_username = await conn.fetchval(
+                    "SELECT phone FROM users WHERE username = $1",
+                    user.username
+                )
+                if existing_username:
+                    return JSONResponse(status_code=400, content={"error": "Username уже занят"})
         
-        await conn.execute("""
-            INSERT INTO users (phone, username, name, password) 
-            VALUES ($1, $2, $3, $4)
-        """, user.phone, user.username, user.name, hashed_password)
+            hashed_password = hash_password(user.password)
         
-        await conn.execute("""
-            INSERT INTO privacy_settings (phone) VALUES ($1)
-        """, user.phone)
+            await conn.execute("""
+                INSERT INTO users (phone, username, name, password) 
+                VALUES ($1, $2, $3, $4)
+            """, user.phone, user.username, user.name, hashed_password)
         
-        await conn.close()
+            await conn.execute("""
+                INSERT INTO privacy_settings (phone) VALUES ($1)
+            """, user.phone)
         
-        logger.info(f"New user registered: {user.phone}")
-        return {"ok": True, "phone": user.phone}
+        
+            logger.info(f"New user registered: {user.phone}")
+            return {"ok": True, "phone": user.phone}
         
     except Exception as e:
-        logger.error(f"Error registering user: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error registering user: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/auth/login")
 async def login(data: UserLogin):
     try:
-        conn = await get_db()
+        async with db_conn() as conn:
         
-        user = await conn.fetchrow(
-            "SELECT phone, password FROM users WHERE phone = $1",
-            data.phone
-        )
+            user = await conn.fetchrow(
+                "SELECT phone, password FROM users WHERE phone = $1",
+                data.phone
+            )
         
-        await conn.close()
         
-        if not user:
-            return JSONResponse(status_code=404, content={"error": "Пользователь не найден"})
+            if not user:
+                return JSONResponse(status_code=404, content={"error": "Пользователь не найден"})
         
-        if user['password'] is None:
-            return JSONResponse(status_code=401, content={"error": "NO_PASSWORD_SET"})
+            if user['password'] is None:
+                return JSONResponse(status_code=401, content={"error": "NO_PASSWORD_SET"})
         
-        if user['password'] != hash_password(data.password):
-            return JSONResponse(status_code=401, content={"error": "Неверный пароль"})
+            if user['password'] != hash_password(data.password):
+                return JSONResponse(status_code=401, content={"error": "Неверный пароль"})
         
-        return {"ok": True, "phone": user['phone']}
+            return {"ok": True, "phone": user['phone']}
         
     except Exception as e:
-        logger.error(f"Error in /auth/login: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error in /auth/login: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/set-password")
 async def set_password(data: SetPassword):
@@ -415,122 +422,115 @@ async def set_password(data: SetPassword):
         decoded = base64.b64decode(password).decode()
         hashed = hash_password(decoded)
         
-        conn = await get_db()
+        async with db_conn() as conn:
         
-        await conn.execute("""
-            UPDATE users SET password = $1 WHERE phone = $2
-        """, hashed, phone)
+            await conn.execute("""
+                UPDATE users SET password = $1 WHERE phone = $2
+            """, hashed, phone)
         
-        await conn.close()
         
-        logger.info(f"Password set for {phone}")
-        return {"ok": True}
+            logger.info(f"Password set for {phone}")
+            return {"ok": True}
         
     except Exception as e:
-        logger.error(f"Error setting password: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error setting password: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/auth/change-password")
 async def change_password(data: ChangePassword):
     try:
-        conn = await get_db()
+        async with db_conn() as conn:
         
-        user = await conn.fetchrow(
-            "SELECT password FROM users WHERE phone = $1",
-            data.phone
-        )
+            user = await conn.fetchrow(
+                "SELECT password FROM users WHERE phone = $1",
+                data.phone
+            )
         
-        if not user:
-            await conn.close()
-            return JSONResponse(status_code=404, content={"error": "Пользователь не найден"})
+            if not user:
+                return JSONResponse(status_code=404, content={"error": "Пользователь не найден"})
         
-        if user['password'] != hash_password(data.current_password):
-            await conn.close()
-            return JSONResponse(status_code=401, content={"error": "Неверный текущий пароль"})
+            if user['password'] != hash_password(data.current_password):
+                return JSONResponse(status_code=401, content={"error": "Неверный текущий пароль"})
         
-        hashed = hash_password(data.new_password)
-        await conn.execute(
-            "UPDATE users SET password = $1 WHERE phone = $2",
-            hashed, data.phone
-        )
+            hashed = hash_password(data.new_password)
+            await conn.execute(
+                "UPDATE users SET password = $1 WHERE phone = $2",
+                hashed, data.phone
+            )
         
-        await conn.close()
         
-        logger.info(f"Password changed for user: {data.phone}")
-        return {"ok": True}
+            logger.info(f"Password changed for user: {data.phone}")
+            return {"ok": True}
         
     except Exception as e:
-        logger.error(f"Error changing password: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error changing password: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 # ============= ЭНДПОИНТЫ ПОЛЬЗОВАТЕЛЕЙ =============
 
 @app.get("/user/{phone}")
 async def get_user(phone: str):
     try:
-        conn = await get_db()
+        async with db_conn() as conn:
         
-        user = await conn.fetchrow(
-            "SELECT phone, username, name, bio, avatar FROM users WHERE phone = $1",
-            phone
-        )
+            user = await conn.fetchrow(
+                "SELECT phone, username, name, bio, avatar FROM users WHERE phone = $1",
+                phone
+            )
         
-        await conn.close()
         
-        if not user:
-            return JSONResponse(status_code=404, content={"error": "User not found"})
+            if not user:
+                return JSONResponse(status_code=404, content={"error": "User not found"})
         
-        return {
-            "phone": user['phone'],
-            "username": user['username'],
-            "name": user['name'],
-            "bio": user['bio'] or "",
-            "avatar": get_avatar_url(user['avatar'])
-        }
+            return {
+                "phone": user['phone'],
+                "username": user['username'],
+                "name": user['name'],
+                "bio": user['bio'] or "",
+                "avatar": get_avatar_url(user['avatar'])
+            }
         
     except Exception as e:
-        logger.error(f"Error getting user: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error getting user: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.put("/user/{phone}")
 async def update_user(phone: str, data: UpdateProfile):
     try:
-        conn = await get_db()
+        async with db_conn() as conn:
         
-        if data.username:
-            existing = await conn.fetchval(
-                "SELECT phone FROM users WHERE username = $1 AND phone != $2",
-                data.username, phone
-            )
-            if existing:
-                await conn.close()
-                return JSONResponse(status_code=400, content={"error": "Username already taken"})
+            if data.username:
+                existing = await conn.fetchval(
+                    "SELECT phone FROM users WHERE username = $1 AND phone != $2",
+                    data.username, phone
+                )
+                if existing:
+                    return JSONResponse(status_code=400, content={"error": "Username already taken"})
         
-        updates = []
-        values = []
+            updates = []
+            values = []
         
-        if data.username is not None:
-            updates.append("username = $" + str(len(values) + 1))
-            values.append(data.username)
-        if data.name is not None:
-            updates.append("name = $" + str(len(values) + 1))
-            values.append(data.name)
-        if data.bio is not None:
-            updates.append("bio = $" + str(len(values) + 1))
-            values.append(data.bio)
+            if data.username is not None:
+                updates.append("username = $" + str(len(values) + 1))
+                values.append(data.username)
+            if data.name is not None:
+                updates.append("name = $" + str(len(values) + 1))
+                values.append(data.name)
+            if data.bio is not None:
+                updates.append("bio = $" + str(len(values) + 1))
+                values.append(data.bio)
         
-        if updates:
-            query = f"UPDATE users SET {', '.join(updates)} WHERE phone = ${len(values) + 1}"
-            values.append(phone)
-            await conn.execute(query, *values)
+            if updates:
+                query = f"UPDATE users SET {', '.join(updates)} WHERE phone = ${len(values) + 1}"
+                values.append(phone)
+                await conn.execute(query, *values)
         
-        await conn.close()
         
-        return {"ok": True}
+            return {"ok": True}
         
     except Exception as e:
-        logger.error(f"Error updating user: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error updating user: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/upload-avatar/{phone}")
 async def upload_avatar(phone: str, file: UploadFile = File(...)):
@@ -544,72 +544,69 @@ async def upload_avatar(phone: str, file: UploadFile = File(...)):
         import base64 as _b64
         mime = file.content_type or 'image/jpeg'
         data_uri = f"data:{mime};base64,{_b64.b64encode(content).decode()}"
-        conn = await get_db()
-        await conn.execute("UPDATE users SET avatar = $1 WHERE phone = $2", data_uri, phone)
-        await conn.close()
-        return {"avatar": data_uri}
+        async with db_conn() as conn:
+            await conn.execute("UPDATE users SET avatar = $1 WHERE phone = $2", data_uri, phone)
+            return {"avatar": data_uri}
     except Exception as e:
-        logger.error(f"Error uploading avatar: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error uploading avatar: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.delete("/remove-avatar/{phone}")
 async def remove_avatar(phone: str):
     try:
-        conn = await get_db()
+        async with db_conn() as conn:
         
-        avatar = await conn.fetchval(
-            "SELECT avatar FROM users WHERE phone = $1",
-            phone
-        )
+            avatar = await conn.fetchval(
+                "SELECT avatar FROM users WHERE phone = $1",
+                phone
+            )
         
-        if avatar and not avatar.startswith('data:'):
-            file_path = os.path.join(AVATAR_DIR, avatar)
-            if os.path.exists(file_path):
-                os.remove(file_path)
+            if avatar and not avatar.startswith('data:'):
+                file_path = os.path.join(AVATAR_DIR, avatar)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
         
-        await conn.execute(
-            "UPDATE users SET avatar = NULL WHERE phone = $1",
-            phone
-        )
-        await conn.close()
+            await conn.execute(
+                "UPDATE users SET avatar = NULL WHERE phone = $1",
+                phone
+            )
         
-        return {"ok": True}
+            return {"ok": True}
         
     except Exception as e:
-        logger.error(f"Error removing avatar: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error removing avatar: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 # ============= СТИКЕРЫ =============
 
 @app.post("/api/upload-stickers/{phone}")
 async def upload_stickers(phone: str, stickers: List[UploadFile] = File(...)):
     try:
-        conn = await get_db()
+        async with db_conn() as conn:
         
-        for sticker in stickers:
-            if not sticker.content_type.startswith('image/'):
-                continue
+            for sticker in stickers:
+                if not sticker.content_type.startswith('image/'):
+                    continue
             
-            content = await sticker.read()
+                content = await sticker.read()
             
-            filename = f"sticker_{phone}_{datetime.now().timestamp()}.png"
-            file_path = os.path.join(STICKER_DIR, filename)
+                filename = f"sticker_{phone}_{datetime.now().timestamp()}.png"
+                file_path = os.path.join(STICKER_DIR, filename)
             
-            with open(file_path, "wb") as buffer:
-                buffer.write(content)
+                with open(file_path, "wb") as buffer:
+                    buffer.write(content)
             
-            await conn.execute("""
-                INSERT INTO stickers (user_phone, sticker_url)
-                VALUES ($1, $2)
-            """, phone, f"/stickers/{filename}")
+                await conn.execute("""
+                    INSERT INTO stickers (user_phone, sticker_url)
+                    VALUES ($1, $2)
+                """, phone, f"/stickers/{filename}")
         
-        await conn.close()
         
-        return {"ok": True}
+            return {"ok": True}
         
     except Exception as e:
-        logger.error(f"Error uploading stickers: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error uploading stickers: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/stickers/{phone}")
 async def get_stickers(phone: str):
@@ -618,31 +615,30 @@ async def get_stickers(phone: str):
         import urllib.parse as _up
         phone = _up.unquote(phone)
         
-        conn = await get_db()
-        stickers = await conn.fetch("""
-            SELECT id, sticker_url, sticker_data IS NOT NULL as has_data
-            FROM stickers WHERE user_phone = $1 ORDER BY created_at DESC
-        """, phone)
-        await conn.close()
+        async with db_conn() as conn:
+            stickers = await conn.fetch("""
+                SELECT id, sticker_url, sticker_data IS NOT NULL as has_data
+                FROM stickers WHERE user_phone = $1 ORDER BY created_at DESC
+            """, phone)
         
-        result = []
-        for s in stickers:
-            url = s['sticker_url']
-            sid = s['id']
-            has_data = s['has_data']
-            if url.startswith('data:') or url.startswith('/api/sticker-data/') or has_data:
-                result.append({"id": sid, "url": f"/api/sticker-data/{sid}"})
-            elif url.startswith('https://api.telegram.org/'):
-                # Прямая TG ссылка — истекает, пропускаем (нужно переимпортировать)
-                pass
-            elif not url.startswith('/stickers/'):
-                result.append({"id": sid, "url": url})
-            # /stickers/... без данных — пропускаем (файл не существует на Render)
-        return {"stickers": result}
+            result = []
+            for s in stickers:
+                url = s['sticker_url']
+                sid = s['id']
+                has_data = s['has_data']
+                if url.startswith('data:') or url.startswith('/api/sticker-data/') or has_data:
+                    result.append({"id": sid, "url": f"/api/sticker-data/{sid}"})
+                elif url.startswith('https://api.telegram.org/'):
+                    # Прямая TG ссылка — истекает, пропускаем (нужно переимпортировать)
+                    pass
+                elif not url.startswith('/stickers/'):
+                    result.append({"id": sid, "url": url})
+                # /stickers/... без данных — пропускаем (файл не существует на Render)
+            return {"stickers": result}
         
     except Exception as e:
-        logger.error(f"Error getting stickers: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error getting stickers: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 # ============= ИМПОРТ СТИКЕРОВ ИЗ TELEGRAM =============
 
@@ -685,52 +681,48 @@ _tg_download_file = _tg_download
 async def delete_broken_stickers(phone: str):
     """Удаляем стикеры с битыми путями (файлов нет на диске и нет BYTEA)."""
     try:
-        conn = await get_db()
-        result = await conn.execute("""
-            DELETE FROM stickers 
-            WHERE user_phone = $1 
-            AND sticker_url LIKE '/stickers/%'
-            AND sticker_data IS NULL
-        """, phone)
-        deleted = int(result.split()[-1])
-        await conn.close()
-        logger.info(f"Deleted {deleted} broken stickers for {phone}")
-        return {"ok": True, "deleted": deleted}
+        async with db_conn() as conn:
+            result = await conn.execute("""
+                DELETE FROM stickers 
+                WHERE user_phone = $1 
+                AND sticker_url LIKE '/stickers/%'
+                AND sticker_data IS NULL
+            """, phone)
+            deleted = int(result.split()[-1])
+            logger.info(f"Deleted {deleted} broken stickers for {phone}")
+            return {"ok": True, "deleted": deleted}
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.delete("/api/stickers/{phone}/{sticker_id}")
 async def delete_sticker(phone: str, sticker_id: int):
     try:
-        conn = await get_db()
-        row = await conn.fetchrow("SELECT user_phone, sticker_url FROM stickers WHERE id = $1", sticker_id)
-        if not row or row['user_phone'] != phone:
-            await conn.close()
-            return JSONResponse(status_code=403, content={"error": "Not authorized"})
-        await conn.execute("DELETE FROM stickers WHERE id = $1", sticker_id)
-        await conn.close()
-        # Удаляем файл если он на диске
-        url = row['sticker_url']
-        if url.startswith('/stickers/'):
-            fpath = os.path.join(STICKER_DIR, os.path.basename(url))
-            if os.path.exists(fpath):
-                os.remove(fpath)
-        return {"ok": True}
+        async with db_conn() as conn:
+            row = await conn.fetchrow("SELECT user_phone, sticker_url FROM stickers WHERE id = $1", sticker_id)
+            if not row or row['user_phone'] != phone:
+                return JSONResponse(status_code=403, content={"error": "Not authorized"})
+            await conn.execute("DELETE FROM stickers WHERE id = $1", sticker_id)
+            # Удаляем файл если он на диске
+            url = row['sticker_url']
+            if url.startswith('/stickers/'):
+                fpath = os.path.join(STICKER_DIR, os.path.basename(url))
+                if os.path.exists(fpath):
+                    os.remove(fpath)
+            return {"ok": True}
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.delete("/api/stickers-clear/{phone}")
 async def clear_all_stickers(phone: str):
     """Удалить все стикеры пользователя (для сброса битых записей)."""
     try:
-        conn = await get_db()
-        deleted = await conn.fetchval(
-            "DELETE FROM stickers WHERE user_phone = $1 RETURNING COUNT(*)", phone
-        )
-        await conn.close()
-        return {"ok": True, "deleted": deleted}
+        async with db_conn() as conn:
+            deleted = await conn.fetchval(
+                "DELETE FROM stickers WHERE user_phone = $1 RETURNING COUNT(*)", phone
+            )
+            return {"ok": True, "deleted": deleted}
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 
 @app.post("/api/import-sticker-pack/{phone:path}")
@@ -797,69 +789,69 @@ async def import_sticker_pack(phone: str, request: Request):
         saved = 0
 
         step = "get_db"
-        conn = await get_db()
-        try:
-            step = "check_existing"
-            existing = await conn.fetchval("SELECT COUNT(*) FROM stickers WHERE user_phone = $1", phone)
-            can_add  = max(0, 2000 - int(existing))
-            stickers = stickers[:can_add]
-            logger.info(f"TG import: existing={existing} can_add={can_add}")
+        async with db_conn() as conn:
+            try:
+                step = "check_existing"
+                existing = await conn.fetchval("SELECT COUNT(*) FROM stickers WHERE user_phone = $1", phone)
+                can_add  = max(0, 2000 - int(existing))
+                stickers = stickers[:can_add]
+                logger.info(f"TG import: existing={existing} can_add={can_add}")
 
-            first_error = None
-            for i, sticker in enumerate(stickers):
-                # Пропускаем анимированные (.tgs) и видео-стикеры — браузер их не покажет
-                if sticker.get("is_animated") or sticker.get("is_video"):
-                    logger.info(f"TG sticker {i}: skip animated/video")
-                    continue
+                first_error = None
+                for i, sticker in enumerate(stickers):
+                    # Пропускаем анимированные (.tgs) и видео-стикеры — браузер их не покажет
+                    if sticker.get("is_animated") or sticker.get("is_video"):
+                        logger.info(f"TG sticker {i}: skip animated/video")
+                        continue
 
-                step = f"sticker_{i}_getfile"
-                file_id = sticker["file_id"]
-                qs2     = urllib.parse.urlencode({"file_id": file_id})
-                fdata   = await loop.run_in_executor(None, _tg_request, f"{tg_api}/getFile?{qs2}")
-                if not fdata.get("ok"):
-                    err = fdata.get("description", "unknown")
-                    logger.warning(f"TG getFile failed sticker {i}: {err}")
-                    if first_error is None:
-                        first_error = err
-                    continue
+                    step = f"sticker_{i}_getfile"
+                    file_id = sticker["file_id"]
+                    qs2     = urllib.parse.urlencode({"file_id": file_id})
+                    fdata   = await loop.run_in_executor(None, _tg_request, f"{tg_api}/getFile?{qs2}")
+                    if not fdata.get("ok"):
+                        err = fdata.get("description", "unknown")
+                        logger.warning(f"TG getFile failed sticker {i}: {err}")
+                        if first_error is None:
+                            first_error = err
+                        continue
 
-                file_path = fdata["result"]["file_path"]
-                dl_url    = f"{tg_file}/{file_path}"
+                    file_path = fdata["result"]["file_path"]
+                    dl_url    = f"{tg_file}/{file_path}"
 
-                # Скачиваем файл и сохраняем как base64 data URI в БД
-                # (файловая система Render эфемерна — после деплоя файлы теряются)
-                step = f"sticker_{i}_download"
-                content = await loop.run_in_executor(None, _tg_download_file, dl_url)
-                if not content:
-                    continue
+                    # Скачиваем файл и сохраняем как base64 data URI в БД
+                    # (файловая система Render эфемерна — после деплоя файлы теряются)
+                    step = f"sticker_{i}_download"
+                    content = await loop.run_in_executor(None, _tg_download_file, dl_url)
+                    if not content:
+                        continue
 
-                step = f"sticker_{i}_save"
-                # Сохраняем бинарные данные в БД, url = /sticker-data/{id}
-                ext = ".webp" if file_path.endswith(".webp") else ".png"
-                row = await conn.fetchrow(
-                    """INSERT INTO stickers (user_phone, sticker_url, sticker_data)
-                       VALUES ($1, $2, $3) RETURNING id""",
-                    phone, f"pending", bytes(content)
-                )
-                await conn.execute(
-                    "UPDATE stickers SET sticker_url = $1 WHERE id = $2",
-                    f"/api/sticker-data/{row['id']}", row['id']
-                )
-                saved += 1
-                logger.info(f"TG saved sticker {i}")
+                    step = f"sticker_{i}_save"
+                    # Сохраняем бинарные данные в БД, url = /sticker-data/{id}
+                    ext = ".webp" if file_path.endswith(".webp") else ".png"
+                    row = await conn.fetchrow(
+                        """INSERT INTO stickers (user_phone, sticker_url, sticker_data)
+                           VALUES ($1, $2, $3) RETURNING id""",
+                        phone, f"pending", bytes(content)
+                    )
+                    await conn.execute(
+                        "UPDATE stickers SET sticker_url = $1 WHERE id = $2",
+                        f"/api/sticker-data/{row['id']}", row['id']
+                    )
+                    saved += 1
+                    logger.info(f"TG saved sticker {i}")
 
-        finally:
-            await conn.close()
+            finally:
 
-        logger.info(f"TG import done: saved={saved} first_error={first_error}")
-        if saved == 0 and first_error:
-            return JSONResponse(status_code=500, content={"error": f"Не удалось скачать стикеры: {first_error}"})
-        return {"ok": True, "title": pack_title, "total": len(stickers), "added": saved}
+                pass
+            logger.info(f"TG import done: saved={saved} first_error={first_error}")
+            if saved == 0 and first_error:
+                return JSONResponse(status_code=500, content={"error": f"Не удалось скачать стикеры: {first_error}"})
+            return {"ok": True, "title": pack_title, "total": len(stickers), "added": saved}
 
     except Exception as e:
-        tb = _traceback.format_exc()
-        logger.error(f"TG import ERROR at step={step}: {e}\n{tb}")
-        return JSONResponse(status_code=500, content={"error": str(e), "step": step})
+            tb = _traceback.format_exc()
+            logger.error(f"TG import ERROR at step={step}: {e}\n{tb}")
+            return JSONResponse(status_code=500, content={"error": str(e), "step": step})
 
 # ============= ГОЛОСОВЫЕ СООБЩЕНИЯ =============
 
@@ -871,29 +863,28 @@ async def import_sticker_pack(phone: str, request: Request):
 async def get_sticker_data(sticker_id: int):
     """Отдаём файл стикера из БД (для Render где диск эфемерный)."""
     try:
-        conn = await get_db()
-        row = await conn.fetchrow(
-            "SELECT sticker_data, sticker_url FROM stickers WHERE id = $1", sticker_id
-        )
-        await conn.close()
-        if not row:
-            return JSONResponse(status_code=404, content={"error": "Not found"})
-        if row['sticker_data']:
-            from fastapi.responses import Response
-            data_bytes = bytes(row['sticker_data'])
-            # Определяем тип по magic bytes
-            mime = "image/webp" if data_bytes[:4] == b'RIFF' else "image/png"
-            return Response(
-                content=data_bytes,
-                media_type=mime,
-                headers={"Cache-Control": "public, max-age=86400"}
+        async with db_conn() as conn:
+            row = await conn.fetchrow(
+                "SELECT sticker_data, sticker_url FROM stickers WHERE id = $1", sticker_id
             )
-        else:
-            # Старый стикер — редиректим на файл
-            from fastapi.responses import RedirectResponse
-            return RedirectResponse(url=row['sticker_url'])
+            if not row:
+                return JSONResponse(status_code=404, content={"error": "Not found"})
+            if row['sticker_data']:
+                from fastapi.responses import Response
+                data_bytes = bytes(row['sticker_data'])
+                # Определяем тип по magic bytes
+                mime = "image/webp" if data_bytes[:4] == b'RIFF' else "image/png"
+                return Response(
+                    content=data_bytes,
+                    media_type=mime,
+                    headers={"Cache-Control": "public, max-age=86400"}
+                )
+            else:
+                # Старый стикер — редиректим на файл
+                from fastapi.responses import RedirectResponse
+                return RedirectResponse(url=row['sticker_url'])
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 # ============= ГОЛОСОВЫЕ СООБЩЕНИЯ =============
 
@@ -909,61 +900,60 @@ async def upload_voice(request: Request):
             return JSONResponse(status_code=400, content={"error": "No data"})
         logger.info(f"Voice upload: sender={sender} size={len(body)} type={content_type} duration={duration}s")
 
-        conn = await get_db()
-        try:
-            row = await conn.fetchrow("""
-                INSERT INTO voice_messages (sender, voice_data, duration)
-                VALUES ($1, $2, $3) RETURNING id
-            """, sender, bytes(body), duration)
-        finally:
-            await conn.close()
+        async with db_conn() as conn:
+            try:
+                row = await conn.fetchrow("""
+                    INSERT INTO voice_messages (sender, voice_data, duration)
+                    VALUES ($1, $2, $3) RETURNING id
+                """, sender, bytes(body), duration)
+            finally:
+                pass
 
-        return {"ok": True, "voice_id": row["id"], "url": f"/voice/{row['id']}"}
+            return {"ok": True, "voice_id": row["id"], "url": f"/voice/{row['id']}"}
     except Exception as e:
-        logger.error(f"voice upload error: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"voice upload error: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/voice/{voice_id}")
 async def get_voice(voice_id: int):
     """Отдаём аудио файл по id."""
     try:
-        conn = await get_db()
-        row = await conn.fetchrow("SELECT voice_data, data FROM voice_messages WHERE id = $1", voice_id)
-        await conn.close()
-        if not row:
-            logger.error(f"Voice {voice_id}: not found in DB")
-            return JSONResponse(status_code=404, content={"error": "Not found"})
-        raw = row["voice_data"] or row.get("data")
-        if not raw:
-            logger.error(f"Voice {voice_id}: found in DB but data is NULL")
-            return JSONResponse(status_code=404, content={"error": "No audio data"})
-        data = bytes(raw)
-        logger.info(f"Voice {voice_id}: serving {len(data)} bytes, first4={data[:4].hex()}")
-        # Определяем MIME по magic bytes
-        if data[:4] == b'OggS':
-            mime = "audio/ogg"
-        elif data[:4] == b'RIFF':
-            mime = "audio/wav"
-        elif len(data) > 8 and data[4:8] in (b'ftyp', b'mdat', b'moov', b'free'):
-            mime = "audio/mp4"
-        elif data[:3] == b'ID3':
-            mime = "audio/mpeg"
-        else:
-            mime = "audio/webm"
-        logger.info(f"Voice {voice_id}: mime={mime}")
-        from fastapi.responses import Response
-        return Response(
-            content=data,
-            media_type=mime,
-            headers={
-                "Cache-Control": "public, max-age=86400",
-                "Accept-Ranges": "bytes",
-                "Content-Length": str(len(data)),
-            }
-        )
+        async with db_conn() as conn:
+            row = await conn.fetchrow("SELECT voice_data, data FROM voice_messages WHERE id = $1", voice_id)
+            if not row:
+                logger.error(f"Voice {voice_id}: not found in DB")
+                return JSONResponse(status_code=404, content={"error": "Not found"})
+            raw = row["voice_data"] or row.get("data")
+            if not raw:
+                logger.error(f"Voice {voice_id}: found in DB but data is NULL")
+                return JSONResponse(status_code=404, content={"error": "No audio data"})
+            data = bytes(raw)
+            logger.info(f"Voice {voice_id}: serving {len(data)} bytes, first4={data[:4].hex()}")
+            # Определяем MIME по magic bytes
+            if data[:4] == b'OggS':
+                mime = "audio/ogg"
+            elif data[:4] == b'RIFF':
+                mime = "audio/wav"
+            elif len(data) > 8 and data[4:8] in (b'ftyp', b'mdat', b'moov', b'free'):
+                mime = "audio/mp4"
+            elif data[:3] == b'ID3':
+                mime = "audio/mpeg"
+            else:
+                mime = "audio/webm"
+            logger.info(f"Voice {voice_id}: mime={mime}")
+            from fastapi.responses import Response
+            return Response(
+                content=data,
+                media_type=mime,
+                headers={
+                    "Cache-Control": "public, max-age=86400",
+                    "Accept-Ranges": "bytes",
+                    "Content-Length": str(len(data)),
+                }
+            )
     except Exception as e:
-        logger.error(f"Voice {voice_id} error: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Voice {voice_id} error: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 # ============= ВИДЕО СООБЩЕНИЯ =============
 
@@ -978,74 +968,71 @@ async def upload_video(request: Request):
         if len(body) > 50 * 1024 * 1024:
             return JSONResponse(status_code=400, content={"error": "Файл слишком большой (макс 50MB)"})
 
-        conn = await get_db()
-        try:
-            row = await conn.fetchrow("""
-                INSERT INTO video_messages (sender, video_data, duration)
-                VALUES ($1, $2, $3) RETURNING id
-            """, sender, bytes(body), duration)
-        finally:
-            await conn.close()
+        async with db_conn() as conn:
+            try:
+                row = await conn.fetchrow("""
+                    INSERT INTO video_messages (sender, video_data, duration)
+                    VALUES ($1, $2, $3) RETURNING id
+                """, sender, bytes(body), duration)
+            finally:
+                pass
 
-        logger.info(f"Video upload: sender={sender} size={len(body)} duration={duration}s id={row['id']}")
-        return {"ok": True, "video_id": row["id"]}
+            logger.info(f"Video upload: sender={sender} size={len(body)} duration={duration}s id={row['id']}")
+            return {"ok": True, "video_id": row["id"]}
     except Exception as e:
-        import traceback
-        logger.error(f"video upload error: {e}\n{traceback.format_exc()}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            import traceback
+            logger.error(f"video upload error: {e}\n{traceback.format_exc()}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/video/{video_id}")
 async def get_video(video_id: int):
     try:
-        conn = await get_db()
-        row = await conn.fetchrow("SELECT video_data, duration FROM video_messages WHERE id = $1", video_id)
-        await conn.close()
-        if not row or not row["video_data"]:
-            return JSONResponse(status_code=404, content={"error": "Not found"})
-        data = bytes(row["video_data"])
-        # Определяем MIME
-        if len(data) > 8 and data[4:8] in (b'ftyp', b'mdat', b'moov'):
-            mime = "video/mp4"
-        else:
-            mime = "video/webm"
-        from fastapi.responses import Response
-        return Response(
-            content=data,
-            media_type=mime,
-            headers={"Cache-Control": "public, max-age=86400", "Accept-Ranges": "bytes", "Content-Length": str(len(data))}
-        )
+        async with db_conn() as conn:
+            row = await conn.fetchrow("SELECT video_data, duration FROM video_messages WHERE id = $1", video_id)
+            if not row or not row["video_data"]:
+                return JSONResponse(status_code=404, content={"error": "Not found"})
+            data = bytes(row["video_data"])
+            # Определяем MIME
+            if len(data) > 8 and data[4:8] in (b'ftyp', b'mdat', b'moov'):
+                mime = "video/mp4"
+            else:
+                mime = "video/webm"
+            from fastapi.responses import Response
+            return Response(
+                content=data,
+                media_type=mime,
+                headers={"Cache-Control": "public, max-age=86400", "Accept-Ranges": "bytes", "Content-Length": str(len(data))}
+            )
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 # ============= ТЕМЫ =============
 
 @app.get("/api/theme/{phone}")
 async def get_theme(phone: str):
     try:
-        conn = await get_db()
-        row = await conn.fetchrow("SELECT theme_data FROM theme_settings WHERE phone = $1", phone)
-        await conn.close()
-        return {"theme": dict(row["theme_data"]) if row else {}}
+        async with db_conn() as conn:
+            row = await conn.fetchrow("SELECT theme_data FROM theme_settings WHERE phone = $1", phone)
+            return {"theme": dict(row["theme_data"]) if row else {}}
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/theme/{phone}")
 async def save_theme(phone: str, request: Request):
     try:
         data = await request.json()
         import json as _json2
-        conn = await get_db()
-        await conn.execute("""
-            INSERT INTO theme_settings (phone, theme_data, updated_at)
-            VALUES ($1, $2::jsonb, NOW())
-            ON CONFLICT (phone) DO UPDATE
-            SET theme_data = $2::jsonb, updated_at = NOW()
-        """, phone, _json2.dumps(data))
-        await conn.close()
-        return {"ok": True}
+        async with db_conn() as conn:
+            await conn.execute("""
+                INSERT INTO theme_settings (phone, theme_data, updated_at)
+                VALUES ($1, $2::jsonb, NOW())
+                ON CONFLICT (phone) DO UPDATE
+                SET theme_data = $2::jsonb, updated_at = NOW()
+            """, phone, _json2.dumps(data))
+            return {"ok": True}
     except Exception as e:
-        logger.error(f"save_theme error: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"save_theme error: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 # ============= DEEZER МУЗЫКА (без API key) =============
 
@@ -1097,47 +1084,45 @@ async def set_music_status(phone: str, request: Request):
     """Установить статус 'слушает' для пользователя."""
     try:
         data = await request.json()
-        conn = await get_db()
-        await conn.execute("""
-            INSERT INTO music_status (phone, track_id, track_name, artist_name, cover_url, preview_url, jamendo_url, is_playing, updated_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
-            ON CONFLICT (phone) DO UPDATE SET
-                track_id=$2, track_name=$3, artist_name=$4, cover_url=$5,
-                preview_url=$6, jamendo_url=$7, is_playing=$8, updated_at=NOW()
-        """, phone,
-            data.get("track_id",""), data.get("track_name",""),
-            data.get("artist_name",""), data.get("cover_url",""),
-            data.get("preview_url",""), data.get("jamendo_url",""),
-            data.get("is_playing", False))
-        await conn.close()
+        async with db_conn() as conn:
+            await conn.execute("""
+                INSERT INTO music_status (phone, track_id, track_name, artist_name, cover_url, preview_url, jamendo_url, is_playing, updated_at)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+                ON CONFLICT (phone) DO UPDATE SET
+                    track_id=$2, track_name=$3, artist_name=$4, cover_url=$5,
+                    preview_url=$6, jamendo_url=$7, is_playing=$8, updated_at=NOW()
+            """, phone,
+                data.get("track_id",""), data.get("track_name",""),
+                data.get("artist_name",""), data.get("cover_url",""),
+                data.get("preview_url",""), data.get("jamendo_url",""),
+                data.get("is_playing", False))
 
-        # Уведомляем подписчиков через WS
-        for uid, ws in list(clients.items()):
-            try:
-                import json as _j2
-                await ws.send_text(_j2.dumps({
-                    "action": "music_status",
-                    "phone": phone,
-                    **data
-                }))
-            except Exception:
-                pass
-        return {"ok": True}
+            # Уведомляем подписчиков через WS
+            for uid, ws in list(clients.items()):
+                try:
+                    import json as _j2
+                    await ws.send_text(_j2.dumps({
+                        "action": "music_status",
+                        "phone": phone,
+                        **data
+                    }))
+                except Exception:
+                    pass
+            return {"ok": True}
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/api/music-status/{phone}")
 async def get_music_status(phone: str):
     """Получить музыкальный статус пользователя."""
     try:
-        conn = await get_db()
-        row = await conn.fetchrow("SELECT * FROM music_status WHERE phone=$1", phone)
-        await conn.close()
-        if not row:
-            return {"status": None}
-        return {"status": dict(row)}
+        async with db_conn() as conn:
+            row = await conn.fetchrow("SELECT * FROM music_status WHERE phone=$1", phone)
+            if not row:
+                return {"status": None}
+            return {"status": dict(row)}
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/online-status")
 async def online_status(request: Request):
@@ -1152,30 +1137,29 @@ async def online_status(request: Request):
 @app.post("/search")
 async def search_user(data: SearchUser):
     try:
-        conn = await get_db()
+        async with db_conn() as conn:
         
-        user = await conn.fetchrow(
-            "SELECT phone, username, name, bio, avatar FROM users WHERE username = $1",
-            data.username
-        )
+            user = await conn.fetchrow(
+                "SELECT phone, username, name, bio, avatar FROM users WHERE username = $1",
+                data.username
+            )
         
-        await conn.close()
         
-        if not user:
-            return {"found": False}
+            if not user:
+                return {"found": False}
         
-        return {
-            "found": True,
-            "phone": user['phone'],
-            "username": user['username'],
-            "name": user['name'],
-            "bio": user['bio'] or "",
-            "avatar": get_avatar_url(user['avatar'])
-        }
+            return {
+                "found": True,
+                "phone": user['phone'],
+                "username": user['username'],
+                "name": user['name'],
+                "bio": user['bio'] or "",
+                "avatar": get_avatar_url(user['avatar'])
+            }
         
     except Exception as e:
-        logger.error(f"Error searching user: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error searching user: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.get("/search-users/{query}")
 async def search_users(query: str, request: Request):
@@ -1183,94 +1167,92 @@ async def search_users(query: str, request: Request):
         if len(query) < 2:
             return {"users": []}
         
-        conn = await get_db()
+        async with db_conn() as conn:
         
-        # me берём из query params
-        me = request.query_params.get("me", "")
-        users = await conn.fetch("""
-            SELECT phone, username, name, avatar 
-            FROM users 
-            WHERE (username ILIKE $1 OR name ILIKE $1)
-            AND phone != $4
-            ORDER BY 
-                CASE 
-                    WHEN username ILIKE $2 THEN 1
-                    WHEN username ILIKE $3 THEN 2
-                    ELSE 3
-                END
-            LIMIT 10
-        """, f'%{query}%', f'{query}%', f'%{query}', me)
+            # me берём из query params
+            me = request.query_params.get("me", "")
+            users = await conn.fetch("""
+                SELECT phone, username, name, avatar 
+                FROM users 
+                WHERE (username ILIKE $1 OR name ILIKE $1)
+                AND phone != $4
+                ORDER BY 
+                    CASE 
+                        WHEN username ILIKE $2 THEN 1
+                        WHEN username ILIKE $3 THEN 2
+                        ELSE 3
+                    END
+                LIMIT 10
+            """, f'%{query}%', f'{query}%', f'%{query}', me)
         
-        await conn.close()
         
-        result = []
-        for user in users:
-            result.append({
-                "phone": user['phone'],
-                "username": user['username'],
-                "name": user['name'],
-                "avatar": get_avatar_url(user['avatar']),
-                "displayName": user['name'] or user['username'] or user['phone']
-            })
+            result = []
+            for user in users:
+                result.append({
+                    "phone": user['phone'],
+                    "username": user['username'],
+                    "name": user['name'],
+                    "avatar": get_avatar_url(user['avatar']),
+                    "displayName": user['name'] or user['username'] or user['phone']
+                })
         
-        return {"users": result}
+            return {"users": result}
         
     except Exception as e:
-        logger.error(f"Error searching users: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error searching users: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 # ============= ЧАТЫ И СООБЩЕНИЯ =============
 
 @app.get("/users/{me}")
 async def get_users(me: str):
     try:
-        conn = await get_db()
+        async with db_conn() as conn:
         
-        contacts = await conn.fetch("""
-            SELECT DISTINCT
-                CASE WHEN sender = $1 THEN receiver ELSE sender END as contact
-            FROM messages
-            WHERE sender = $1 OR receiver = $1
-        """, me)
+            contacts = await conn.fetch("""
+                SELECT DISTINCT
+                    CASE WHEN sender = $1 THEN receiver ELSE sender END as contact
+                FROM messages
+                WHERE sender = $1 OR receiver = $1
+            """, me)
         
-        result = []
-        for contact in contacts:
-            phone = contact['contact']
-            user_data = await conn.fetchrow(
-                "SELECT phone, username, name, avatar FROM users WHERE phone = $1", phone
-            )
-            if not user_data:
-                continue
-            last_msg = await conn.fetchrow("""
-                SELECT text, timestamp FROM messages
-                WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
-                AND is_deleted = 0
-                ORDER BY timestamp DESC LIMIT 1
-            """, me, phone)
-            unread = await conn.fetchval("""
-                SELECT COUNT(*) FROM messages
-                WHERE sender = $1 AND receiver = $2 AND is_read = 0 AND is_deleted = 0
-            """, phone, me)
-            display_name = user_data['name'] or user_data['username'] or phone
-            result.append({
-                "phone": user_data['phone'],
-                "username": user_data['username'],
-                "name": user_data['name'],
-                "displayName": display_name,
-                "avatar": get_avatar_url(user_data['avatar']),
-                "online": phone in clients,
-                "last": last_msg['text'] if last_msg else None,
-                "last_ts": last_msg['timestamp'].isoformat() if last_msg and last_msg['timestamp'] else None,
-                "unread": unread or 0
-            })
-        result.sort(key=lambda x: x['last_ts'] or '', reverse=True)
+            result = []
+            for contact in contacts:
+                phone = contact['contact']
+                user_data = await conn.fetchrow(
+                    "SELECT phone, username, name, avatar FROM users WHERE phone = $1", phone
+                )
+                if not user_data:
+                    continue
+                last_msg = await conn.fetchrow("""
+                    SELECT text, timestamp FROM messages
+                    WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
+                    AND is_deleted = 0
+                    ORDER BY timestamp DESC LIMIT 1
+                """, me, phone)
+                unread = await conn.fetchval("""
+                    SELECT COUNT(*) FROM messages
+                    WHERE sender = $1 AND receiver = $2 AND is_read = 0 AND is_deleted = 0
+                """, phone, me)
+                display_name = user_data['name'] or user_data['username'] or phone
+                result.append({
+                    "phone": user_data['phone'],
+                    "username": user_data['username'],
+                    "name": user_data['name'],
+                    "displayName": display_name,
+                    "avatar": get_avatar_url(user_data['avatar']),
+                    "online": phone in clients,
+                    "last": last_msg['text'] if last_msg else None,
+                    "last_ts": last_msg['timestamp'].isoformat() if last_msg and last_msg['timestamp'] else None,
+                    "unread": unread or 0
+                })
+            result.sort(key=lambda x: x['last_ts'] or '', reverse=True)
         
-        await conn.close()
-        return result
+            return result
         
     except Exception as e:
-        logger.error(f"Error getting users for {me}: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error getting users for {me}: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 # Добавить реакцию
 @app.post("/reaction/add")
@@ -1280,37 +1262,36 @@ async def add_reaction(data: dict):
         user = data.get("user")
         reaction = data.get("reaction")
         
-        conn = await get_db()
+        async with db_conn() as conn:
         
-        # Проверяем, есть ли уже такая реакция
-        existing = await conn.fetchval("""
-            SELECT id FROM reactions 
-            WHERE message_id = $1 AND user_phone = $2 AND reaction = $3
-        """, message_id, user, reaction)
-        
-        if existing:
-            # Если есть - удаляем (toggle)
-            await conn.execute("""
-                DELETE FROM reactions 
+            # Проверяем, есть ли уже такая реакция
+            existing = await conn.fetchval("""
+                SELECT id FROM reactions 
                 WHERE message_id = $1 AND user_phone = $2 AND reaction = $3
             """, message_id, user, reaction)
-        else:
-            # Если нет - добавляем
-            await conn.execute("""
-                INSERT INTO reactions (message_id, user_phone, reaction)
-                VALUES ($1, $2, $3)
-            """, message_id, user, reaction)
         
-        await conn.close()
+            if existing:
+                # Если есть - удаляем (toggle)
+                await conn.execute("""
+                    DELETE FROM reactions 
+                    WHERE message_id = $1 AND user_phone = $2 AND reaction = $3
+                """, message_id, user, reaction)
+            else:
+                # Если нет - добавляем
+                await conn.execute("""
+                    INSERT INTO reactions (message_id, user_phone, reaction)
+                    VALUES ($1, $2, $3)
+                """, message_id, user, reaction)
         
-        # Получаем обновленные реакции для сообщения
-        reactions = await get_message_reactions(message_id)
         
-        return {"ok": True, "reactions": reactions}
+            # Получаем обновленные реакции для сообщения
+            reactions = await get_message_reactions(message_id)
+        
+            return {"ok": True, "reactions": reactions}
         
     except Exception as e:
-        logger.error(f"Error adding reaction: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error adding reaction: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 # Получить реакции для сообщения
 @app.get("/reactions/{message_id}")
@@ -1323,149 +1304,141 @@ async def get_reactions(message_id: int):
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 async def get_message_reactions(message_id: int):
-    conn = await get_db()
-    rows = await conn.fetch("""
-        SELECT reaction, COUNT(*) as count, 
-               array_agg(user_phone) as users
-        FROM reactions 
-        WHERE message_id = $1
-        GROUP BY reaction
-    """, message_id)
-    await conn.close()
+    async with db_conn() as conn:
+        rows = await conn.fetch("""
+            SELECT reaction, COUNT(*) as count, 
+                   array_agg(user_phone) as users
+            FROM reactions 
+            WHERE message_id = $1
+            GROUP BY reaction
+        """, message_id)
     
-    return [
-        {
-            "reaction": row['reaction'],
-            "count": row['count'],
-            "users": row['users']
-        }
-        for row in rows
-    ]
+        return [
+            {
+                "reaction": row['reaction'],
+                "count": row['count'],
+                "users": row['users']
+            }
+            for row in rows
+        ]
 
 @app.get("/messages/{user1}/{user2}")
 async def get_messages(user1: str, user2: str):
     try:
-        conn = await get_db()
+        async with db_conn() as conn:
         
-        await conn.execute("""
-            UPDATE messages SET is_read = 1 
-            WHERE sender = $1 AND receiver = $2
-        """, user2, user1)
+            await conn.execute("""
+                UPDATE messages SET is_read = 1 
+                WHERE sender = $1 AND receiver = $2
+            """, user2, user1)
         
-        messages = await conn.fetch("""
-            SELECT id, sender, text, timestamp FROM messages
-            WHERE (sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1)
-            AND is_deleted = 0
-            ORDER BY timestamp
-        """, user1, user2)
+            messages = await conn.fetch("""
+                SELECT id, sender, text, timestamp FROM messages
+                WHERE (sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1)
+                AND is_deleted = 0
+                ORDER BY timestamp
+            """, user1, user2)
         
-        await conn.close()
         
-        return [[m['id'], m['sender'], m['text']] for m in messages]
+            return [[m['id'], m['sender'], m['text']] for m in messages]
         
     except Exception as e:
-        logger.error(f"Error getting messages: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error getting messages: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.delete("/message/{message_id}")
 async def delete_message(message_id: int, user: str):
     try:
-        conn = await get_db()
+        async with db_conn() as conn:
         
-        sender = await conn.fetchval(
-            "SELECT sender FROM messages WHERE id = $1",
-            message_id
-        )
+            sender = await conn.fetchval(
+                "SELECT sender FROM messages WHERE id = $1",
+                message_id
+            )
         
-        if not sender:
-            await conn.close()
-            return JSONResponse(status_code=404, content={"error": "Message not found"})
+            if not sender:
+                return JSONResponse(status_code=404, content={"error": "Message not found"})
         
-        if sender != user:
-            await conn.close()
-            return JSONResponse(status_code=403, content={"error": "Not authorized"})
+            if sender != user:
+                return JSONResponse(status_code=403, content={"error": "Not authorized"})
         
-        await conn.execute(
-            "UPDATE messages SET is_deleted = 1 WHERE id = $1",
-            message_id
-        )
+            await conn.execute(
+                "UPDATE messages SET is_deleted = 1 WHERE id = $1",
+                message_id
+            )
         
-        await conn.close()
         
-        return {"ok": True}
+            return {"ok": True}
         
     except Exception as e:
-        logger.error(f"Error deleting message: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error deleting message: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.delete("/chat/{user1}/{user2}")
 async def delete_chat(user1: str, user2: str):
     try:
-        conn = await get_db()
+        async with db_conn() as conn:
         
-        await conn.execute("""
-            DELETE FROM messages 
-            WHERE (sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1)
-        """, user1, user2)
+            await conn.execute("""
+                DELETE FROM messages 
+                WHERE (sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1)
+            """, user1, user2)
         
-        await conn.close()
         
-        return {"ok": True}
+            return {"ok": True}
         
     except Exception as e:
-        logger.error(f"Error deleting chat: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error deleting chat: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 # ============= НАСТРОЙКИ ПРИВАТНОСТИ =============
 
 @app.get("/privacy-settings/{phone}")
 async def get_privacy_settings(phone: str):
     try:
-        conn = await get_db()
+        async with db_conn() as conn:
         
-        settings = await conn.fetchrow(
-            "SELECT phone_privacy, online_privacy, avatar_privacy FROM privacy_settings WHERE phone = $1",
-            phone
-        )
+            settings = await conn.fetchrow(
+                "SELECT phone_privacy, online_privacy, avatar_privacy FROM privacy_settings WHERE phone = $1",
+                phone
+            )
         
-        await conn.close()
         
-        if settings:
+            if settings:
+                return {
+                    "phone_privacy": settings['phone_privacy'],
+                    "online_privacy": settings['online_privacy'],
+                    "avatar_privacy": settings['avatar_privacy']
+                }
+        
             return {
-                "phone_privacy": settings['phone_privacy'],
-                "online_privacy": settings['online_privacy'],
-                "avatar_privacy": settings['avatar_privacy']
+                "phone_privacy": "everyone",
+                "online_privacy": "everyone",
+                "avatar_privacy": "everyone"
             }
         
-        return {
-            "phone_privacy": "everyone",
-            "online_privacy": "everyone",
-            "avatar_privacy": "everyone"
-        }
-        
     except Exception as e:
-        logger.error(f"Error getting privacy settings: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error getting privacy settings: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/privacy-settings/{phone}")
 async def save_privacy_settings(phone: str, settings: PrivacySettings):
     try:
-        conn = await get_db()
+        async with db_conn() as conn:
         
-        await conn.execute("""
-            INSERT INTO privacy_settings (phone, phone_privacy, online_privacy, avatar_privacy)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT (phone) DO UPDATE
-            SET phone_privacy = $2, online_privacy = $3, avatar_privacy = $4
-        """, phone, settings.phone_privacy, settings.online_privacy, settings.avatar_privacy)
+            await conn.execute("""
+                INSERT INTO privacy_settings (phone, phone_privacy, online_privacy, avatar_privacy)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (phone) DO UPDATE
+                SET phone_privacy = $2, online_privacy = $3, avatar_privacy = $4
+            """, phone, settings.phone_privacy, settings.online_privacy, settings.avatar_privacy)
         
-        await conn.close()
         
-        return {"ok": True}
+            return {"ok": True}
         
     except Exception as e:
-        logger.error(f"Error saving privacy settings: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+            logger.error(f"Error saving privacy settings: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 # ============= WEBSOCKET =============
 
@@ -1502,12 +1475,11 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                     if not to or not text:
                         continue
 
-                    conn = await get_db()
-                    message_id = await conn.fetchval("""
-                        INSERT INTO messages (sender, receiver, text) 
-                        VALUES ($1, $2, $3) RETURNING id
-                    """, user, to, text)
-                    await conn.close()
+                    async with db_conn() as conn:
+                        message_id = await conn.fetchval("""
+                            INSERT INTO messages (sender, receiver, text) 
+                            VALUES ($1, $2, $3) RETURNING id
+                        """, user, to, text)
 
                     if to in clients:
                         try:
@@ -1540,13 +1512,12 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                     # Помечаем сообщения прочитанными и уведомляем отправителя
                     from_user = data.get("from")  # от кого пришли сообщения
                     if from_user:
-                        conn = await get_db()
-                        updated = await conn.fetch("""
-                            UPDATE messages SET is_read = 1
-                            WHERE sender = $1 AND receiver = $2 AND is_read = 0
-                            RETURNING id
-                        """, from_user, user)
-                        await conn.close()
+                        async with db_conn() as conn:
+                            updated = await conn.fetch("""
+                                UPDATE messages SET is_read = 1
+                                WHERE sender = $1 AND receiver = $2 AND is_read = 0
+                                RETURNING id
+                            """, from_user, user)
                         ids = [r['id'] for r in updated]
                         if ids and from_user in clients:
                             try:
@@ -1599,24 +1570,23 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                 elif action == "history":
                     chat_user = data.get("user")
                     if chat_user:
-                        conn2 = await get_db()
-                        messages = await conn2.fetch("""
-                            SELECT id, sender, text, is_read FROM messages
-                            WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
-                            AND is_deleted = 0
-                            ORDER BY timestamp
-                        """, user, chat_user)
-                        await ws.send_json({
-                            "action": "history",
-                            "messages": [[m['id'], m['sender'], m['text'], m['is_read']] for m in messages]
-                        })
-                        # Помечаем входящие как прочитанные и уведомляем отправителя
-                        updated = await conn2.fetch("""
-                            UPDATE messages SET is_read = 1
-                            WHERE sender = $2 AND receiver = $1 AND is_read = 0
-                            RETURNING id
-                        """, user, chat_user)
-                        await conn2.close()
+                        async with db_conn() as conn2:
+                            messages = await conn2.fetch("""
+                                SELECT id, sender, text, is_read FROM messages
+                                WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
+                                AND is_deleted = 0
+                                ORDER BY timestamp
+                            """, user, chat_user)
+                            await ws.send_json({
+                                "action": "history",
+                                "messages": [[m['id'], m['sender'], m['text'], m['is_read']] for m in messages]
+                            })
+                            # Помечаем входящие как прочитанные и уведомляем отправителя
+                            updated = await conn2.fetch("""
+                                UPDATE messages SET is_read = 1
+                                WHERE sender = $2 AND receiver = $1 AND is_read = 0
+                                RETURNING id
+                            """, user, chat_user)
                         read_ids = [r['id'] for r in updated]
                         if read_ids and chat_user in clients:
                             try:
@@ -1644,24 +1614,23 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                 pass
         # Сохраняем last_seen
         try:
-            conn = await get_db()
-            await conn.execute("UPDATE users SET last_seen = NOW() WHERE phone = $1", user)
-            await conn.close()
-            # Рассылаем last_seen всем онлайн-контактам
-            import datetime
-            now_iso = datetime.datetime.utcnow().isoformat() + 'Z'
-            for uid, ws2 in list(clients.items()):
-                try:
-                    await ws2.send_json({
-                        "action": "last_seen",
-                        "from": user,
-                        "last_seen": now_iso,
-                        "online": False
-                    })
-                except Exception:
-                    pass
+            async with db_conn() as conn:
+                await conn.execute("UPDATE users SET last_seen = NOW() WHERE phone = $1", user)
+                # Рассылаем last_seen всем онлайн-контактам
+                import datetime
+                now_iso = datetime.datetime.utcnow().isoformat() + 'Z'
+                for uid, ws2 in list(clients.items()):
+                    try:
+                        await ws2.send_json({
+                            "action": "last_seen",
+                            "from": user,
+                            "last_seen": now_iso,
+                            "online": False
+                        })
+                    except Exception:
+                        pass
         except Exception as e:
-            logger.error(f"Error saving last_seen: {e}")
+                logger.error(f"Error saving last_seen: {e}")
 
 # ============= HEALTH + СТАТИЧЕСКИЕ ФАЙЛЫ =============
 
