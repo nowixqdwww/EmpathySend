@@ -4922,3 +4922,27 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
 .voice-record-area {
     padding-bottom: max(8px, calc(8px + env(safe-area-inset-bottom))) !important;
 }
+
+
+/* Message editing */
+.msg-edit-input {
+    width: 100%;
+    min-width: 160px;
+    background: transparent;
+    border: none;
+    border-bottom: 1.5px solid var(--accent, #0A84FF);
+    outline: none;
+    color: inherit;
+    font: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    resize: none;
+    padding: 2px 0 4px;
+}
+
+.msg-edited {
+    font-size: 10px;
+    opacity: 0.55;
+    margin-right: 4px;
+    font-style: italic;
+}
