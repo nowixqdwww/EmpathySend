@@ -2562,9 +2562,7 @@ body {
     }
     
     .add-reaction-btn {
-        opacity: 1;
-        width: 28px;
-        height: 28px;
+        display: none;
     }
 }
 
