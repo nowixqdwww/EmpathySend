@@ -4276,7 +4276,7 @@ button:active:not(:disabled) {
 
 /* ── Фоны ── */
 body { background: var(--bg-primary); }
-#messages, .empty-chat { background: var(--messages-bg) !important; }
+#messages, .empty-chat { background: var(--messages-bg); }
 .chat-header  { background: var(--chat-header-bg) !important; border-color: var(--border) !important; }
 .input-area   { background: var(--input-area-bg)  !important; border-color: var(--border) !important; }
 
