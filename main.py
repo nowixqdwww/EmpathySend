@@ -131,6 +131,7 @@ async def init_db():
                     bio TEXT,
                     avatar TEXT,
                     password TEXT,
+                    last_seen TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -1351,24 +1352,32 @@ async def delete_message(message_id: int, user: str):
     try:
         async with db_conn() as conn:
         
-            sender = await conn.fetchval(
-                "SELECT sender FROM messages WHERE id = $1",
+            row = await conn.fetchrow(
+                "SELECT sender, receiver FROM messages WHERE id = $1",
                 message_id
             )
         
-            if not sender:
+            if not row:
                 return JSONResponse(status_code=404, content={"error": "Message not found"})
         
-            if sender != user:
+            if row["sender"] != user:
                 return JSONResponse(status_code=403, content={"error": "Not authorized"})
         
             await conn.execute(
                 "UPDATE messages SET is_deleted = 1 WHERE id = $1",
                 message_id
             )
-        
-        
-            return {"ok": True}
+            receiver = row["receiver"]
+
+        # Broadcast message_deleted via WebSocket
+        for target in (receiver, user):
+            if target and target in clients:
+                try:
+                    await clients[target].send_json({"action": "message_deleted", "id": message_id})
+                except:
+                    clients.pop(target, None)
+
+        return {"ok": True}
         
     except Exception as e:
             logger.error(f"Error deleting message: {e}")
@@ -1523,7 +1532,8 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                             try:
                                 await clients[from_user].send_json({
                                     "action": "messages_read",
-                                    "ids": ids
+                                    "ids": ids,
+                                    "by": user
                                 })
                             except:
                                 clients.pop(from_user, None)
@@ -1592,7 +1602,8 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                             try:
                                 await clients[chat_user].send_json({
                                     "action": "messages_read",
-                                    "ids": read_ids
+                                    "ids": read_ids,
+                                    "by": user
                                 })
                             except:
                                 clients.pop(chat_user, None)
