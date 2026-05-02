@@ -216,6 +216,19 @@ async def init_db():
                 logger.info(f"Migrated {migrated} data:URI stickers to BYTEA")
 
             # Таблица голосовых сообщений
+            # Calls log table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS calls (
+                    id SERIAL PRIMARY KEY,
+                    caller TEXT NOT NULL,
+                    callee TEXT NOT NULL,
+                    call_type TEXT DEFAULT 'audio',
+                    status TEXT NOT NULL,
+                    duration INTEGER DEFAULT 0,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS voice_messages (
                     id SERIAL PRIMARY KEY,
@@ -1559,9 +1572,29 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                             await clients[to].send_json(payload)
                         except:
                             clients.pop(to, None)
-                    # Если вызываемый не онлайн
                     elif action == "call_offer" and to not in clients:
                         await ws.send_json({"action": "call_end", "from": to, "reason": "offline"})
+
+                    # Save call record to DB on terminal actions
+                    if action in ("call_end", "call_reject", "call_busy") and to:
+                        _duration = data.get("duration", 0) or 0
+                        _call_type = data.get("callType", "audio")
+                        _status = "completed" if action == "call_end" else "rejected"
+                        try:
+                            async with db_conn() as _cc:
+                                await _cc.execute(
+                                    "INSERT INTO calls (caller, callee, call_type, status, duration) VALUES ($1,$2,$3,$4,$5)",
+                                    user, to, _call_type, _status, int(_duration)
+                                )
+                            # Notify both sides to add call bubble
+                            _call_payload = {"action": "call_record", "caller": user, "callee": to,
+                                             "call_type": _call_type, "status": _status, "duration": int(_duration)}
+                            for _target in (user, to):
+                                if _target in clients:
+                                    try: await clients[_target].send_json(_call_payload)
+                                    except: clients.pop(_target, None)
+                        except Exception as _ce:
+                            logger.error(f"Error saving call: {_ce}")
 
                 elif action == "status":
                     to = data.get("to")
@@ -1582,15 +1615,25 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                     if chat_user:
                         async with db_conn() as conn2:
                             messages = await conn2.fetch("""
-                                SELECT id, sender, text, is_read FROM messages
+                                SELECT id, sender, text, is_read, timestamp, 'msg' AS kind FROM messages
                                 WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
                                 AND is_deleted = 0
+                                UNION ALL
+                                SELECT id, caller AS sender, '' AS text, 0 AS is_read, timestamp, 'call' AS kind FROM calls
+                                WHERE (caller = $1 AND callee = $2) OR (caller = $2 AND callee = $1)
                                 ORDER BY timestamp
                             """, user, chat_user)
-                            await ws.send_json({
-                                "action": "history",
-                                "messages": [[m['id'], m['sender'], m['text'], m['is_read']] for m in messages]
-                            })
+                            history = []
+                            for m in messages:
+                                if m['kind'] == 'msg':
+                                    history.append({"type": "msg", "id": m['id'], "sender": m['sender'], "text": m['text'], "is_read": m['is_read']})
+                                else:
+                                    # fetch call details
+                                    call_row = await conn2.fetchrow("SELECT caller,callee,call_type,status,duration FROM calls WHERE id=$1", m['id'])
+                                    if call_row:
+                                        history.append({"type": "call", "id": m['id'], "caller": call_row['caller'], "callee": call_row['callee'],
+                                                        "call_type": call_row['call_type'], "status": call_row['status'], "duration": call_row['duration']})
+                            await ws.send_json({"action": "history", "messages": history})
                             # Помечаем входящие как прочитанные и уведомляем отправителя
                             updated = await conn2.fetch("""
                                 UPDATE messages SET is_read = 1
