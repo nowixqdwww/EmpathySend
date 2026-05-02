@@ -1833,25 +1833,69 @@ body {
 }
 
 .context-menu-item {
-    padding: 12px 20px;
+    padding: 10px 12px;
     cursor: pointer;
-    transition: 
-    color: var(--text-primary);
-    font-size: 14px;
     display: flex;
     align-items: center;
     gap: 10px;
+    font-size: 14px;
+    color: var(--text-primary);
+    border-radius: 10px;
+    position: relative;
+    transition: color 0.12s;
+    margin: 1px 0;
+    transform: scale(1);
+}
+
+/* Spring hover via ::before pseudo-element */
+.context-menu-item::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    background: var(--accent, #0A84FF);
+    opacity: 0;
+    transform: scale(0.88);
+    transition: opacity 0.18s ease, transform 0.28s cubic-bezier(0.34,1.56,0.64,1);
+    pointer-events: none;
+}
+
+.context-menu-item:hover::before {
+    opacity: 0.18;
+    transform: scale(1);
+}
+
+.context-menu-item:active::before {
+    opacity: 0.28;
+    transform: scale(0.96);
+    transition: opacity 0.08s, transform 0.1s ease;
+}
+
+.context-menu-item:active {
+    transform: scale(0.98);
+    transition: transform 0.08s ease;
 }
 
 .context-menu-item i {
+    position: relative;
+    z-index: 1;
     width: 20px;
     text-align: center;
     font-size: 16px;
+    opacity: 0.75;
 }
 
+.context-menu-item span, .context-menu-item > *:not(i) {
+    position: relative;
+    z-index: 1;
+}
 
 .context-menu-item.delete {
-    color: #f87171;
+    color: #FF3B30;
+}
+
+.context-menu-item.delete::before {
+    background: #FF3B30;
 }
 
 
