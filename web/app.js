@@ -4078,9 +4078,11 @@ function applyWallpaper(wp) {
         messagesEl.style.backgroundImage = p.img
         messagesEl.style.backgroundSize = p.size
     } else if (wp.type === 'image') {
+        messagesEl.style.background = 'none'
         messagesEl.style.backgroundImage = `url(${wp.value})`
         messagesEl.style.backgroundSize = 'cover'
         messagesEl.style.backgroundPosition = 'center'
+        messagesEl.style.backgroundRepeat = 'no-repeat'
     }
 }
 
