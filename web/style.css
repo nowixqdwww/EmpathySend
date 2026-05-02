@@ -1826,7 +1826,7 @@ body {
     padding: 8px 0;
     z-index: 10000;
     min-width: 200px;
-    animation: fadeIn 0.1s ease;
+    /* animation managed by JS spring */
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
@@ -4825,4 +4825,3 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
 .voice-record-area {
     padding-bottom: max(8px, calc(8px + env(safe-area-inset-bottom))) !important;
 }
-
