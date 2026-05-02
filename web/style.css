@@ -4535,7 +4535,7 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
 }
 
 [data-theme="dark"] #messages {
-    background: #1c1c1e !important;
+    background: #1c1c1e;
 }
 
 [data-theme="dark"] .chat-header,
