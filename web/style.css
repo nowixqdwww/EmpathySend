@@ -2160,9 +2160,16 @@ body {
     }
 
     .toast {
-        width: 90%;
+        left: 5%;
+        right: 5%;
+        width: auto;
+        max-width: none;
+        transform: translateY(100px);
         white-space: normal;
         text-align: center;
+    }
+    .toast.show {
+        transform: translateY(0);
     }
     
     .profile-avatar {
