@@ -2550,10 +2550,12 @@ function showContextMenu(event, type, data) {
         selectedMessageText = data.text || ''
         selectedMessageSender = data.sender || currentUser
         // Скрываем "Удалить" для чужих сообщений — иначе 403 от сервера
+        const _isOwn = selectedMessageSender === currentUser
+        const _isText = !!(data.text && !data.text.startsWith('sticker:'))
         const _deleteBtn = document.querySelector('#messageContextMenu .context-menu-item.delete')
-        if (_deleteBtn) {
-            _deleteBtn.style.display = (selectedMessageSender === currentUser) ? '' : 'none'
-        }
+        if (_deleteBtn) _deleteBtn.style.display = _isOwn ? '' : 'none'
+        const _editBtn = document.getElementById('editMessageBtn')
+        if (_editBtn) _editBtn.style.display = (_isOwn && _isText) ? '' : 'none'
     } else {
         menuId = 'chatContextMenu'
         selectedChatPhone = data.phone
@@ -2630,6 +2632,60 @@ function hideContextMenus() {
     selectedMessageText = null
     selectedMessageSender = null
     selectedChatElement = null
+}
+
+async function editMessage() {
+    if (!selectedMessageId || !selectedMessageElement || !selectedMessageText) return
+    const msgId = selectedMessageId
+    const el = selectedMessageElement
+    hideContextMenus()
+
+    // Find the text node inside the bubble
+    const textEl = el.querySelector('.message-text')
+    if (!textEl) return
+    const originalText = textEl.innerText
+
+    // Replace text with inline textarea
+    const textarea = document.createElement('textarea')
+    textarea.className = 'msg-edit-input'
+    textarea.value = originalText
+    textarea.rows = Math.max(1, originalText.split('\n').length)
+    textEl.replaceWith(textarea)
+    textarea.focus()
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+
+    const finish = async (save) => {
+        const newText = textarea.value.trim()
+        const newTextEl = document.createElement('div')
+        newTextEl.className = 'message-text'
+        if (save && newText && newText !== originalText) {
+            newTextEl.textContent = newText
+            textarea.replaceWith(newTextEl)
+            // Add edited mark
+            if (!el.querySelector('.msg-edited')) {
+                const mark = document.createElement('span')
+                mark.className = 'msg-edited'
+                mark.textContent = 'изм.'
+                el.querySelector('.msg-meta')?.prepend(mark)
+            }
+            try {
+                await fetch(`/message/${msgId}`, {
+                    method: 'PATCH',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ user: currentUser, text: newText })
+                })
+            } catch(e) { console.error('Edit failed', e) }
+        } else {
+            newTextEl.textContent = originalText
+            textarea.replaceWith(newTextEl)
+        }
+    }
+
+    textarea.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); finish(true) }
+        if (e.key === 'Escape') finish(false)
+    })
+    textarea.addEventListener('blur', () => setTimeout(() => finish(false), 150))
 }
 
 async function deleteMessage() {
@@ -2838,6 +2894,20 @@ function connect() {
                 }
             }
 
+            if (data.action === 'message_edited') {
+                const el = document.querySelector(`[data-message-id="${data.id}"]`)
+                if (el) {
+                    const textEl = el.querySelector('.message-text')
+                    if (textEl) textEl.textContent = data.text
+                    if (!el.querySelector('.msg-edited')) {
+                        const mark = document.createElement('span')
+                        mark.className = 'msg-edited'
+                        mark.textContent = 'изм.'
+                        el.querySelector('.msg-meta')?.prepend(mark)
+                    }
+                }
+            }
+
             if (data.action === 'message') {
                 // Подтверждаем доставку
                 if (ws && ws.readyState === WebSocket.OPEN) {
@@ -2888,6 +2958,16 @@ function connect() {
                         addCallMessage(isMe ? m.callee : m.caller, callStatus, m.duration, m.call_type, true)
                     } else {
                         addMessage(m.sender, m.text, m.id, m.is_read === 1)
+                        // Mark as edited if needed
+                        if (m.edited) {
+                            const el = document.querySelector(`[data-message-id="${m.id}"]`)
+                            if (el && !el.querySelector('.msg-edited')) {
+                                const mark = document.createElement('span')
+                                mark.className = 'msg-edited'
+                                mark.textContent = 'изм.'
+                                el.querySelector('.msg-meta')?.prepend(mark)
+                            }
+                        }
                     }
                 })
             }
@@ -3911,6 +3991,7 @@ function addReactionFromMenu() {
 }
 window.addReactionFromMenu = addReactionFromMenu
 window.deleteMessage = deleteMessage
+window.editMessage = editMessage
 window.deleteChat = deleteChat
 window.muteChat = muteChat
 window.clearChat = clearChat
