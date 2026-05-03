@@ -4974,20 +4974,28 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
 
 /* Reply quote inside message bubble */
 .reply-quote {
-    border: 1px solid rgba(10,132,255,0.35);
-    border-left: 3px solid var(--accent, #0A84FF);
+    border: 1px solid rgba(0,0,0,0.12);
+    border-left: 3px solid rgba(0,0,0,0.25);
     padding: 5px 9px;
     margin-bottom: 6px;
     border-radius: 8px;
-    background: rgba(10,132,255,0.07);
+    background: rgba(0,0,0,0.08);
     cursor: pointer;
     max-width: 100%;
     overflow: hidden;
     transition: background 0.15s;
 }
-.reply-quote:hover { background: rgba(10,132,255,0.13); }
-.reply-quote-sender { display: block; font-size: 11px; font-weight: 700; color: var(--accent, #0A84FF); margin-bottom: 2px; }
-.reply-quote-text { display: block; font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.reply-quote:hover { background: rgba(0,0,0,0.14); }
+.reply-quote-sender { display: block; font-size: 11px; font-weight: 700; color: inherit; opacity: 0.75; margin-bottom: 2px; }
+.reply-quote-text { display: block; font-size: 12px; opacity: 0.65; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.message.other .reply-quote {
+    border-color: rgba(10,132,255,0.25);
+    border-left-color: var(--accent, #0A84FF);
+    background: rgba(10,132,255,0.07);
+}
+.message.other .reply-quote:hover { background: rgba(10,132,255,0.13); }
+.message.other .reply-quote-sender { color: var(--accent, #0A84FF); opacity: 1; }
 
 /* Message highlight on scroll-to */
 @keyframes msgHighlight {
