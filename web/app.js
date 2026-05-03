@@ -2649,9 +2649,15 @@ async function editMessage() {
     const textarea = document.createElement('textarea')
     textarea.className = 'msg-edit-input'
     textarea.value = originalText
-    textarea.rows = Math.max(1, originalText.split('\n').length)
     textEl.replaceWith(textarea)
+    // Auto-resize to fit content
+    const autoResize = () => {
+        textarea.style.height = 'auto'
+        textarea.style.height = textarea.scrollHeight + 'px'
+    }
+    textarea.addEventListener('input', autoResize)
     textarea.focus()
+    autoResize()
     textarea.setSelectionRange(textarea.value.length, textarea.value.length)
 
     const finish = async (save) => {
