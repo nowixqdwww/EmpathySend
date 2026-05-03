@@ -192,6 +192,10 @@
                     <button onclick="toggleStickerModal()" class="sticker-btn" id="stickerBtn">
                         <i class="fas fa-face-smile"></i>
                     </button>
+                    <button class="attach-btn" onclick="document.getElementById('mediaInput').click()" title="Прикрепить файл">
+                        <i class="fas fa-paperclip"></i>
+                    </button>
+                    <input type="file" id="mediaInput" accept="image/*,video/*,*/*" style="display:none" onchange="handleMediaSelect(this)">
                     <input id="text" placeholder="Напишите сообщение..." class="message-input">
                     <button class="voice-btn input-btn-animated btn-visible" id="voiceBtn">
                         <i class="fas fa-microphone"></i>
