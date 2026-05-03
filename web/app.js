@@ -5360,30 +5360,22 @@ function hideActiveCallScreen() {
 }
 
 // ── Рингтон (синтезированный через Web Audio) ────────────
-let _ringtoneCtx = null, _ringtoneNodes = []
+let _ringtoneAudio = null
 function playRingtone() {
     stopRingtone()
     try {
-        _ringtoneCtx = new AudioContext()
-        function beep() {
-            if (!_ringtoneCtx) return
-            const osc = _ringtoneCtx.createOscillator()
-            const gain = _ringtoneCtx.createGain()
-            osc.connect(gain); gain.connect(_ringtoneCtx.destination)
-            osc.frequency.value = 440
-            gain.gain.setValueAtTime(0.3, _ringtoneCtx.currentTime)
-            gain.gain.exponentialRampToValueAtTime(0.001, _ringtoneCtx.currentTime + 0.4)
-            osc.start(); osc.stop(_ringtoneCtx.currentTime + 0.4)
-            _ringtoneNodes.push(osc)
-        }
-        beep()
-        window._ringtoneInterval = setInterval(beep, 1200)
+        _ringtoneAudio = new Audio('/static/ringtone.mp3')
+        _ringtoneAudio.loop = true
+        _ringtoneAudio.volume = 1.0
+        _ringtoneAudio.play().catch(() => {})
     } catch(e) {}
 }
 function stopRingtone() {
-    if (window._ringtoneInterval) { clearInterval(window._ringtoneInterval); window._ringtoneInterval = null }
-    if (_ringtoneCtx) { try { _ringtoneCtx.close() } catch(e) {}; _ringtoneCtx = null }
-    _ringtoneNodes = []
+    if (_ringtoneAudio) {
+        _ringtoneAudio.pause()
+        _ringtoneAudio.currentTime = 0
+        _ringtoneAudio = null
+    }
 }
 
 // Хелпер для аватарок — поддерживаем оба формата (старый filename и новый data URI)
