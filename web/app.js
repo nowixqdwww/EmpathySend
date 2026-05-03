@@ -1261,7 +1261,7 @@ function addMessage(user, text, messageId = null, isRead = false, reply = null) 
         const _rs = reply ? (reply.sender === currentUser ? 'Вы' : escapeHtml(reply.sender || '')) : ''
         const _rtShort = _rt.length > 80 ? _rt.slice(0, 80) + '...' : _rt
         const replyHtml = reply
-            ? `<div class="reply-quote" data-reply-id="${reply.id}"><span class="reply-quote-sender">${_rs}</span><span class="reply-quote-text">${escapeHtml(_rtShort)}</span></div>`
+            ? `<div class="reply-quote" data-reply-id="${reply.id}" onclick="scrollToMessage(${reply.id})"><span class="reply-quote-sender">${_rs}</span><span class="reply-quote-text">${escapeHtml(_rtShort)}</span></div>`
             : ''
 
         const fwdMatch = text.match(/^\[FWD:(.+?)\]([\s\S]*?)\[\/FWD\]$/)
@@ -2641,6 +2641,14 @@ function hideContextMenus() {
     selectedMessageText = null
     selectedMessageSender = null
     selectedChatElement = null
+}
+
+function scrollToMessage(id) {
+    const el = document.querySelector(`[data-message-id="${id}"]`)
+    if (!el) return
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.add('msg-highlight')
+    setTimeout(() => el.classList.remove('msg-highlight'), 2000)
 }
 
 function replyMessage() {
@@ -4039,6 +4047,7 @@ window.deleteMessage = deleteMessage
 window.editMessage = editMessage
 window.replyMessage = replyMessage
 window.cancelReply = cancelReply
+window.scrollToMessage = scrollToMessage
 window.deleteChat = deleteChat
 window.muteChat = muteChat
 window.clearChat = clearChat
