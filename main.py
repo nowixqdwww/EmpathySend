@@ -1684,7 +1684,7 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                                 WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
                                 AND is_deleted = 0
                                 UNION ALL
-                                SELECT id, caller AS sender, '' AS text, 0 AS is_read, timestamp, 'call' AS kind FROM calls
+                                SELECT id, caller AS sender, '' AS text, 0 AS is_read, FALSE AS edited, timestamp, 'call' AS kind FROM calls
                                 WHERE (caller = $1 AND callee = $2) OR (caller = $2 AND callee = $1)
                                 ORDER BY timestamp
                             """, user, chat_user)
