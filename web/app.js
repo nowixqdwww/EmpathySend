@@ -3080,7 +3080,15 @@ function connect() {
             }
 
             if (data.action === 'message_sent') {
-                addMessage(currentUser, data.text, data.id, null, data.reply || null)
+                const _md = parseMediaToken(data.text)
+                if (_md) {
+                    const _loc = [...document.querySelectorAll('[data-message-id^="local_"]')]
+                        .find(el => el.querySelector('img,video'))
+                    if (_loc) { _loc.dataset.messageId = data.id }
+                    else { addMessage(currentUser, data.text, data.id, null, data.reply || null) }
+                } else {
+                    addMessage(currentUser, data.text, data.id, null, data.reply || null)
+                }
                 if (data.delivered) {
                     const el = document.querySelector(`[data-message-id="${data.id}"] .msg-ticks .tick-second`)
                     if (el) el.style.display = ''
