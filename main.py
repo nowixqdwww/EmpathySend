@@ -319,6 +319,14 @@ async def init_db():
             pass
 
 # Запускаем инициализацию при старте
+# Copy ringtone to static dir if present next to main.py
+_rt_src = os.path.join(BASE_DIR, "ringtone.mp3")
+_rt_dst = os.path.join(STATIC_DIR, "ringtone.mp3")
+if os.path.exists(_rt_src) and not os.path.exists(_rt_dst):
+    try:
+        import shutil; shutil.copy2(_rt_src, _rt_dst)
+    except Exception: pass
+
 @app.on_event("startup")
 async def startup():
     import asyncio
