@@ -1187,6 +1187,13 @@ function addMessage(user, text, messageId = null, isRead = false, reply = null) 
     const div = document.createElement('div')
     const isMe = user === currentUser
 
+    // Media message
+    const mediaData = parseMediaToken(text)
+    if (mediaData) {
+        addMediaMessage(user, mediaData, messageId, isMe)
+        return
+    }
+
     const stickerMatch = text.match(/\[STICKER\](.*?)\[\/STICKER\]/)
     const voiceMatch   = text.match(/\[VOICE(?::(\d+))?\](.*?)\[\/VOICE\]/)
     const videoMatch   = text.match(/\[VIDEO(?::(\d+))?\](.*?)\[\/VIDEO\]/)
@@ -2524,6 +2531,88 @@ function loadMessages() {
         return
     }
     ws.send(JSON.stringify({ action: 'history', user: currentChat }))
+}
+
+async function handleMediaSelect(input) {
+    const file = input.files[0]
+    if (!file || !currentChat) return
+    input.value = ''
+    if (file.size > 50 * 1024 * 1024) { showToast('Максимум 50 МБ'); return }
+
+    // Show local preview immediately
+    const localUrl = URL.createObjectURL(file)
+    const kind = file.type.startsWith('image/') ? 'image' : file.type.startsWith('video/') ? 'video' : 'file'
+    const localId = 'local_' + Date.now()
+    addMediaMessage(currentUser, { url: localUrl, kind, name: file.name, size: file.size }, localId, true)
+
+    try {
+        const fd = new FormData()
+        fd.append('file', file)
+        fd.append('sender', currentUser)
+        const res = await fetch('/api/media/upload', { method: 'POST', body: fd })
+        if (!res.ok) throw new Error('Upload failed')
+        const media = await res.json()
+
+        // Send via WS as special text token
+        const token = `[MEDIA:${media.kind}|${encodeURIComponent(media.name)}|${media.size}]${media.url}[/MEDIA]`
+        ws.send(JSON.stringify({ action: 'send', to: currentChat, text: token, reply_to: replyState?.id || null }))
+        cancelReply()
+
+        // Replace local preview with permanent URL
+        const localEl = document.querySelector(`[data-message-id="${localId}"]`)
+        if (localEl) {
+            const img = localEl.querySelector('img')
+            const vid = localEl.querySelector('video')
+            if (img) img.src = media.url
+            if (vid) vid.src = media.url
+        }
+    } catch(e) {
+        showToast('Ошибка загрузки файла')
+        const localEl = document.querySelector(`[data-message-id="${localId}"]`)
+        if (localEl) localEl.remove()
+    }
+}
+
+function parseMediaToken(text) {
+    const m = text.match(/^\[MEDIA:(image|video|file)\|([^|]+)\|(\d+)\](.+)\[\/MEDIA\]$/)
+    if (!m) return null
+    return { kind: m[1], name: decodeURIComponent(m[2]), size: parseInt(m[3]), url: m[4] }
+}
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B'
+    if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB'
+    return (bytes/1024/1024).toFixed(1) + ' MB'
+}
+
+function addMediaMessage(user, media, msgId, isMe) {
+    const messagesDiv = document.getElementById('messages')
+    if (!messagesDiv) return
+    const div = document.createElement('div')
+    div.className = 'message ' + (isMe ? 'me' : 'other')
+    if (msgId) div.dataset.messageId = msgId
+
+    let inner = ''
+    if (media.kind === 'image') {
+        inner = `<div class="media-bubble"><img class="media-img" src="${media.url}" loading="lazy" onclick="openMediaViewer(this.src)" alt="${escapeHtml(media.name)}"></div>`
+    } else if (media.kind === 'video') {
+        inner = `<div class="media-bubble"><video class="media-video" src="${media.url}" controls playsinline preload="metadata"></video></div>`
+    } else {
+        inner = `<div class="media-file-bubble"><i class="fas fa-file media-file-icon"></i><div class="media-file-info"><span class="media-file-name">${escapeHtml(media.name)}</span><span class="media-file-size">${formatFileSize(media.size)}</span></div><a class="media-file-dl" href="${media.url}" download="${escapeHtml(media.name)}"><i class="fas fa-download"></i></a></div>`
+    }
+
+    const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+    div.innerHTML = inner + `<div class="message-meta"><span class="message-time">${time}</span></div>`
+    messagesDiv.appendChild(div)
+    messagesDiv.scrollTop = messagesDiv.scrollHeight
+}
+
+function openMediaViewer(src) {
+    const overlay = document.createElement('div')
+    overlay.className = 'media-viewer-overlay'
+    overlay.innerHTML = `<img src="${src}" class="media-viewer-img"><button class="media-viewer-close" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>`
+    overlay.onclick = e => { if (e.target === overlay) overlay.remove() }
+    document.body.appendChild(overlay)
 }
 
 function send() {
@@ -4048,6 +4137,8 @@ window.editMessage = editMessage
 window.replyMessage = replyMessage
 window.cancelReply = cancelReply
 window.scrollToMessage = scrollToMessage
+window.handleMediaSelect = handleMediaSelect
+window.openMediaViewer = openMediaViewer
 window.deleteChat = deleteChat
 window.muteChat = muteChat
 window.clearChat = clearChat
