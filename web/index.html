@@ -150,6 +150,9 @@
                     <button class="action-btn" onclick="event.stopPropagation();startCall('audio')" title="Аудио звонок" id="callAudioBtn">
                         <i class="fas fa-phone"></i>
                     </button>
+                    <button class="action-btn" onclick="openChatMenu(event)" id="chatMenuBtn">
+                        <i class="fas fa-ellipsis-vertical"></i>
+                    </button>
                 </div>
 
                 <!-- Выпадающее меню чата -->
@@ -173,7 +176,19 @@
             <div class="input-wrap" id="inputWrap">
 
                 <!-- Обычная строка ввода -->
-                <div class="input-area" id="inputArea">
+                <div id="replyBar" class="reply-bar" style="display:none">
+    <div class="reply-bar-content">
+        <i class="fas fa-reply reply-bar-icon"></i>
+        <div class="reply-bar-text">
+            <span class="reply-bar-sender" id="replyBarSender"></span>
+            <span class="reply-bar-msg" id="replyBarMsg"></span>
+        </div>
+    </div>
+    <button class="reply-bar-close" onclick="cancelReply()">
+        <i class="fas fa-times"></i>
+    </button>
+</div>
+<div class="input-area" id="inputArea">
                     <button onclick="toggleStickerModal()" class="sticker-btn" id="stickerBtn">
                         <i class="fas fa-face-smile"></i>
                     </button>
@@ -729,6 +744,9 @@
 <div id="messageContextMenu" class="context-menu" style="display: none;">
     <div class="context-menu-item" onclick="addReactionFromMenu()">
         <i class="fas fa-face-smile"></i> Реакция
+    </div>
+    <div class="context-menu-item" onclick="replyMessage()">
+        <i class="fas fa-reply"></i> Ответить
     </div>
     <div class="context-menu-item" id="editMessageBtn" onclick="editMessage()" style="display:none">
         <i class="fas fa-pen"></i> Редактировать
