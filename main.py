@@ -42,6 +42,10 @@ for _d in [AVATAR_DIR, STICKER_DIR, STATIC_DIR, WALLPAPER_DIR, MEDIA_DIR]:
     except Exception: pass
 
 # Монтируем папки
+# Ensure all dirs exist before mounting
+for _mount_dir in [AVATAR_DIR, WALLPAPER_DIR, MEDIA_DIR, STATIC_DIR]:
+    os.makedirs(_mount_dir, exist_ok=True)
+
 app.mount("/avatars", StaticFiles(directory=AVATAR_DIR), name="avatars")
 app.mount("/wallpapers", StaticFiles(directory=WALLPAPER_DIR), name="wallpapers")
 app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
@@ -597,6 +601,15 @@ ALLOWED_MEDIA_TYPES = {
     "video/mp4", "video/quicktime", "video/webm", "video/x-matroska",
 }
 MAX_MEDIA_SIZE = 50 * 1024 * 1024  # 50 MB
+
+@app.get("/media/{filename}")
+async def serve_media(filename: str):
+    path = os.path.join(MEDIA_DIR, filename)
+    if not os.path.exists(path):
+        return JSONResponse(status_code=404, content={"error": "Not found"})
+    import mimetypes
+    mt, _ = mimetypes.guess_type(path)
+    return FileResponse(path, media_type=mt or "application/octet-stream")
 
 @app.post("/api/media/upload")
 async def upload_media(file: UploadFile = File(...), sender: str = ""):
