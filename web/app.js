@@ -1257,6 +1257,13 @@ function addMessage(user, text, messageId = null, isRead = false) {
             : ''
 
         // Пересланное сообщение
+        const _rt = reply && reply.text ? reply.text : ''
+        const _rs = reply ? (reply.sender === currentUser ? 'Вы' : escapeHtml(reply.sender || '')) : ''
+        const _rtShort = _rt.length > 80 ? _rt.slice(0, 80) + '...' : _rt
+        const replyHtml = reply
+            ? `<div class="reply-quote" data-reply-id="${reply.id}"><span class="reply-quote-sender">${_rs}</span><span class="reply-quote-text">${escapeHtml(_rtShort)}</span></div>`
+            : ''
+
         const fwdMatch = text.match(/^\[FWD:(.+?)\]([\s\S]*?)\[\/FWD\]$/)
         let bodyHtml
         if (fwdMatch) {
@@ -1270,7 +1277,7 @@ function addMessage(user, text, messageId = null, isRead = false) {
             bodyHtml = `<div class="fwd-header"><i class="fas fa-share"></i> Переслано от ${nameHtml}</div>
                         <div class="message-text">${escapeHtml(fwdMatch[2])}</div>`
         } else {
-            bodyHtml = `<div class="message-text">${escapeHtml(text)}</div>`
+            bodyHtml = replyHtml + `<div class="message-text">${escapeHtml(text)}</div>`
         }
 
         div.innerHTML = `${bodyHtml}
@@ -2111,6 +2118,7 @@ window.cancelVoiceRecord = cancelVoiceRecord
 
 let currentMessageId = null
 let reactionsPanelTimeout = null
+let replyState = null  // { id, sender, text }
 
 // Показать панель реакций
 function showReactionsPanel(event, messageId) {
@@ -2525,7 +2533,8 @@ function send() {
     const text = document.getElementById('text').value.trim()
     if (!text) return
 
-    ws.send(JSON.stringify({ action: 'send', to: currentChat, text }))
+    ws.send(JSON.stringify({ action: 'send', to: currentChat, text, reply_to: replyState?.id || null }))
+    cancelReply()
     document.getElementById('text').value = ''
     updateInputButtons()
     // Сразу обновляем список чатов (создаёт если новый)
@@ -2632,6 +2641,31 @@ function hideContextMenus() {
     selectedMessageText = null
     selectedMessageSender = null
     selectedChatElement = null
+}
+
+function replyMessage() {
+    if (!selectedMessageId || !selectedMessageText) return
+    replyState = {
+        id: selectedMessageId,
+        sender: selectedMessageSender,
+        text: selectedMessageText
+    }
+    hideContextMenus()
+    const bar = document.getElementById('replyBar')
+    const senderEl = document.getElementById('replyBarSender')
+    const msgEl = document.getElementById('replyBarMsg')
+    if (bar) {
+        senderEl.textContent = replyState.sender === currentUser ? 'Вы' : (replyState.sender || '')
+        msgEl.textContent = replyState.text.length > 80 ? replyState.text.slice(0, 80) + '...' : replyState.text
+        bar.style.display = 'flex'
+    }
+    document.getElementById('text')?.focus()
+}
+
+function cancelReply() {
+    replyState = null
+    const bar = document.getElementById('replyBar')
+    if (bar) bar.style.display = 'none'
 }
 
 async function editMessage() {
@@ -2927,7 +2961,7 @@ function connect() {
 
                 // Добавляем в DOM только если это открытый чат
                 if (currentChat === data.from) {
-                    addMessage(data.from, data.text, data.id, false)
+                    addMessage(data.from, data.text, data.id, false, data.reply || null)
                     // Отмечаем прочитанным и скрываем badge
                     ws.send(JSON.stringify({ action: 'read', from: data.from, id: data.id }))
                     const incomingChatEl = document.getElementById(`chat-${cleanPhone(data.from)}`)
@@ -2949,7 +2983,7 @@ function connect() {
             }
 
             if (data.action === 'message_sent') {
-                addMessage(currentUser, data.text, data.id, null)
+                addMessage(currentUser, data.text, data.id, null, data.reply || null)
                 if (data.delivered) {
                     const el = document.querySelector(`[data-message-id="${data.id}"] .msg-ticks .tick-second`)
                     if (el) el.style.display = ''
@@ -2968,7 +3002,7 @@ function connect() {
                         else callStatus = isMe ? 'rejected' : 'missed'
                         addCallMessage(isMe ? m.callee : m.caller, callStatus, m.duration, m.call_type, true)
                     } else {
-                        addMessage(m.sender, m.text, m.id, m.is_read === 1)
+                        addMessage(m.sender, m.text, m.id, m.is_read === 1, m.reply || null)
                         // Mark as edited if needed
                         if (m.edited) {
                             const el = document.querySelector(`[data-message-id="${m.id}"]`)
@@ -4003,6 +4037,8 @@ function addReactionFromMenu() {
 window.addReactionFromMenu = addReactionFromMenu
 window.deleteMessage = deleteMessage
 window.editMessage = editMessage
+window.replyMessage = replyMessage
+window.cancelReply = cancelReply
 window.deleteChat = deleteChat
 window.muteChat = muteChat
 window.clearChat = clearChat
