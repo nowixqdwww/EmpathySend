@@ -226,6 +226,13 @@ async def init_db():
             if not msg_edited_exists:
                 await conn.execute("ALTER TABLE messages ADD COLUMN edited BOOLEAN DEFAULT FALSE")
 
+            reply_to_exists = await conn.fetchval("""
+                SELECT EXISTS (SELECT FROM information_schema.columns
+                WHERE table_name = 'messages' AND column_name = 'reply_to')
+            """)
+            if not reply_to_exists:
+                await conn.execute("ALTER TABLE messages ADD COLUMN reply_to INTEGER REFERENCES messages(id) ON DELETE SET NULL")
+
             # Calls log table
             await conn.execute("""
                 CREATE TABLE IF NOT EXISTS calls (
@@ -1563,10 +1570,19 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                         continue
 
                     async with db_conn() as conn:
+                        reply_to = data.get("reply_to")
                         message_id = await conn.fetchval("""
-                            INSERT INTO messages (sender, receiver, text) 
-                            VALUES ($1, $2, $3) RETURNING id
-                        """, user, to, text)
+                            INSERT INTO messages (sender, receiver, text, reply_to) 
+                            VALUES ($1, $2, $3, $4) RETURNING id
+                        """, user, to, text, reply_to)
+
+                    # Fetch reply preview if any
+                    reply_preview = None
+                    if reply_to:
+                        async with db_conn() as rc:
+                            rrow = await rc.fetchrow("SELECT sender, text FROM messages WHERE id=$1", reply_to)
+                            if rrow:
+                                reply_preview = {"id": reply_to, "sender": rrow["sender"], "text": rrow["text"]}
 
                     if to in clients:
                         try:
@@ -1574,7 +1590,8 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                                 "action": "message",
                                 "id": message_id,
                                 "from": user,
-                                "text": text
+                                "text": text,
+                                "reply": reply_preview
                             })
                         except:
                             clients.pop(to, None)
@@ -1583,7 +1600,8 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                         "action": "message_sent",
                         "id": message_id,
                         "to": to,
-                        "text": text
+                        "text": text,
+                        "reply": reply_preview
                     })
 
                 elif action == "delivered":
@@ -1680,18 +1698,24 @@ async def websocket_endpoint(ws: WebSocket, user: str):
                     if chat_user:
                         async with db_conn() as conn2:
                             messages = await conn2.fetch("""
-                                SELECT id, sender, text, is_read, edited, timestamp, 'msg' AS kind FROM messages
-                                WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
-                                AND is_deleted = 0
+                                SELECT m.id, m.sender, m.text, m.is_read, m.edited, m.timestamp, 'msg' AS kind,
+                                       m.reply_to, r.sender AS reply_sender, r.text AS reply_text
+                                FROM messages m
+                                LEFT JOIN messages r ON r.id = m.reply_to
+                                WHERE ((m.sender = $1 AND m.receiver = $2) OR (m.sender = $2 AND m.receiver = $1))
+                                AND m.is_deleted = 0
                                 UNION ALL
-                                SELECT id, caller AS sender, '' AS text, 0 AS is_read, FALSE AS edited, timestamp, 'call' AS kind FROM calls
+                                SELECT id, caller AS sender, '' AS text, 0 AS is_read, FALSE AS edited, timestamp, 'call' AS kind, NULL::INTEGER, NULL::TEXT, NULL::TEXT FROM calls
                                 WHERE (caller = $1 AND callee = $2) OR (caller = $2 AND callee = $1)
                                 ORDER BY timestamp
                             """, user, chat_user)
                             history = []
                             for m in messages:
                                 if m['kind'] == 'msg':
-                                    history.append({"type": "msg", "id": m['id'], "sender": m['sender'], "text": m['text'], "is_read": m['is_read'], "edited": bool(m['edited'])})
+                                    reply_data = None
+                                    if m['reply_to']:
+                                        reply_data = {"id": m['reply_to'], "sender": m['reply_sender'], "text": m['reply_text']}
+                                    history.append({"type": "msg", "id": m['id'], "sender": m['sender'], "text": m['text'], "is_read": m['is_read'], "edited": bool(m['edited']), "reply": reply_data})
                                 else:
                                     # fetch call details
                                     call_row = await conn2.fetchrow("SELECT caller,callee,call_type,status,duration FROM calls WHERE id=$1", m['id'])
