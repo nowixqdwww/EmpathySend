@@ -2249,6 +2249,12 @@ function formatLastMessage(text) {
     if (text.match(/^\[VOICE/))   return '🎤 Голосовое сообщение'
     if (text.match(/^\[STICKER/)) return '🖼 Стикер'
     if (text.match(/^\[FWD:/))    return '↩ Пересланное сообщение'
+    const _mm = text.match(/^\[MEDIA:(image|video|file)\|/)
+    if (_mm) {
+        if (_mm[1] === 'image') return '📷 Фото'
+        if (_mm[1] === 'video') return '🎥 Видео'
+        return '📎 Файл'
+    }
     return text
 }
 
