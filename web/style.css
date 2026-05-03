@@ -4938,6 +4938,9 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
     line-height: 1.4;
     resize: none;
     padding: 2px 0 4px;
+    overflow: hidden;
+    box-sizing: border-box;
+    display: block;
 }
 
 .msg-edited {
