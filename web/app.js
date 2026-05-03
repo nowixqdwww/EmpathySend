@@ -2649,16 +2649,21 @@ async function editMessage() {
     const textarea = document.createElement('textarea')
     textarea.className = 'msg-edit-input'
     textarea.value = originalText
+    textarea.rows = 1
+    textarea.style.height = 'auto'
     textEl.replaceWith(textarea)
-    // Auto-resize to fit content
+    // Auto-resize AFTER insertion so scrollHeight is accurate
     const autoResize = () => {
-        textarea.style.height = 'auto'
-        textarea.style.height = textarea.scrollHeight + 'px'
+        textarea.style.height = '1px'
+        textarea.style.height = (textarea.scrollHeight) + 'px'
     }
     textarea.addEventListener('input', autoResize)
-    textarea.focus()
-    autoResize()
-    textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+    // Measure after browser has laid it out
+    requestAnimationFrame(() => {
+        autoResize()
+        textarea.focus()
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+    })
 
     const finish = async (save) => {
         const newText = textarea.value.trim()
@@ -2672,7 +2677,7 @@ async function editMessage() {
                 const mark = document.createElement('span')
                 mark.className = 'msg-edited'
                 mark.textContent = 'изм.'
-                el.querySelector('.msg-meta')?.prepend(mark)
+                el.querySelector('.message-meta')?.prepend(mark)
             }
             try {
                 await fetch(`/message/${msgId}`, {
@@ -2909,7 +2914,7 @@ function connect() {
                         const mark = document.createElement('span')
                         mark.className = 'msg-edited'
                         mark.textContent = 'изм.'
-                        el.querySelector('.msg-meta')?.prepend(mark)
+                        el.querySelector('.message-meta')?.prepend(mark)
                     }
                 }
             }
@@ -2971,7 +2976,7 @@ function connect() {
                                 const mark = document.createElement('span')
                                 mark.className = 'msg-edited'
                                 mark.textContent = 'изм.'
-                                el.querySelector('.msg-meta')?.prepend(mark)
+                                el.querySelector('.message-meta')?.prepend(mark)
                             }
                         }
                     }
