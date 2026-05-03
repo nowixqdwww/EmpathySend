@@ -2603,6 +2603,28 @@ function addMediaMessage(user, media, msgId, isMe) {
 
     const time = new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
     div.innerHTML = inner + `<div class="message-meta"><span class="message-time">${time}</span></div>`
+
+    // Context menu (same as text messages)
+    if (msgId) {
+        const mediaToken = `[MEDIA:${media.kind}|${encodeURIComponent(media.name)}|${media.size}]${media.url}[/MEDIA]`
+        const ctxHandler = (e) => {
+            e.preventDefault()
+            showContextMenu(e, 'message', { messageId: msgId, element: div, text: mediaToken, sender: user })
+        }
+        div.addEventListener('contextmenu', ctxHandler)
+        let _lpTimer = null
+        div.addEventListener('touchstart', (te) => {
+            const touch = te.touches[0]
+            const startX = touch ? touch.pageX : 0, startY = touch ? touch.pageY : 0
+            _lpTimer = setTimeout(() => {
+                if (window.navigator.vibrate) window.navigator.vibrate(40)
+                ctxHandler({ preventDefault(){}, stopPropagation(){}, pageX: startX, pageY: startY })
+            }, 500)
+        }, { passive: true })
+        div.addEventListener('touchend',  () => clearTimeout(_lpTimer))
+        div.addEventListener('touchmove', () => clearTimeout(_lpTimer))
+    }
+
     messagesDiv.appendChild(div)
     messagesDiv.scrollTop = messagesDiv.scrollHeight
 }
@@ -2649,7 +2671,7 @@ function showContextMenu(event, type, data) {
         selectedMessageSender = data.sender || currentUser
         // Скрываем "Удалить" для чужих сообщений — иначе 403 от сервера
         const _isOwn = selectedMessageSender === currentUser
-        const _isText = !!(data.text && !data.text.startsWith('sticker:'))
+        const _isText = !!(data.text && !data.text.startsWith('sticker:') && !data.text.startsWith('[MEDIA:'))
         const _deleteBtn = document.querySelector('#messageContextMenu .context-menu-item.delete')
         if (_deleteBtn) _deleteBtn.style.display = _isOwn ? '' : 'none'
         const _editBtn = document.getElementById('editMessageBtn')
