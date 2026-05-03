@@ -34,15 +34,17 @@ AVATAR_DIR = os.path.join(BASE_DIR, "avatars")
 STICKER_DIR = os.path.join(BASE_DIR, "stickers")
 STATIC_DIR = os.path.join(BASE_DIR, "web", "static")
 WALLPAPER_DIR = os.path.join(BASE_DIR, "wallpapers")
+MEDIA_DIR = os.path.join(BASE_DIR, "media")
 
 # Создаём директории безопасно
-for _d in [AVATAR_DIR, STICKER_DIR, STATIC_DIR, WALLPAPER_DIR]:
+for _d in [AVATAR_DIR, STICKER_DIR, STATIC_DIR, WALLPAPER_DIR, MEDIA_DIR]:
     try: os.makedirs(_d, exist_ok=True)
     except Exception: pass
 
 # Монтируем папки
 app.mount("/avatars", StaticFiles(directory=AVATAR_DIR), name="avatars")
 app.mount("/wallpapers", StaticFiles(directory=WALLPAPER_DIR), name="wallpapers")
+app.mount("/media", StaticFiles(directory=MEDIA_DIR), name="media")
 # sticker files now served via /sticker-data/{id} from DB
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -581,6 +583,30 @@ async def upload_avatar(phone: str, file: UploadFile = File(...)):
     except Exception as e:
             logger.error(f"Error uploading avatar: {e}")
             return JSONResponse(status_code=500, content={"error": str(e)})
+
+ALLOWED_MEDIA_TYPES = {
+    "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic",
+    "video/mp4", "video/quicktime", "video/webm", "video/x-matroska",
+}
+MAX_MEDIA_SIZE = 50 * 1024 * 1024  # 50 MB
+
+@app.post("/api/media/upload")
+async def upload_media(file: UploadFile = File(...), sender: str = ""):
+    try:
+        data = await file.read()
+        if len(data) > MAX_MEDIA_SIZE:
+            return JSONResponse(status_code=400, content={"error": "Max 50MB"})
+        ct = file.content_type or "application/octet-stream"
+        ext = file.filename.rsplit(".", 1)[-1].lower() if file.filename and "." in file.filename else "bin"
+        fname = f"{hashlib.md5(data + sender.encode()).hexdigest()}_{int(__import__('time').time())}.{ext}"
+        path = os.path.join(MEDIA_DIR, fname)
+        with open(path, "wb") as f:
+            f.write(data)
+        kind = "image" if ct.startswith("image/") else "video" if ct.startswith("video/") else "file"
+        return {"url": f"/media/{fname}", "kind": kind, "name": file.filename or fname, "size": len(data)}
+    except Exception as e:
+        logger.error(f"Media upload error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/wallpaper/upload")
 async def upload_wallpaper(file: UploadFile = File(...)):
