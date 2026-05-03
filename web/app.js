@@ -1182,7 +1182,7 @@ function addStickerMessage(user, stickerUrl) {
     messagesDiv.scrollTop = messagesDiv.scrollHeight
 }
 
-function addMessage(user, text, messageId = null, isRead = false) {
+function addMessage(user, text, messageId = null, isRead = false, reply = null) {
     const messagesDiv = document.getElementById('messages')
     const div = document.createElement('div')
     const isMe = user === currentUser
