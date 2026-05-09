@@ -5148,7 +5148,7 @@ async function handleCallSignal(data) {
             callDirection = 'incoming'
             incomingOffer = data
             showIncomingCallScreen(data.from, data.callerName, callType)
-            playRingtone()
+            // Ringtone plays only for the caller (outgoing), not here
             break
 
         case 'call_answer':
