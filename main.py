@@ -13,6 +13,9 @@ from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
 import uvicorn
+import aiohttp
+import asyncio
+import secrets
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -58,7 +61,13 @@ DATABASE_URL = _raw_db_url.replace("postgres://", "postgresql://", 1)
 
 # ═══ Вставьте сюда токен вашего Telegram-бота ═══════════════════════════
 # Получить: https://t.me/BotFather → /newbot → скопировать токен
-TG_BOT_TOKEN = os.getenv("TOKEN")
+TG_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TG_BOT_USERNAME = ""  # fetched on startup
+
+# phone -> {token, username, name, password, expires}
+_pending_registrations: dict = {}
+# telegram_user_id -> phone (for matching contact share)
+_tg_sessions: dict = {}
 # ════════════════════════════════════════════════════════════════════════
 
 _db_pool = None
@@ -331,6 +340,91 @@ if os.path.exists(_rt_src) and not os.path.exists(_rt_dst):
         import shutil; shutil.copy2(_rt_src, _rt_dst)
     except Exception: pass
 
+
+async def tg_api(method: str, **kwargs):
+    if not TG_BOT_TOKEN:
+        return None
+    url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/{method}"
+    async with aiohttp.ClientSession() as s:
+        async with s.post(url, json=kwargs, timeout=aiohttp.ClientTimeout(total=10)) as r:
+            return await r.json()
+
+async def tg_send(chat_id, text, reply_markup=None):
+    kwargs = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
+    if reply_markup:
+        kwargs["reply_markup"] = reply_markup
+    return await tg_api("sendMessage", **kwargs)
+
+_verified_phones: set = set()
+
+async def bot_polling():
+    global TG_BOT_USERNAME
+    if not TG_BOT_TOKEN:
+        logger.warning("TELEGRAM_BOT_TOKEN not set, skipping bot")
+        return
+    me = await tg_api("getMe")
+    if me and me.get("ok"):
+        TG_BOT_USERNAME = me["result"]["username"]
+        logger.info(f"Telegram bot: @{TG_BOT_USERNAME}")
+
+    offset = 0
+    while True:
+        try:
+            data = await tg_api("getUpdates", offset=offset, timeout=30, allowed_updates=["message"])
+            if not data or not data.get("ok"):
+                await asyncio.sleep(5)
+                continue
+            for upd in data["result"]:
+                offset = upd["update_id"] + 1
+                msg = upd.get("message", {})
+                tg_user = msg.get("from", {})
+                tg_id = tg_user.get("id")
+                text = msg.get("text", "")
+                contact = msg.get("contact")
+
+                if text.startswith("/start ") and tg_id:
+                    token = text.split(" ", 1)[1].strip()
+                    phone = next((p for p, v in _pending_registrations.items() if v["token"] == token), None)
+                    if phone:
+                        _tg_sessions[tg_id] = phone
+                        await tg_send(tg_id,
+                            f"Подтвердите номер <b>{phone}</b>\nНажмите кнопку ниже:",
+                            reply_markup={"keyboard": [[{"text": "Поделиться номером", "request_contact": True}]], "resize_keyboard": True, "one_time_keyboard": True}
+                        )
+                    else:
+                        await tg_send(tg_id, "Ссылка устарела. Начните регистрацию заново.")
+
+                elif contact and tg_id:
+                    phone = _tg_sessions.get(tg_id)
+                    if not phone:
+                        await tg_send(tg_id, "Сначала начните регистрацию в мессенджере.")
+                        continue
+                    def norm(p): return "".join(c for c in (p or "") if c.isdigit())
+                    shared = norm(contact.get("phone_number", ""))
+                    expected = norm(phone)
+                    if shared == expected or shared.endswith(expected) or expected.endswith(shared):
+                        reg = _pending_registrations.pop(phone, None)
+                        _tg_sessions.pop(tg_id, None)
+                        if reg:
+                            try:
+                                async with db_conn() as conn:
+                                    await conn.execute(
+                                        "INSERT INTO users (phone, username, name, password) VALUES ($1,$2,$3,$4) ON CONFLICT (phone) DO NOTHING",
+                                        phone, reg["username"], reg["name"], reg["password"]
+                                    )
+                                    await conn.execute("INSERT INTO privacy_settings (phone) VALUES ($1) ON CONFLICT DO NOTHING", phone)
+                                _verified_phones.add(phone)
+                                await tg_send(tg_id, "✅ Номер подтверждён! Вернитесь в мессенджер и войдите.", reply_markup={"remove_keyboard": True})
+                            except Exception as e:
+                                logger.error(f"Bot register error: {e}")
+                                await tg_send(tg_id, "Ошибка. Попробуйте позже.", reply_markup={"remove_keyboard": True})
+                    else:
+                        _tg_sessions.pop(tg_id, None)
+                        await tg_send(tg_id, f"❌ Номер не совпадает. Ожидался: <b>{phone}</b>", reply_markup={"remove_keyboard": True})
+        except Exception as e:
+            logger.error(f"Bot polling error: {e}")
+            await asyncio.sleep(5)
+
 @app.on_event("startup")
 async def startup():
     import asyncio
@@ -344,6 +438,7 @@ async def startup():
         except Exception as e:
             logger.error(f"Database init failed: {e}")
     asyncio.create_task(safe_init())
+    asyncio.create_task(bot_polling())
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -397,40 +492,52 @@ class DeleteMessage(BaseModel):
 async def register(user: UserRegister):
     try:
         async with db_conn() as conn:
-        
-            existing = await conn.fetchval(
-                "SELECT phone FROM users WHERE phone = $1",
-                user.phone
-            )
+            existing = await conn.fetchval("SELECT phone FROM users WHERE phone = $1", user.phone)
             if existing:
                 return JSONResponse(status_code=400, content={"error": "Пользователь уже существует"})
-        
             if user.username:
-                existing_username = await conn.fetchval(
-                    "SELECT phone FROM users WHERE username = $1",
-                    user.username
-                )
-                if existing_username:
+                taken = await conn.fetchval("SELECT phone FROM users WHERE username = $1", user.username)
+                if taken:
                     return JSONResponse(status_code=400, content={"error": "Username уже занят"})
-        
-            hashed_password = hash_password(user.password)
-        
-            await conn.execute("""
-                INSERT INTO users (phone, username, name, password) 
-                VALUES ($1, $2, $3, $4)
-            """, user.phone, user.username, user.name, hashed_password)
-        
-            await conn.execute("""
-                INSERT INTO privacy_settings (phone) VALUES ($1)
-            """, user.phone)
-        
-        
-            logger.info(f"New user registered: {user.phone}")
+
+        if not TG_BOT_TOKEN or not TG_BOT_USERNAME:
+            # No bot configured — register directly
+            async with db_conn() as conn:
+                await conn.execute(
+                    "INSERT INTO users (phone, username, name, password) VALUES ($1,$2,$3,$4)",
+                    user.phone, user.username, user.name, hash_password(user.password)
+                )
+                await conn.execute("INSERT INTO privacy_settings (phone) VALUES ($1)", user.phone)
             return {"ok": True, "phone": user.phone}
-        
+
+        # Store pending registration, return bot link
+        token = secrets.token_urlsafe(16)
+        _pending_registrations[user.phone] = {
+            "token": token,
+            "username": user.username,
+            "name": user.name,
+            "password": hash_password(user.password),
+        }
+        bot_link = f"https://t.me/{TG_BOT_USERNAME}?start={token}"
+        return {"ok": True, "pending": True, "bot_link": bot_link, "phone": user.phone}
+
     except Exception as e:
-            logger.error(f"Error registering user: {e}")
-            return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.error(f"Error registering user: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/auth/verify-status/{phone}")
+async def verify_status(phone: str):
+    """Frontend polls this until verified."""
+    if phone in _verified_phones:
+        _verified_phones.discard(phone)
+        return {"verified": True}
+    if phone not in _pending_registrations:
+        # Already in DB (registered without bot)
+        async with db_conn() as conn:
+            exists = await conn.fetchval("SELECT 1 FROM users WHERE phone=$1", phone)
+        if exists:
+            return {"verified": True}
+    return {"verified": False}
 
 @app.post("/auth/login")
 async def login(data: UserLogin):
