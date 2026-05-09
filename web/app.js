@@ -4932,6 +4932,9 @@ async function startCall(type) {
         callerName: currentUserProfile?.name || currentUserProfile?.username || currentUser
     }))
 
+    // Гудки для звонящего
+    playRingtone()
+
     // Таймаут если не отвечают
     window._callTimeout = setTimeout(() => {
         if (callDirection === 'outgoing' && peerConnection) {
