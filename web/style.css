@@ -5058,3 +5058,40 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
     cursor: pointer; display: flex; align-items: center; justify-content: center;
 }
 .media-viewer-close:hover { background: rgba(255,255,255,0.25); }
+
+/* Telegram verification overlay */
+.tg-verify-overlay {
+    position: fixed; inset: 0; z-index: 9000;
+    background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    animation: fadeIn 0.2s ease;
+}
+.tg-verify-box {
+    background: var(--bg-primary, #fff);
+    border-radius: 20px;
+    padding: 32px 28px;
+    max-width: 360px; width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.tg-verify-icon { font-size: 48px; margin-bottom: 12px; }
+.tg-verify-box h2 { font-size: 20px; margin: 0 0 10px; }
+.tg-verify-box p { font-size: 14px; color: var(--text-secondary); margin: 0 0 20px; }
+.tg-verify-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #0088cc; color: white;
+    padding: 12px 24px; border-radius: 12px;
+    font-size: 15px; font-weight: 600;
+    text-decoration: none;
+    transition: background 0.15s, transform 0.15s;
+}
+.tg-verify-btn:hover { background: #006daa; transform: scale(1.03); }
+.tg-verify-status { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 20px 0 10px; color: var(--text-secondary); font-size: 13px; }
+.tg-verify-spinner {
+    width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid var(--border, rgba(0,0,0,0.1));
+    border-top-color: #0088cc;
+    animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.tg-verify-cancel { background: none; border: none; cursor: pointer; color: var(--text-secondary); font-size: 13px; margin-top: 8px; text-decoration: underline; }
