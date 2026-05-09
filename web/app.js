@@ -370,6 +370,49 @@ function showLoginForm() {
     document.getElementById('loginScreen').style.display = 'flex'
 }
 
+function showTelegramVerification(botLink, phone, password) {
+    // Replace register form with verification waiting screen
+    const authBox = document.querySelector('.auth-box') || document.querySelector('.register-form') || document.getElementById('registerForm')
+    const container = authBox?.parentElement || document.body
+
+    const overlay = document.createElement('div')
+    overlay.id = 'tgVerifyOverlay'
+    overlay.className = 'tg-verify-overlay'
+    overlay.innerHTML = `
+        <div class="tg-verify-box">
+            <div class="tg-verify-icon">\u2709\ufe0f</div>
+            <h2>\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0438\u0435 \u043d\u043e\u043c\u0435\u0440\u0430</h2>
+            <p>\u041d\u0430\u0436\u043c\u0438\u0442\u0435 \u043a\u043d\u043e\u043f\u043a\u0443 \u043d\u0438\u0436\u0435, \u043e\u0442\u043a\u0440\u043e\u0435\u0442\u0441\u044f \u0431\u043e\u0442 \u2014 \u043f\u043e\u0434\u0435\u043b\u0438\u0442\u0435\u0441\u044c \u043d\u043e\u043c\u0435\u0440\u043e\u043c \u0432 \u043d\u0451\u043c.</p>
+            <a class="tg-verify-btn" href="${botLink}" target="_blank">
+                <i class="fab fa-telegram"></i> \u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044c \u0447\u0435\u0440\u0435\u0437 Telegram
+            </a>
+            <div class="tg-verify-status">
+                <div class="tg-verify-spinner"></div>
+                <span>\u041e\u0436\u0438\u0434\u0430\u0435\u043c \u043f\u043e\u0434\u0442\u0432\u0435\u0440\u0436\u0434\u0435\u043d\u0438\u044f...</span>
+            </div>
+            <button class="tg-verify-cancel" onclick="document.getElementById('tgVerifyOverlay').remove(); clearInterval(window._tgPollTimer)">\u041e\u0442\u043c\u0435\u043d\u0430</button>
+        </div>`
+    document.body.appendChild(overlay)
+
+    // Poll verify-status
+    window._tgPollTimer = setInterval(async () => {
+        try {
+            const r = await fetch(`/auth/verify-status/${encodeURIComponent(phone)}`)
+            const d = await r.json()
+            if (d.verified) {
+                clearInterval(window._tgPollTimer)
+                overlay.remove()
+                showToast('\u0420\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u044f \u0443\u0441\u043f\u0435\u0448\u043d\u0430!')
+                // Auto-login
+                const lr = await fetch('/auth/login', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ phone, password }) })
+                const ld = await lr.json()
+                if (lr.ok && !ld.error) { currentUser = ld.phone; completeLogin() }
+                else { showLoginForm(); showToast('\u0412\u043e\u0439\u0434\u0438\u0442\u0435 \u0432 \u0430\u043a\u043a\u0430\u0443\u043d\u0442') }
+            }
+        } catch(e) {}
+    }, 2000)
+}
+
 async function register() {
     const phone = document.getElementById('registerPhone').value.trim()
     const password = document.getElementById('registerPassword').value
@@ -427,7 +470,13 @@ async function register() {
             return
         }
 
-        // Автологин
+        if (data.pending) {
+            // Telegram verification required
+            showTelegramVerification(data.bot_link, cleanPhone, password)
+            return
+        }
+
+        // No bot configured - direct login
         showToast('Регистрация успешна!')
         const loginRes = await fetch('/auth/login', {
             method: 'POST',
