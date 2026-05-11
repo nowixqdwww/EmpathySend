@@ -615,6 +615,18 @@ function closePasswordSetup() {
     document.getElementById('passwordSetupModal').classList.remove('show')
 }
 
+function checkAuthOnLoad() {
+    if (currentUser && authToken) {
+        completeLogin()
+    } else {
+        // Clear stale state and show login
+        sessionStorage.removeItem('currentUser')
+        sessionStorage.removeItem('authToken')
+        currentUser = null
+        authToken = null
+    }
+}
+
 function completeLogin() {
     loadTheme()
     loadChatThemesFromServer()
@@ -3580,7 +3592,8 @@ document.addEventListener('keydown', (e) => {
 })
 
 document.addEventListener('DOMContentLoaded', () => {
-    document.getElementById('loginPhone').focus()
+    checkAuthOnLoad()
+    if (!currentUser) document.getElementById('loginPhone')?.focus()
     // Пре-рендер категорий эмодзи при загрузке страницы
     // (не сетку, только catBar — чтобы RAF внутри модала мог работать быстро)
 })
