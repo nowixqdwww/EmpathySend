@@ -16,6 +16,11 @@ import uvicorn
 import aiohttp
 import asyncio
 import secrets
+import time
+import bcrypt
+import jwt as pyjwt
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -26,10 +31,10 @@ app = FastAPI()
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=os.getenv("ALLOWED_ORIGINS", "*").split(","),
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -63,6 +68,45 @@ DATABASE_URL = _raw_db_url.replace("postgres://", "postgresql://", 1)
 # Получить: https://t.me/BotFather → /newbot → скопировать токен
 TG_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TG_BOT_USERNAME = ""  # fetched on startup
+
+# ── JWT ──────────────────────────────────────────────────────────────────
+JWT_SECRET = os.getenv("JWT_SECRET", secrets.token_hex(32))
+JWT_ALGO   = "HS256"
+JWT_TTL    = 60 * 60 * 24 * 30  # 30 days
+_bearer    = HTTPBearer(auto_error=False)
+
+def create_token(phone: str) -> str:
+    return pyjwt.encode(
+        {"sub": phone, "exp": int(time.time()) + JWT_TTL},
+        JWT_SECRET, algorithm=JWT_ALGO
+    )
+
+def decode_token(token: str) -> str | None:
+    try:
+        payload = pyjwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
+        return payload.get("sub")
+    except Exception:
+        return None
+
+async def get_current_user(
+    creds: HTTPAuthorizationCredentials | None = Depends(_bearer)
+) -> str:
+    phone = decode_token(creds.credentials) if creds else None
+    if not phone:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    return phone
+
+# ── Rate limiting (in-memory) ─────────────────────────────────────────────
+_rate_store: dict = {}  # ip -> [timestamps]
+
+def rate_limit(request: Request, max_calls: int = 10, window: int = 60):
+    ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    calls = [t for t in _rate_store.get(ip, []) if now - t < window]
+    if len(calls) >= max_calls:
+        raise HTTPException(status_code=429, detail="Too many requests")
+    calls.append(now)
+    _rate_store[ip] = calls
 
 # phone -> {token, username, name, password, expires}
 _pending_registrations: dict = {}
@@ -131,9 +175,19 @@ def create_safe_filename(phone: str, extension: str) -> str:
     return f"avatar_{phone_hash}{extension}"
 
 # Функция для хеширования пароля
-def hash_password(password):
-    salt = "nonblock_salt"
-    return hashlib.sha256((password + salt).encode()).hexdigest()
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt(rounds=12)).decode()
+
+def verify_password(password: str, hashed: str) -> bool:
+    try:
+        # Support old SHA256 hashes during migration
+        if len(hashed) == 64 and not hashed.startswith("$2"):
+            import hashlib
+            return hashlib.sha256(("nonblock_salt" + password).encode()).hexdigest() == hashed \
+                or hashlib.sha256((password + "nonblock_salt").encode()).hexdigest() == hashed
+        return bcrypt.checkpw(password.encode(), hashed.encode())
+    except Exception:
+        return False
 
 # Инициализация базы данных
 async def init_db():
@@ -425,6 +479,18 @@ async def bot_polling():
             logger.error(f"Bot polling error: {e}")
             await asyncio.sleep(5)
 
+async def _cleanup_pending():
+    """Remove expired pending registrations every 5 min."""
+    while True:
+        await asyncio.sleep(300)
+        now = time.time()
+        expired = [p for p, v in list(_pending_registrations.items()) if now - v.get("created", 0) > 600]
+        for p in expired:
+            _pending_registrations.pop(p, None)
+        old_ips = [ip for ip, calls in list(_rate_store.items()) if not calls or now - max(calls) > 3600]
+        for ip in old_ips:
+            _rate_store.pop(ip, None)
+
 @app.on_event("startup")
 async def startup():
     import asyncio
@@ -439,6 +505,7 @@ async def startup():
             logger.error(f"Database init failed: {e}")
     asyncio.create_task(safe_init())
     asyncio.create_task(bot_polling())
+    asyncio.create_task(_cleanup_pending())
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -489,7 +556,8 @@ class DeleteMessage(BaseModel):
 # ============= ЭНДПОИНТЫ АВТОРИЗАЦИИ =============
 
 @app.post("/auth/register")
-async def register(user: UserRegister):
+async def register(user: UserRegister, request: Request):
+    rate_limit(request, max_calls=5, window=300)
     try:
         async with db_conn() as conn:
             existing = await conn.fetchval("SELECT phone FROM users WHERE phone = $1", user.phone)
@@ -517,6 +585,7 @@ async def register(user: UserRegister):
             "username": user.username,
             "name": user.name,
             "password": hash_password(user.password),
+            "created": time.time(),
         }
         bot_link = f"https://t.me/{TG_BOT_USERNAME}?start={token}"
         return {"ok": True, "pending": True, "bot_link": bot_link, "phone": user.phone}
@@ -540,7 +609,8 @@ async def verify_status(phone: str):
     return {"verified": False}
 
 @app.post("/auth/login")
-async def login(data: UserLogin):
+async def login(data: UserLogin, request: Request):
+    rate_limit(request, max_calls=10, window=60)
     try:
         async with db_conn() as conn:
         
@@ -556,10 +626,11 @@ async def login(data: UserLogin):
             if user['password'] is None:
                 return JSONResponse(status_code=401, content={"error": "NO_PASSWORD_SET"})
         
-            if user['password'] != hash_password(data.password):
+            if not verify_password(data.password, user['password']):
                 return JSONResponse(status_code=401, content={"error": "Неверный пароль"})
         
-            return {"ok": True, "phone": user['phone']}
+            token = create_token(user['phone'])
+        return {"ok": True, "phone": user['phone'], "token": token}
         
     except Exception as e:
             logger.error(f"Error in /auth/login: {e}")
@@ -601,7 +672,7 @@ async def change_password(data: ChangePassword):
             if not user:
                 return JSONResponse(status_code=404, content={"error": "Пользователь не найден"})
         
-            if user['password'] != hash_password(data.current_password):
+            if not verify_password(data.current_password, user['password']):
                 return JSONResponse(status_code=401, content={"error": "Неверный текущий пароль"})
         
             hashed = hash_password(data.new_password)
@@ -1691,7 +1762,13 @@ async def save_privacy_settings(phone: str, settings: PrivacySettings):
 # ============= WEBSOCKET =============
 
 @app.websocket("/ws/{user}")
-async def websocket_endpoint(ws: WebSocket, user: str):
+async def websocket_endpoint(ws: WebSocket, user: str, token: str = ""):
+    # Verify JWT token passed as ?token=... query param
+    verified = decode_token(token)
+    if not verified or verified != user:
+        await ws.close(code=4001)
+        return
+
     await ws.accept()
     clients[user] = ws
     logger.info(f"User {user} connected. Total: {len(clients)}")
