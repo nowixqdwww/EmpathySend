@@ -76,10 +76,11 @@ JWT_TTL    = 60 * 60 * 24 * 30  # 30 days
 _bearer    = HTTPBearer(auto_error=False)
 
 def create_token(phone: str) -> str:
-    return pyjwt.encode(
+    tok = pyjwt.encode(
         {"sub": phone, "exp": int(time.time()) + JWT_TTL},
         JWT_SECRET, algorithm=JWT_ALGO
     )
+    return tok.decode() if isinstance(tok, bytes) else tok
 
 def decode_token(token: str) -> str | None:
     try:
@@ -632,7 +633,8 @@ async def login(data: UserLogin, request: Request):
                 return JSONResponse(status_code=401, content={"error": "Неверный пароль"})
         
             token = create_token(user['phone'])
-        return {"ok": True, "phone": user['phone'], "token": token}
+        token_str = token.decode() if isinstance(token, bytes) else token
+        return {"ok": True, "phone": user['phone'], "token": token_str}
         
     except Exception as e:
             logger.error(f"Error in /auth/login: {e}")
