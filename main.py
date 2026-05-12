@@ -400,7 +400,7 @@ async def tg_api(method: str, **kwargs):
         return None
     url = f"https://api.telegram.org/bot{TG_BOT_TOKEN}/{method}"
     async with aiohttp.ClientSession() as s:
-        async with s.post(url, json=kwargs, timeout=aiohttp.ClientTimeout(total=10)) as r:
+        async with s.post(url, json=kwargs, timeout=aiohttp.ClientTimeout(total=35)) as r:
             return await r.json()
 
 async def tg_send(chat_id, text, reply_markup=None):
@@ -424,7 +424,7 @@ async def bot_polling():
     offset = 0
     while True:
         try:
-            data = await tg_api("getUpdates", offset=offset, timeout=30, allowed_updates=["message"])
+            data = await tg_api("getUpdates", offset=offset, timeout=25, allowed_updates=["message"])
             if not data or not data.get("ok"):
                 await asyncio.sleep(5)
                 continue
@@ -475,8 +475,10 @@ async def bot_polling():
                     else:
                         _tg_sessions.pop(tg_id, None)
                         await tg_send(tg_id, f"❌ Номер не совпадает. Ожидался: <b>{phone}</b>", reply_markup={"remove_keyboard": True})
+        except asyncio.TimeoutError:
+            pass  # normal long-poll timeout, just retry
         except Exception as e:
-            logger.error(f"Bot polling error: {e}")
+            logger.error(f"Bot polling error: {type(e).__name__}: {e}")
             await asyncio.sleep(5)
 
 async def _cleanup_pending():
