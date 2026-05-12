@@ -1,6 +1,6 @@
 let ws
-let currentUser = sessionStorage.getItem('currentUser') || null
-let authToken = sessionStorage.getItem('authToken') || null
+let currentUser = localStorage.getItem('currentUser') || null
+let authToken = localStorage.getItem('authToken') || null
 let currentChat = null
 let videoMaxDuration = 60  // секунд
 let reconnectAttempts = 0
@@ -407,7 +407,7 @@ function showTelegramVerification(botLink, phone, password) {
                 // Auto-login
                 const lr = await fetch('/auth/login', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ phone, password }) })
                 const ld = await lr.json()
-                if (lr.ok && !ld.error) { currentUser = ld.phone; authToken = ld.token; sessionStorage.setItem('authToken', ld.token); sessionStorage.setItem('currentUser', ld.phone); completeLogin() }
+                if (lr.ok && !ld.error) { currentUser = ld.phone; authToken = ld.token; localStorage.setItem('authToken', ld.token); localStorage.setItem('currentUser', ld.phone); completeLogin() }
                 else { showLoginForm(); showToast('\u0412\u043e\u0439\u0434\u0438\u0442\u0435 \u0432 \u0430\u043a\u043a\u0430\u0443\u043d\u0442') }
             }
         } catch(e) {}
@@ -488,8 +488,9 @@ async function register() {
         if (loginRes.ok && !loginData.error) {
             currentUser = loginData.phone
             authToken = loginData.token
-            sessionStorage.setItem('authToken', authToken)
-            sessionStorage.setItem('currentUser', currentUser)
+            localStorage.setItem('authToken', authToken)
+            localStorage.setItem('currentUser', loginData.phone)
+            localStorage.setItem('currentUser', currentUser)
             completeLogin()
         } else {
             showLoginForm()
@@ -620,8 +621,8 @@ function checkAuthOnLoad() {
         completeLogin()
     } else {
         // Clear stale state and show login
-        sessionStorage.removeItem('currentUser')
-        sessionStorage.removeItem('authToken')
+        localStorage.removeItem('currentUser')
+        localStorage.removeItem('authToken')
         currentUser = null
         authToken = null
     }
