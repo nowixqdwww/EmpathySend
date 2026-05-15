@@ -554,6 +554,8 @@ async function login() {
         }
 
         currentUser = data.phone
+        authToken = data.token || null
+        if (authToken) { localStorage.setItem('authToken', authToken); localStorage.setItem('currentUser', currentUser) }
         completeLogin()
 
     } catch (error) {
