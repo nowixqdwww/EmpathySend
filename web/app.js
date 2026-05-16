@@ -619,6 +619,109 @@ function closePasswordSetup() {
     document.getElementById('passwordSetupModal').classList.remove('show')
 }
 
+function getAllAccounts() {
+    try { return JSON.parse(localStorage.getItem('accounts') || '[]') } catch { return [] }
+}
+function saveAccount(phone, token, name) {
+    const accounts = getAllAccounts().filter(a => a.phone !== phone)
+    accounts.unshift({ phone, token, name: name || phone })
+    localStorage.setItem('accounts', JSON.stringify(accounts.slice(0, 5)))
+}
+function removeAccount(phone) {
+    const accounts = getAllAccounts().filter(a => a.phone !== phone)
+    localStorage.setItem('accounts', JSON.stringify(accounts))
+}
+function logout() {
+    if (ws) { try { ws.close() } catch(e) {} }
+    localStorage.removeItem('currentUser')
+    localStorage.removeItem('authToken')
+    currentUser = null; authToken = null; currentChat = null
+    document.getElementById('app').style.display = 'none'
+    document.getElementById('loginScreen').style.display = 'flex'
+    const sm = document.getElementById('settingsModal')
+    if (sm) sm.classList.remove('show')
+    showToast('\u0412\u044b\u0448\u043b\u0438 \u0438\u0437 \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u0430')
+}
+function showAccountSwitcher() {
+    const modal = document.getElementById('accountSwitcherModal')
+    if (!modal) return
+    const sm = document.getElementById('settingsModal')
+    if (sm) sm.classList.remove('show')
+    renderAccountsList()
+    modal.style.display = 'flex'
+}
+function closeAccountSwitcher() {
+    const modal = document.getElementById('accountSwitcherModal')
+    if (modal) modal.style.display = 'none'
+}
+function renderAccountsList() {
+    const list = document.getElementById('accountsList')
+    if (!list) return
+    const accounts = getAllAccounts()
+    if (!accounts.length) {
+        list.innerHTML = '<div class="accounts-empty">\u041d\u0435\u0442 \u0430\u043a\u043a\u0430\u0443\u043d\u0442\u043e\u0432</div>'
+        return
+    }
+    list.innerHTML = accounts.map(acc => `
+        <div class="account-item ${acc.phone === currentUser ? 'active' : ''}">
+            <div class="account-avatar">${(acc.name||acc.phone)[0].toUpperCase()}</div>
+            <div class="account-info">
+                <div class="account-name">${escapeHtml(acc.name || acc.phone)}</div>
+                <div class="account-phone">${formatPhone(acc.phone)}</div>
+                ${acc.phone === currentUser ? '<span class="account-active-badge">\u0410\u043a\u0442\u0438\u0432\u0435\u043d</span>' : ''}
+            </div>
+            <div class="account-actions">
+                ${acc.phone !== currentUser ? `<button class="account-switch-btn" onclick="switchAccount('${acc.phone}')">\u0412\u043e\u0439\u0442\u0438</button>` : ''}
+                <button class="account-remove-btn" onclick="deleteAccount('${acc.phone}')">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+        </div>
+    `).join('')
+}
+async function switchAccount(phone) {
+    const acc = getAllAccounts().find(a => a.phone === phone)
+    if (!acc) return
+    if (acc.token) {
+        const res = await fetch(`/user/${encodeURIComponent(phone)}`, {
+            headers: { 'Authorization': `Bearer ${acc.token}` }
+        }).catch(() => null)
+        if (res && res.ok) {
+            if (ws) try { ws.close() } catch(e) {}
+            currentUser = phone; authToken = acc.token
+            localStorage.setItem('currentUser', phone)
+            localStorage.setItem('authToken', acc.token)
+            closeAccountSwitcher()
+            completeLogin()
+            showToast('\u0412\u0445\u043e\u0434: ' + formatPhone(phone))
+            return
+        }
+    }
+    closeAccountSwitcher()
+    document.getElementById('app').style.display = 'none'
+    document.getElementById('loginScreen').style.display = 'flex'
+    const pi = document.getElementById('loginPhone')
+    if (pi) { pi.value = phone; pi.focus() }
+    showToast('\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043f\u0430\u0440\u043e\u043b\u044c')
+}
+function deleteAccount(phone) {
+    removeAccount(phone)
+    if (phone === currentUser) logout()
+    else renderAccountsList()
+}
+function addAccount() {
+    closeAccountSwitcher()
+    if (ws) try { ws.close() } catch(e) {}
+    localStorage.removeItem('currentUser')
+    localStorage.removeItem('authToken')
+    currentUser = null; authToken = null
+    document.getElementById('app').style.display = 'none'
+    document.getElementById('loginScreen').style.display = 'flex'
+    document.getElementById('loginPhone').value = ''
+    document.getElementById('loginPassword').value = ''
+}
+
+
 function checkAuthOnLoad() {
     if (currentUser && authToken) {
         completeLogin()
@@ -632,6 +735,9 @@ function checkAuthOnLoad() {
 }
 
 function completeLogin() {
+    // Save to multi-account store
+    const _accName = currentUserProfile?.name || currentUserProfile?.username || currentUser
+    if (currentUser && authToken) saveAccount(currentUser, authToken, _accName)
     loadTheme()
     loadChatThemesFromServer()
     document.getElementById('loginScreen').style.display = 'none'
@@ -4211,6 +4317,12 @@ window.openMyProfile = openMyProfile
 window.send = send
 window.showRegisterForm = showRegisterForm
 window.showLoginForm = showLoginForm
+window.logout = logout
+window.showAccountSwitcher = showAccountSwitcher
+window.closeAccountSwitcher = closeAccountSwitcher
+window.switchAccount = switchAccount
+window.deleteAccount = deleteAccount
+window.addAccount = addAccount
 window.register = register
 window.login = login
 window.savePasswordForExisting = savePasswordForExisting
