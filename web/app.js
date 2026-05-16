@@ -325,6 +325,7 @@ function checkPasswordStrength(password) {
     const reqLetter = document.getElementById('reqLetter')
     const strengthBar = document.getElementById('strengthBar')
     const saveBtn = document.getElementById('savePasswordBtn')
+    const reqSpecial = document.getElementById('reqSpecial')
     
     if (reqLength) {
         reqLength.innerHTML = (strength.length ? '✅' : '❌') + ' Минимум 8 символов'
