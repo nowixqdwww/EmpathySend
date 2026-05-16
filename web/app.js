@@ -316,7 +316,8 @@ async function refreshOnlineStatuses() {
 function checkPasswordStrength(password) {
     const strength = {
         length: password.length >= 8,
-        letter: /[a-zA-Z]/.test(password)
+        letter: /[a-zA-Z]/.test(password),
+        special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
     }
     
     const reqLength = document.getElementById('reqLength')
@@ -328,6 +329,11 @@ function checkPasswordStrength(password) {
     if (reqLength) {
         reqLength.innerHTML = (strength.length ? '✅' : '❌') + ' Минимум 8 символов'
         reqLength.className = 'requirement' + (strength.length ? ' met' : '')
+    }
+
+    if (reqSpecial) {
+        reqSpecial.innerHTML = (strength.special ? '✅' : '❌') + ' Специальный символ (!@#$%^&* и т.д.)'
+        reqSpecial.className = 'requirement' + (strength.special ? ' met' : '')
     }
     
     if (reqLetter) {
