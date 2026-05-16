@@ -315,8 +315,7 @@ async function refreshOnlineStatuses() {
 
 function checkPasswordStrength(password) {
     const strength = {
-        length: password.length >= 6,
-        number: /\d/.test(password),
+        length: password.length >= 8,
         letter: /[a-zA-Z]/.test(password)
     }
     
@@ -327,13 +326,8 @@ function checkPasswordStrength(password) {
     const saveBtn = document.getElementById('savePasswordBtn')
     
     if (reqLength) {
-        reqLength.innerHTML = (strength.length ? '✅' : '❌') + ' Минимум 6 символов'
+        reqLength.innerHTML = (strength.length ? '✅' : '❌') + ' Минимум 8 символов'
         reqLength.className = 'requirement' + (strength.length ? ' met' : '')
-    }
-    
-    if (reqNumber) {
-        reqNumber.innerHTML = (strength.number ? '✅' : '❌') + ' Хотя бы одна цифра'
-        reqNumber.className = 'requirement' + (strength.number ? ' met' : '')
     }
     
     if (reqLetter) {
