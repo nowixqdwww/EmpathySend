@@ -333,7 +333,7 @@ function checkPasswordStrength(password) {
     }
 
     if (reqSpecial) {
-        reqSpecial.innerHTML = (strength.special ? '✅' : '❌') + ' Специальный символ (!@#$%^&* и т.д.)'
+        reqSpecial.innerHTML = (strength.special ? '✅' : '❌') + ' Специальный символ (!@#$%^&*_ и т.д.)'
         reqSpecial.className = 'requirement' + (strength.special ? ' met' : '')
     }
     
