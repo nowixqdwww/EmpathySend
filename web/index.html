@@ -25,10 +25,10 @@
         <p>Введите номер телефона и пароль</p>
         <input id="loginPhone" type="tel" placeholder="+7 (999) 999-99-99" class="login-input">
         <input id="loginPassword" type="password" placeholder="Пароль" class="login-input" style="margin-top: 10px;">
-        <button onclick="login()" class="login-btn">Войти</button>
+        <button onclick="login()" class="login-btn">Вйти</button>
         <p style="margin-top: 20px;">
             Нет аккаунта? 
-            <a href="#" onclick="showRegisterForm()">Зарегистрироваться</a>
+            <a href="#" onclick="showRegisterForm()" >Зарегистрироваться</a>
         </p>
     </div>
 </div>
@@ -58,7 +58,7 @@
         <button onclick="register()" class="login-btn" id="registerBtn">Зарегистрироваться</button>
         <p style="margin-top: 20px;">
             Уже есть аккаунт? 
-            <a href="#" onclick="showLoginForm()">Войти</a>
+            <a href="#" onclick="showLoginForm()" >Войти</a>
         </p>
     </div>
 </div>
@@ -143,7 +143,7 @@
                     </div>
                 </div>
                 <div class="chat-actions">
-                    <button class="action-btn" onclick="event.stopPropagation();startCall('audio')" title="Аудио звонок" id="callAudioBtn">
+                    <button class="action-btn" onclick="startCall('audio')" title="Аудио звонок" id="callAudioBtn">
                         <i class="fas fa-phone"></i>
                     </button>
                     <button class="action-btn" onclick="openChatMenu(event)" id="chatMenuBtn">
@@ -172,26 +172,10 @@
             <div class="input-wrap" id="inputWrap">
 
                 <!-- Обычная строка ввода -->
-                <div id="replyBar" class="reply-bar" style="display:none">
-    <div class="reply-bar-content">
-        <i class="fas fa-reply reply-bar-icon"></i>
-        <div class="reply-bar-text">
-            <span class="reply-bar-sender" id="replyBarSender"></span>
-            <span class="reply-bar-msg" id="replyBarMsg"></span>
-        </div>
-    </div>
-    <button class="reply-bar-close" onclick="cancelReply()">
-        <i class="fas fa-times"></i>
-    </button>
-</div>
-<div class="input-area" id="inputArea">
+                <div class="input-area" id="inputArea">
                     <button onclick="toggleStickerModal()" class="sticker-btn" id="stickerBtn">
                         <i class="fas fa-face-smile"></i>
                     </button>
-                    <button class="attach-btn" onclick="document.getElementById('mediaInput').click()" title="Прикрепить файл">
-                        <i class="fas fa-paperclip"></i>
-                    </button>
-                    <input type="file" id="mediaInput" accept="image/*,video/*,*/*" style="display:none" onchange="handleMediaSelect(this)">
                     <input id="text" placeholder="Напишите сообщение..." class="message-input">
                     <button class="voice-btn input-btn-animated btn-visible" id="voiceBtn">
                         <i class="fas fa-microphone"></i>
@@ -641,6 +625,44 @@
                     </button>
                 </div>
             </div>
+
+            <div class="settings-section">
+                <h3><i class="fas fa-users"></i> Аккаунты</h3>
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-title">Управление аккаунтами</div>
+                        <div class="settings-item-description">Добавить аккаунт, переключиться</div>
+                    </div>
+                    <button class="settings-button" onclick="showAccountSwitcher()">
+                        <i class="fas fa-exchange-alt"></i> Аккаунты
+                    </button>
+                </div>
+                <div class="settings-item">
+                    <div class="settings-item-info">
+                        <div class="settings-item-title" style="color:#FF3B30">Выйти</div>
+                        <div class="settings-item-description">Вернуться на экран входа</div>
+                    </div>
+                    <button class="settings-button danger" onclick="logout()">
+                        <i class="fas fa-sign-out-alt"></i> Выйти
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div id="accountSwitcherModal" class="modal" style="display:none">
+    <div class="modal-content account-switcher-modal">
+        <div class="modal-header">
+            <h2>Аккаунты</h2>
+            <button class="close-btn" onclick="closeAccountSwitcher()"><i class="fas fa-times"></i></button>
+        </div>
+        <div id="accountsList" class="accounts-list"></div>
+        <div class="account-switcher-actions">
+            <button class="account-add-btn" onclick="addAccount()">
+                <i class="fas fa-plus"></i> Добавить аккаунт
+            </button>
         </div>
     </div>
 </div>
@@ -744,12 +766,6 @@
 <div id="messageContextMenu" class="context-menu" style="display: none;">
     <div class="context-menu-item" onclick="addReactionFromMenu()">
         <i class="fas fa-face-smile"></i> Реакция
-    </div>
-    <div class="context-menu-item" onclick="replyMessage()">
-        <i class="fas fa-reply"></i> Ответить
-    </div>
-    <div class="context-menu-item" id="editMessageBtn" onclick="editMessage()" style="display:none">
-        <i class="fas fa-pen"></i> Редактировать
     </div>
     <div class="context-menu-item" onclick="forwardMessage()">
         <i class="fas fa-share"></i> Переслать
@@ -987,45 +1003,7 @@
                 <button class="call-ctrl-btn" id="speakerBtn" onclick="toggleSpeaker()" title="Динамик">
                     <i class="fas fa-volume-up"></i>
                 </button>
-
-            <div class="settings-section">
-                <h3><i class="fas fa-users"></i> Аккаунты</h3>
-                <div class="settings-item">
-                    <div class="settings-item-info">
-                        <div class="settings-item-title">Управление аккаунтами</div>
-                        <div class="settings-item-description">Добавить аккаунт, переключиться</div>
-                    </div>
-                    <button class="settings-button" onclick="showAccountSwitcher()">
-                        <i class="fas fa-exchange-alt"></i> Аккаунты
-                    </button>
-                </div>
-                <div class="settings-item">
-                    <div class="settings-item-info">
-                        <div class="settings-item-title" style="color:#FF3B30">Выйти из аккаунта</div>
-                        <div class="settings-item-description">Вернуться на экран входа</div>
-                    </div>
-                    <button class="settings-button danger" onclick="logout()">
-                        <i class="fas fa-sign-out-alt"></i> Выйти
-                    </button>
-                </div>
             </div>
-
-            </div>
-        </div>
-    </div>
-</div>
-
-<div id="accountSwitcherModal" class="modal" style="display:none">
-    <div class="modal-content account-switcher-modal">
-        <div class="modal-header">
-            <h2>Аккаунты</h2>
-            <button class="close-btn" onclick="closeAccountSwitcher()"><i class="fas fa-times"></i></button>
-        </div>
-        <div id="accountsList" class="accounts-list"></div>
-        <div class="account-switcher-actions">
-            <button class="account-add-btn" onclick="addAccount()">
-                <i class="fas fa-plus"></i> Добавить аккаунт
-            </button>
         </div>
     </div>
 </div>
