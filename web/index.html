@@ -50,8 +50,8 @@
         
         <!-- Требования к паролю -->
         <div class="password-requirements">
-            <p class="requirement" id="reqLength">❌ Минимум 8 символов</p>
-            <p class="requirement" id="reqSpecial">❌ Специальный символ (!@#$%^&*_ и т.д.)</p>
+            <p class="requirement" id="reqLength">❌ Минимум 6 символов</p>
+            <p class="requirement" id="reqNumber">❌ Хотя бы одна цифра</p>
             <p class="requirement" id="reqLetter">❌ Хотя бы одна буква</p>
         </div>
         
@@ -69,6 +69,9 @@
     <!-- Левый сайдбар (список чатов) -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
+            <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
             <h3>Empathy</h3>
             <div class="header-actions">
                 <button class="settings-btn" onclick="openSettings()">
@@ -142,6 +145,9 @@
                 <div class="chat-actions">
                     <button class="action-btn" onclick="event.stopPropagation();startCall('audio')" title="Аудио звонок" id="callAudioBtn">
                         <i class="fas fa-phone"></i>
+                    </button>
+                    <button class="action-btn" onclick="openChatMenu(event)" id="chatMenuBtn">
+                        <i class="fas fa-ellipsis-vertical"></i>
                     </button>
                 </div>
 
@@ -686,8 +692,8 @@
             
             <!-- Требования к паролю -->
             <div class="password-requirements">
-                <p class="requirement" id="reqLength">❌ Минимум 8 символов</p>
-                <p class="requirement" id="reqSpecial">❌ Специальный символ (!@#$%^&*_ и т.д.)</p>
+                <p class="requirement" id="reqLength">❌ Минимум 6 символов</p>
+                <p class="requirement" id="reqNumber">❌ Хотя бы одна цифра</p>
                 <p class="requirement" id="reqLetter">❌ Хотя бы одна буква</p>
             </div>
             
