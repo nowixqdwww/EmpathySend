@@ -25,7 +25,7 @@
         <p>Введите номер телефона и пароль</p>
         <input id="loginPhone" type="tel" placeholder="+7 (999) 999-99-99" class="login-input">
         <input id="loginPassword" type="password" placeholder="Пароль" class="login-input" style="margin-top: 10px;">
-        <button onclick="login()" class="login-btn">Войти</button>
+        <button onclick="login()" class="login-btn">Вйти</button>
         <p style="margin-top: 20px;">
             Нет аккаунта? 
             <a href="#" onclick="showRegisterForm()" >Зарегистрироваться</a>
@@ -69,11 +69,16 @@
     <!-- Левый сайдбар (список чатов) -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar()">
-                <i class="fas fa-bars"></i>
+            <button class="avatar-header-btn" id="avatarHeaderBtn" onclick="showAccountSwitcher()" title="Аккаунты">
+                <div class="avatar-header-img" id="myAvatar">
+                    <span id="myAvatarText"><i class="fas fa-user"></i></span>
+                </div>
             </button>
-            <h3>Empathy</h3>
+            <h3>Chats</h3>
             <div class="header-actions">
+                <button class="new-call-btn mobile-only" onclick="startCall('audio')" title="Новый звонок">
+                    <i class="fas fa-phone"></i>
+                </button>
                 <button class="settings-btn" onclick="openSettings()">
                     <i class="fas fa-cog"></i>
                 </button>
@@ -81,20 +86,9 @@
             </div>
         </div>
 
-        <!-- Профиль пользователя -->
-        <div class="profile-section">
-            <div class="profile-header" onclick="openMyProfile()">
-                <div class="profile-avatar" id="myAvatar">
-                    <span id="myAvatarText"><i class="fas fa-user"></i></span>
-                </div>
-                <div class="profile-info">
-                    <div class="profile-name" id="myDisplayName">Загрузка...</div>
-                    <div class="profile-phone" id="myPhone"></div>
-                </div>
-                <div class="profile-edit-badge">
-                    <i class="fas fa-pen"></i>
-                </div>
-            </div>
+        <div class="profile-section" style="display:none">
+            <div class="profile-name" id="myDisplayName"></div>
+            <div class="profile-phone" id="myPhone"></div>
         </div>
 
         <!-- Поиск с автодополнением -->
