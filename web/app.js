@@ -737,6 +737,9 @@ function completeLogin() {
     // Save to multi-account store
     const _accName = currentUserProfile?.name || currentUserProfile?.username || currentUser
     if (currentUser && authToken) saveAccount(currentUser, authToken, _accName)
+    // Update header avatar button
+    const _hdrBtn = document.getElementById("avatarHeaderBtn")
+    if (_hdrBtn) _hdrBtn.setAttribute("title", _accName || currentUser)
     loadTheme()
     loadChatThemesFromServer()
     document.getElementById('loginScreen').style.display = 'none'
