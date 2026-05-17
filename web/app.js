@@ -315,9 +315,9 @@ async function refreshOnlineStatuses() {
 
 function checkPasswordStrength(password) {
     const strength = {
-        length: password.length >= 8,
-        letter: /[a-zA-Z]/.test(password),
-        special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+        length: password.length >= 6,
+        number: /\d/.test(password),
+        letter: /[a-zA-Z]/.test(password)
     }
     
     const reqLength = document.getElementById('reqLength')
@@ -325,16 +325,15 @@ function checkPasswordStrength(password) {
     const reqLetter = document.getElementById('reqLetter')
     const strengthBar = document.getElementById('strengthBar')
     const saveBtn = document.getElementById('savePasswordBtn')
-    const reqSpecial = document.getElementById('reqSpecial')
     
     if (reqLength) {
-        reqLength.innerHTML = (strength.length ? '✅' : '❌') + ' Минимум 8 символов'
+        reqLength.innerHTML = (strength.length ? '✅' : '❌') + ' Минимум 6 символов'
         reqLength.className = 'requirement' + (strength.length ? ' met' : '')
     }
-
-    if (reqSpecial) {
-        reqSpecial.innerHTML = (strength.special ? '✅' : '❌') + ' Специальный символ (!@#$%^&*_ и т.д.)'
-        reqSpecial.className = 'requirement' + (strength.special ? ' met' : '')
+    
+    if (reqNumber) {
+        reqNumber.innerHTML = (strength.number ? '✅' : '❌') + ' Хотя бы одна цифра'
+        reqNumber.className = 'requirement' + (strength.number ? ' met' : '')
     }
     
     if (reqLetter) {
