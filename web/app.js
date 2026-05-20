@@ -838,9 +838,9 @@ function openMyProfile() {
     showUserProfile(currentUser, true)
 }
 
-function openProfilePanel() {
-    showUserProfile(currentUser, true)
-    setTimeout(_renderProfileAccounts, 60)
+async function openProfilePanel() {
+    await showUserProfile(currentUser, true)
+    _renderProfileAccounts()
 }
 
 function _renderProfileAccounts() {
@@ -899,9 +899,11 @@ async function showUserProfile(phone, isMyProfile = false) {
         const settings = await settingsRes.json()
         
         const modal = document.getElementById('profileModal')
-        // Hide accounts section when viewing others
-        const _accSec = document.getElementById('profileAccountsSection')
-        if (_accSec) _accSec.style.display = 'none'
+        // Hide accounts section when viewing other people
+        if (!isMyProfile) {
+            const _accSec = document.getElementById('profileAccountsSection')
+            if (_accSec) _accSec.style.display = 'none'
+        }
         const profileView = document.getElementById('profileView')
         const profileEdit = document.getElementById('profileEdit')
         const modalActions = document.getElementById('modalActions')
