@@ -5439,3 +5439,23 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
 }
 .profile-logout-btn:hover { background: rgba(255,59,48,0.15); }
 .account-add-btn { flex: 1; }
+
+/* Avatar button in sidebar header (replaces hamburger) */
+.avatar-header-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+    border-radius: 50%;
+}
+.avatar-header-btn .profile-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 15px;
+    transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+}
+.avatar-header-btn:hover .profile-avatar { transform: scale(1.1); }
+.avatar-header-btn:active .profile-avatar { transform: scale(0.95); }
+.menu-toggle { display: none !important; }
