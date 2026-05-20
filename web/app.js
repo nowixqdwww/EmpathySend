@@ -734,12 +734,7 @@ function checkAuthOnLoad() {
 }
 
 function completeLogin() {
-    // Save to multi-account store
-    const _accName = currentUserProfile?.name || currentUserProfile?.username || currentUser
-    if (currentUser && authToken) saveAccount(currentUser, authToken, _accName)
-    // Update header avatar button
-    const _hdrBtn = document.getElementById("avatarHeaderBtn")
-    if (_hdrBtn) _hdrBtn.setAttribute("title", _accName || currentUser)
+    // Account saved in loadUserProfile once name is known
     loadTheme()
     loadChatThemesFromServer()
     document.getElementById('loginScreen').style.display = 'none'
@@ -821,6 +816,8 @@ async function loadUserProfile() {
         const data = await res.json()
         
         currentUserProfile = data
+        // Save with real name now that profile is loaded
+        if (currentUser && authToken) saveAccount(currentUser, authToken, data.name || data.username || currentUser)
         
         const displayName = data.name || data.username || data.phone
         document.getElementById('myDisplayName').innerText = displayName
@@ -842,49 +839,48 @@ function openMyProfile() {
 }
 
 function openProfilePanel() {
-    // Opens own profile with accounts section at bottom
     showUserProfile(currentUser, true)
-    // Show accounts section inside profile modal
-    setTimeout(() => {
-        let accSection = document.getElementById("profileAccountsSection")
-        if (!accSection) {
-            accSection = document.createElement("div")
-            accSection.id = "profileAccountsSection"
-            accSection.className = "profile-accounts-section"
-            const modalBody = document.querySelector("#profileModal .modal-body")
-            if (modalBody) modalBody.appendChild(accSection)
-        }
-        const accounts = getAllAccounts()
-        accSection.innerHTML = `
-            <div class="profile-accounts-title">
-                <i class="fas fa-users"></i> Аккаунты
-            </div>
-            ${accounts.map(acc => `
-                <div class="profile-account-item ${acc.phone === currentUser ? "active" : ""}">
-                    <div class="account-avatar">${(acc.name||acc.phone)[0].toUpperCase()}</div>
-                    <div class="account-info">
-                        <div class="account-name">${escapeHtml(acc.name||acc.phone)}</div>
-                        <div class="account-phone">${formatPhone(acc.phone)}</div>
-                    </div>
-                    <div class="account-actions">
-                        ${acc.phone !== currentUser
-                            ? `<button class="account-switch-btn" onclick="switchAccount('${acc.phone}');closeModal()">Войти</button>`
-                            : "<span class='account-active-badge'>Активен</span>"}
-                        <button class="account-remove-btn" onclick="deleteAccount('${acc.phone}')"><i class="fas fa-trash-alt"></i></button>
-                    </div>
+    setTimeout(_renderProfileAccounts, 60)
+}
+
+function _renderProfileAccounts() {
+    let accSection = document.getElementById("profileAccountsSection")
+    if (!accSection) {
+        accSection = document.createElement("div")
+        accSection.id = "profileAccountsSection"
+        accSection.className = "profile-accounts-section"
+        const modalBody = document.querySelector("#profileModal .modal-body")
+        if (modalBody) modalBody.appendChild(accSection)
+    }
+    const accounts = getAllAccounts()
+    const otherAccounts = accounts.filter(a => a.phone !== currentUser)
+    accSection.innerHTML = `
+        <div class="profile-accounts-title"><i class="fas fa-users"></i> Аккаунты</div>
+        ${accounts.map(acc => `
+            <div class="profile-account-item ${acc.phone === currentUser ? 'active' : ''}">
+                <div class="account-avatar">${(acc.name||acc.phone)[0].toUpperCase()}</div>
+                <div class="account-info">
+                    <div class="account-name">${escapeHtml(acc.name||acc.phone)}</div>
+                    <div class="account-phone">${formatPhone(acc.phone)}</div>
                 </div>
-            `).join("")}
-            <div class="profile-accounts-actions">
-                <button class="account-add-btn" onclick="addAccount()">
-                    <i class="fas fa-plus"></i> Добавить аккаунт
-                </button>
-                <button class="profile-logout-btn" onclick="logout()">
-                    <i class="fas fa-sign-out-alt"></i> Выйти
-                </button>
+                <div class="account-actions">
+                    ${acc.phone !== currentUser
+                        ? `<button class="account-switch-btn" onclick="switchAccount('${acc.phone}');closeModal()">Войти</button>`
+                        : `<span class="account-active-badge">Активен</span>`}
+                    <button class="account-remove-btn" onclick="deleteAccount('${acc.phone}')"><i class="fas fa-trash-alt"></i></button>
+                </div>
             </div>
-        `
-        accSection.style.display = "block"
-    }, 50)
+        `).join('')}
+        <div class="profile-accounts-actions">
+            <button class="account-add-btn" onclick="addAccount()">
+                <i class="fas fa-plus"></i> Добавить аккаунт
+            </button>
+            <button class="profile-logout-btn" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i> Выйти
+            </button>
+        </div>
+    `
+    accSection.style.display = "block"
 }
 
 function openChatProfile() {
