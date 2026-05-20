@@ -5368,8 +5368,6 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
     border: 2px solid rgba(255,255,255,0.15);
 }
 
-/* Hide hamburger on mobile since we use avatar now */
-.menu-toggle { display: none !important; }
 
 /* Mobile-only phone button in header */
 .new-call-btn.mobile-only { display: none; }
@@ -5389,3 +5387,55 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
     }
     .new-call-btn.mobile-only:hover { background: rgba(255,255,255,0.25); }
 }
+
+/* Accounts section inside profile modal */
+.profile-accounts-section {
+    margin-top: 24px;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+}
+.profile-accounts-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.profile-account-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 8px;
+    border-radius: 12px;
+    transition: background 0.15s;
+    margin-bottom: 2px;
+}
+.profile-account-item:hover { background: var(--bg-secondary); }
+.profile-account-item.active { background: rgba(10,132,255,0.07); }
+.profile-accounts-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+.profile-logout-btn {
+    flex: 1;
+    background: rgba(255,59,48,0.08);
+    color: #FF3B30;
+    border: 1px solid rgba(255,59,48,0.2);
+    border-radius: 10px;
+    padding: 10px;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: 'TTTravels', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.15s;
+}
+.profile-logout-btn:hover { background: rgba(255,59,48,0.15); }
+.account-add-btn { flex: 1; }
