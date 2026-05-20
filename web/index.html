@@ -69,8 +69,10 @@
     <!-- Левый сайдбар (список чатов) -->
     <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
-            <button class="menu-toggle" id="menuToggle" onclick="toggleSidebar()">
-                <i class="fas fa-bars"></i>
+            <button class="avatar-header-btn" onclick="openProfilePanel()">
+                <div class="profile-avatar" id="myAvatar">
+                    <span id="myAvatarText"><i class="fas fa-user"></i></span>
+                </div>
             </button>
             <h3>Empathy</h3>
             <div class="header-actions">
@@ -81,19 +83,9 @@
             </div>
         </div>
 
-        <div class="profile-section">
-            <div class="profile-header" onclick="openProfilePanel()">
-                <div class="profile-avatar" id="myAvatar">
-                    <span id="myAvatarText"><i class="fas fa-user"></i></span>
-                </div>
-                <div class="profile-info">
-                    <div class="profile-name" id="myDisplayName">Загрузка...</div>
-                    <div class="profile-phone" id="myPhone"></div>
-                </div>
-                <div class="profile-edit-badge">
-                    <i class="fas fa-chevron-right"></i>
-                </div>
-            </div>
+        <div style="display:none">
+            <div id="myDisplayName"></div>
+            <div id="myPhone"></div>
         </div>
 
         <!-- Поиск с автодополнением -->
