@@ -209,7 +209,7 @@ async def init_db():
             """)
         
             # Проверяем и добавляем колонки если нужно
-            for col, typ in [('password', 'TEXT'), ('last_seen', 'TIMESTAMP')]:
+            for col, typ in [('password', 'TEXT'), ('last_seen', 'TIMESTAMP'), ('is_admin', 'BOOLEAN DEFAULT FALSE')]:
                 exists = await conn.fetchval(f"""
                     SELECT EXISTS (
                         SELECT FROM information_schema.columns
@@ -2022,6 +2022,60 @@ async def ping():
 
 # Статика — монтируем если папка web существует
 # Используем HTMLResponse чтобы index.html отдавался по /
+# ── Admin endpoints ──────────────────────────────────────────────────────────
+
+async def _require_admin(request: Request) -> str:
+    """Check JWT and is_admin flag. Returns phone or raises 403."""
+    auth = request.headers.get("Authorization", "")
+    token = auth.replace("Bearer ", "").strip()
+    phone = decode_token(token)
+    if not phone:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    async with db_conn() as conn:
+        is_admin = await conn.fetchval("SELECT is_admin FROM users WHERE phone=$1", phone)
+    if not is_admin:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return phone
+
+@app.get("/admin/stats")
+async def admin_stats(request: Request):
+    phone = await _require_admin(request)
+    async with db_conn() as conn:
+        total_users    = await conn.fetchval("SELECT COUNT(*) FROM users")
+        total_messages = await conn.fetchval("SELECT COUNT(*) FROM messages WHERE is_deleted=0")
+        total_chats    = await conn.fetchval(
+            "SELECT COUNT(*) FROM (SELECT LEAST(sender,receiver)||'_'||GREATEST(sender,receiver) AS pair FROM messages GROUP BY pair) t"
+        )
+        new_today      = await conn.fetchval(
+            "SELECT COUNT(*) FROM users WHERE created_at >= NOW() - INTERVAL '24 hours'"
+        )
+        msgs_today     = await conn.fetchval(
+            "SELECT COUNT(*) FROM messages WHERE timestamp >= NOW() - INTERVAL '24 hours' AND is_deleted=0"
+        )
+        recent_users   = await conn.fetch(
+            "SELECT phone, username, name, created_at, last_seen FROM users ORDER BY created_at DESC LIMIT 10"
+        )
+    online_now = len(clients)
+    return {
+        "online_now":    online_now,
+        "total_users":   total_users,
+        "total_chats":   total_chats,
+        "total_messages": total_messages,
+        "new_today":     new_today,
+        "msgs_today":    msgs_today,
+        "recent_users":  [
+            {"phone": r["phone"], "username": r["username"], "name": r["name"],
+             "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+             "last_seen":  r["last_seen"].isoformat()  if r["last_seen"]  else None,
+             "online": r["phone"] in clients}
+            for r in recent_users
+        ],
+    }
+
+@app.get("/admin")
+async def serve_admin():
+    return FileResponse("web/admin.html")
+
 import pathlib
 _web_dir = pathlib.Path("web")
 if _web_dir.exists() and _web_dir.is_dir():
