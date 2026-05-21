@@ -2022,24 +2022,86 @@ async def ping():
 
 # Статика — монтируем если папка web существует
 # Используем HTMLResponse чтобы index.html отдавался по /
-# ── Admin endpoints ──────────────────────────────────────────────────────────
+# ── Admin credentials (separate from messenger accounts) ─────────────────────
+# Stored in DB table admin_credentials. Created on first /admin/setup call.
 
-async def _require_admin(request: Request) -> str:
-    """Check JWT and is_admin flag. Returns phone or raises 403."""
+async def _init_admin_table():
+    async with db_conn() as conn:
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS admin_credentials (
+                id SERIAL PRIMARY KEY,
+                login TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+async def _require_admin(request: Request):
+    """Check admin JWT token."""
     auth = request.headers.get("Authorization", "")
     token = auth.replace("Bearer ", "").strip()
-    phone = decode_token(token)
-    if not phone:
+    try:
+        payload = pyjwt.decode(token, JWT_SECRET + "_admin", algorithms=[JWT_ALGO])
+        if payload.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="Forbidden")
+    except Exception:
         raise HTTPException(status_code=401, detail="Unauthorized")
+
+class AdminSetup(BaseModel):
+    login: str
+    password: str
+
+class AdminLogin(BaseModel):
+    login: str
+    password: str
+
+@app.post("/admin/setup")
+async def admin_setup(data: AdminSetup):
+    """First-time setup — only works when no admin exists yet."""
+    await _init_admin_table()
     async with db_conn() as conn:
-        is_admin = await conn.fetchval("SELECT is_admin FROM users WHERE phone=$1", phone)
-    if not is_admin:
-        raise HTTPException(status_code=403, detail="Forbidden")
-    return phone
+        existing = await conn.fetchval("SELECT COUNT(*) FROM admin_credentials")
+        if existing > 0:
+            return JSONResponse(status_code=403, content={"error": "Admin already configured"})
+        if len(data.login) < 3:
+            return JSONResponse(status_code=400, content={"error": "Login too short (min 3)"})
+        if len(data.password) < 6:
+            return JSONResponse(status_code=400, content={"error": "Password too short (min 6)"})
+        hashed = bcrypt.hashpw(data.password.encode(), bcrypt.gensalt(rounds=12)).decode()
+        await conn.execute(
+            "INSERT INTO admin_credentials (login, password_hash) VALUES ($1, $2)",
+            data.login, hashed
+        )
+    return {"ok": True, "message": "Admin account created"}
+
+@app.post("/admin/login")
+async def admin_login(data: AdminLogin):
+    await _init_admin_table()
+    async with db_conn() as conn:
+        row = await conn.fetchrow(
+            "SELECT password_hash FROM admin_credentials WHERE login=$1", data.login
+        )
+    if not row:
+        return JSONResponse(status_code=401, content={"error": "Неверный логин или пароль"})
+    if not bcrypt.checkpw(data.password.encode(), row["password_hash"].encode()):
+        return JSONResponse(status_code=401, content={"error": "Неверный логин или пароль"})
+    token = pyjwt.encode(
+        {"role": "admin", "login": data.login, "exp": int(time.time()) + 60 * 60 * 8},
+        JWT_SECRET + "_admin", algorithm=JWT_ALGO
+    )
+    return {"ok": True, "token": token}
+
+@app.get("/admin/has-setup")
+async def admin_has_setup():
+    """Check if admin account exists — used by frontend to show setup or login."""
+    await _init_admin_table()
+    async with db_conn() as conn:
+        count = await conn.fetchval("SELECT COUNT(*) FROM admin_credentials")
+    return {"configured": count > 0}
 
 @app.get("/admin/stats")
 async def admin_stats(request: Request):
-    phone = await _require_admin(request)
+    await _require_admin(request)
     async with db_conn() as conn:
         total_users    = await conn.fetchval("SELECT COUNT(*) FROM users")
         total_messages = await conn.fetchval("SELECT COUNT(*) FROM messages WHERE is_deleted=0")
