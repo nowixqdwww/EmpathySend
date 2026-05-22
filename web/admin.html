@@ -354,7 +354,7 @@ async function loadVerifications() {
                     <button onclick="decideVerify(${r.id},'approved','black')" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);color:#f5f5f7;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px"><img src="${BADGE_BLACK}" style="width:14px;height:14px;vertical-align:middle;margin-right:3px;filter:invert(1)">\u0427\u0451\u0440\u043d\u0430\u044f</button>
                     <button onclick="decideVerify(${r.id},'rejected','')" style="background:rgba(255,69,58,0.1);border:1px solid rgba(255,69,58,0.25);color:#ff453a;border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px">\u041e\u0442\u043a\u043b\u043e\u043d\u0438\u0442\u044c</button>
                    </div>`
-                : `<span style="color:${r.status==='approved'?'var(--green)':'var(--red)}">${r.status==='approved'?'\u2705 \u041e\u0434\u043e\u0431\u0440\u0435\u043d\u043e':'\u274c \u041e\u0442\u043a\u043b\u043e\u043d\u0451\u043d'}</span>`
+                : `<span style="color:${r.status==='approved'?'var(--green)':'var(--red)'}">${r.status==='approved'?'\u2705 \u041e\u0434\u043e\u0431\u0440\u0435\u043d\u043e':'\u274c \u041e\u0442\u043a\u043b\u043e\u043d\u0451\u043d'}</span>`
             }</td>
         </tr>`).join('') + '</tbody></table>'
 }
