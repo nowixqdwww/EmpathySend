@@ -921,8 +921,9 @@ async function showUserProfile(phone, isMyProfile = false) {
         const _nameEl = document.getElementById('modalName')
         _nameEl.innerHTML = escapeHtml(user.name || 'Не указано')
         if (user.verified) {
-            const _badge = document.createElement('span')
-            _badge.className = `verified-badge-lg ${user.verified}`
+            const _badge = document.createElement('i')
+            _badge.className = `fas fa-certificate verified-badge-icon ${user.verified}`
+            _badge.style.cssText = 'margin-left: 6px; font-size: 16px;'
             _nameEl.appendChild(_badge)
         }
         document.getElementById('modalUsername').innerText = user.username || 'Не установлен'
