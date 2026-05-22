@@ -960,7 +960,7 @@ async function showUserProfile(phone, isMyProfile = false) {
                 .then(r => r.json()).then(v => {
                     if (user.verified) {
                         _vBtn.className = 'verify-request-btn approved'
-                        _vBtn.innerHTML = `<span class='verified-badge-lg ${user.verified}'></span> Аккаунт верифицирован`
+                        _vBtn.innerHTML = `<img src="/static/admin-icons/badge-${user.verified}.svg" style="width:25px;height:25px;vertical-align:middle;margin-right:6px"> Аккаунт верифицирован`
                         _vBtn.disabled = true
                     } else if (v.pending) {
                         _vBtn.className = 'verify-request-btn pending'
