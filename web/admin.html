@@ -359,16 +359,31 @@ async function loadVerifications() {
         </tr>`).join('') + '</tbody></table>'
 }
 
-async function decideVerify(id, decision, badgeType) {
-    const body = { request_id: id, decision: decision }
-    if (badgeType && badgeType !== '') {
+async function decideVerify(id, action, badgeType) {
+    // Создаём тело запроса
+    const body = { request_id: id, action: action }  // ← decision → action
+    
+    // Добавляем badge_type ТОЛЬКО если это 'approved' и передан badgeType
+    if (action === 'approved' && badgeType) {
         body.badge_type = badgeType
     }
-    await fetch('/admin/verifications/decide', {
+    
+    const response = await fetch('/admin/verifications/decide', {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+        headers: {
+            'Authorization': `Bearer ${adminToken}`,
+            'Content-Type': 'application/json'
+        },
         body: JSON.stringify(body)
     })
+    
+    if (!response.ok) {
+        const errorData = await response.json()
+        console.error('Server error:', errorData)
+        alert('Ошибка: ' + (errorData.detail?.[0]?.msg || 'Не удалось обработать запрос'))
+        return
+    }
+    
     loadVerifications()
 }
 </script>
