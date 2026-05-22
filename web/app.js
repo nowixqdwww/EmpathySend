@@ -917,7 +917,14 @@ async function showUserProfile(phone, isMyProfile = false) {
             modalAvatar.innerText = '?'
         }
         
-        document.getElementById('modalName').innerText = user.name || 'Не указано'
+        // Show name with badge
+        const _nameEl = document.getElementById('modalName')
+        _nameEl.innerHTML = escapeHtml(user.name || 'Не указано')
+        if (user.verified) {
+            const _badge = document.createElement('span')
+            _badge.className = `verified-badge-lg ${user.verified}`
+            _nameEl.appendChild(_badge)
+        }
         document.getElementById('modalUsername').innerText = user.username || 'Не установлен'
         document.getElementById('modalBio').innerText = user.bio || 'Не указано'
         
@@ -933,6 +940,36 @@ async function showUserProfile(phone, isMyProfile = false) {
             '<span style="color: #f87171;">● Оффлайн</span>'
         
         modalActions.innerHTML = ''
+
+        // Verification request button (own profile only)
+        const _existingVBtn = document.getElementById('verifyRequestBtn')
+        if (_existingVBtn) _existingVBtn.remove()
+        if (isMyProfile) {
+            const _vBtn = document.createElement('button')
+            _vBtn.id = 'verifyRequestBtn'
+            _vBtn.className = 'verify-request-btn'
+            const _mBody = document.querySelector('#profileModal .modal-body')
+            if (_mBody) _mBody.appendChild(_vBtn)
+            // Check current verify status
+            fetch(`/api/verification/status/${encodeURIComponent(phone)}`)
+                .then(r => r.json()).then(v => {
+                    if (user.verified) {
+                        _vBtn.className = 'verify-request-btn approved'
+                        _vBtn.innerHTML = `<span class='verified-badge-lg ${user.verified}'></span> Аккаунт верифицирован`
+                        _vBtn.disabled = true
+                    } else if (v.pending) {
+                        _vBtn.className = 'verify-request-btn pending'
+                        _vBtn.innerHTML = '<i class="fas fa-clock"></i> Запрос на рассмотрении'
+                        _vBtn.disabled = true
+                    } else {
+                        _vBtn.innerHTML = '<i class="fas fa-badge-check"></i> Запросить верификацию'
+                        _vBtn.onclick = () => showVerifyRequestDialog()
+                    }
+                }).catch(() => {
+                    _vBtn.innerHTML = '<i class="fas fa-certificate"></i> Запросить верификацию'
+                    _vBtn.onclick = () => showVerifyRequestDialog()
+                })
+        }
 
         // Три точки — только для чужого профиля
         const profileMenuBtn = document.getElementById('profileMenuBtn')
@@ -2506,10 +2543,11 @@ function createChatElement(chat) {
     const unreadBadge = unreadCount > 0 ? 
         `<span class="unread-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>` : ''
     
+    const _vBadge = chat.verified ? `<span class="verified-badge ${chat.verified}"></span>` : ''
     div.innerHTML = `
         <div class="chat-avatar">${avatarHtml}</div>
         <div class="chat-info">
-            <div class="chat-name">${escapeHtml(displayName)}</div>
+            <div class="chat-name">${escapeHtml(displayName)}${_vBadge}</div>
             <div class="chat-last-message">${escapeHtml(lastMessage)}</div>
         </div>
         ${unreadBadge}
@@ -3292,6 +3330,14 @@ function connect() {
                 }
             }
 
+            if (data.action === 'verification_approved') {
+                showToast('✅ Ваш аккаунт верифицирован!')
+                // Reload own profile to show badge
+                if (currentUser) loadUserProfile()
+            }
+            if (data.action === 'verification_rejected') {
+                showToast('Запрос на верификацию отклонён')
+            }
             if (data.action === 'message_edited') {
                 const el = document.querySelector(`[data-message-id="${data.id}"]`)
                 if (el) {
@@ -4366,6 +4412,48 @@ window.openMyProfile = openMyProfile
 window.openProfilePanel = openProfilePanel
 window.send = send
 window.showRegisterForm = showRegisterForm
+function showVerifyRequestDialog() {
+    const overlay = document.createElement("div")
+    overlay.className = "modal"
+    overlay.style.cssText = "display:flex;z-index:9999"
+    overlay.innerHTML = `
+        <div class="modal-content" style="max-width:400px">
+            <div class="modal-header">
+                <h2><i class="fas fa-certificate" style="color:var(--accent)"></i> Запрос верификации</h2>
+                <button class="close-btn" onclick="this.closest('.modal').remove()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:14px;color:var(--text-secondary);margin-bottom:12px">Опишите почему вы хотите получить верификацию:</p>
+                <textarea id="verifyMsgText" class="verify-msg-textarea" placeholder="Например: я публичный человек / бренд / организация..." maxlength="500"></textarea>
+                <button class="action-button primary" style="width:100%;margin-top:12px" onclick="submitVerifyRequest(this)">Отправить запрос</button>
+            </div>
+        </div>`
+    document.body.appendChild(overlay)
+}
+
+async function submitVerifyRequest(btn) {
+    const msg = document.getElementById("verifyMsgText")?.value.trim() || ""
+    btn.disabled = true
+    btn.textContent = "Отправка..."
+    try {
+        const res = await fetch("/api/verification/request", {
+            method: "POST",
+            headers: authHeaders(),
+            body: JSON.stringify({ phone: currentUser, message: msg })
+        })
+        const data = await res.json()
+        if (res.ok) {
+            btn.closest(".modal").remove()
+            showToast("Запрос отправлен!")
+            const vBtn = document.getElementById("verifyRequestBtn")
+            if (vBtn) { vBtn.className = "verify-request-btn pending"; vBtn.innerHTML = "<i class=\"fas fa-clock\"></i> Запрос на рассмотрении"; vBtn.disabled = true }
+        } else {
+            showToast(data.error || "Ошибка")
+            btn.disabled = false; btn.textContent = "Отправить запрос"
+        }
+    } catch { showToast("Ошибка сети"); btn.disabled = false }
+}
+
 window.showLoginForm = showLoginForm
 window.logout = logout
 window.showAccountSwitcher = showAccountSwitcher
