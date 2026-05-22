@@ -921,8 +921,13 @@ async function showUserProfile(phone, isMyProfile = false) {
         const _nameEl = document.getElementById('modalName')
         _nameEl.innerHTML = escapeHtml(user.name || 'Не указано')
         if (user.verified) {
-            const _badge = document.createElement('span')
-            _badge.className = `verified-badge-lg ${user.verified}`
+            const _badge = document.createElement('img')
+            const badgeUrl = user.verified === 'blue' 
+                ? '/static/admin-icons/badge-blue.svg'
+                : '/static/admin-icons/badge-black.svg'
+            _badge.src = badgeUrl
+            _badge.className = 'verified-badge-icon'
+            _badge.style.cssText = 'width: 18px; height: 18px; margin-left: 6px; vertical-align: middle;'
             _nameEl.appendChild(_badge)
         }
         document.getElementById('modalUsername').innerText = user.username || 'Не установлен'
