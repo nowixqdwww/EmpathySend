@@ -5555,3 +5555,29 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
     vertical-align: middle;
     display: inline-block;
 }
+
+/* Верификационные бейджи SVG */
+.verified-badge-chat,
+.verified-badge-header,
+.verified-badge-modal {
+    width: 16px;
+    height: 16px;
+    margin-left: 4px;
+    vertical-align: middle;
+    display: inline-block;
+}
+
+.verified-badge-modal {
+    width: 18px;
+    height: 18px;
+    margin-left: 6px;
+}
+
+/* Для мобильных устройств */
+@media (max-width: 768px) {
+    .verified-badge-chat,
+    .verified-badge-header {
+        width: 14px;
+        height: 14px;
+    }
+}
