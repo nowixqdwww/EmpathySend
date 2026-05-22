@@ -5546,3 +5546,12 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
     margin-top: 8px;
 }
 .verify-msg-textarea:focus { border-color: var(--accent, #0A84FF); }
+
+/* Верификационные бейджи SVG */
+.verified-badge-icon {
+    width: 18px;
+    height: 18px;
+    margin-left: 6px;
+    vertical-align: middle;
+    display: inline-block;
+}
