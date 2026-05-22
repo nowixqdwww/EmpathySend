@@ -4209,7 +4209,7 @@ function createVideoPlayer(url, isMe, knownDuration) {
 
     // Кнопка Play
     const playBtn = document.createElement('button')
-    playBtn.style.cssText = 'position:absolute;inset:0;margin:auto;width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,0.55);color:white;border:none;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);z-index:3;transition:opacity 0.2s'
+    playBtn.style.cssText = 'position:absolute;inset:0;margin:auto;width:48px;height:48px;border-radius:50%;background:rgba(0,0,0,0.55);color:white;border:none;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);z-index:3;transition:opacity 0.2s;'
     playBtn.innerHTML = '<i class="fas fa-play"></i>'
 
     // Таймер
