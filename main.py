@@ -209,7 +209,7 @@ async def init_db():
             """)
         
             # Проверяем и добавляем колонки если нужно
-            for col, typ in [('password', 'TEXT'), ('last_seen', 'TIMESTAMP'), ('is_admin', 'BOOLEAN DEFAULT FALSE')]:
+            for col, typ in [('password', 'TEXT'), ('last_seen', 'TIMESTAMP'), ('is_admin', 'BOOLEAN DEFAULT FALSE'), ('verified', 'TEXT DEFAULT NULL')]:
                 exists = await conn.fetchval(f"""
                     SELECT EXISTS (
                         SELECT FROM information_schema.columns
@@ -288,7 +288,21 @@ async def init_db():
                 logger.info(f"Migrated {migrated} data:URI stickers to BYTEA")
 
             # Таблица голосовых сообщений
+            # Verification requests table
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS verification_requests (
+                    id SERIAL PRIMARY KEY,
+                    phone TEXT NOT NULL,
+                    message TEXT,
+                    status TEXT DEFAULT 'pending',
+                    badge_type TEXT DEFAULT 'blue',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    reviewed_at TIMESTAMP
+                )
+            """)
+
             # Add edited column to messages if missing
+
             msg_edited_exists = await conn.fetchval("""
                 SELECT EXISTS (SELECT FROM information_schema.columns
                 WHERE table_name = 'messages' AND column_name = 'edited')
@@ -701,7 +715,7 @@ async def get_user(phone: str):
         async with db_conn() as conn:
         
             user = await conn.fetchrow(
-                "SELECT phone, username, name, bio, avatar FROM users WHERE phone = $1",
+                "SELECT phone, username, name, bio, avatar, verified FROM users WHERE phone = $1",
                 phone
             )
         
@@ -714,7 +728,8 @@ async def get_user(phone: str):
                 "username": user['username'],
                 "name": user['name'],
                 "bio": user['bio'] or "",
-                "avatar": get_avatar_url(user['avatar'])
+                "avatar": get_avatar_url(user['avatar']),
+                "verified": user['verified']
             }
         
     except Exception as e:
@@ -1418,7 +1433,7 @@ async def search_user(data: SearchUser):
         async with db_conn() as conn:
         
             user = await conn.fetchrow(
-                "SELECT phone, username, name, bio, avatar FROM users WHERE username = $1",
+                "SELECT phone, username, name, bio, avatar, verified FROM users WHERE username = $1",
                 data.username
             )
         
@@ -1432,7 +1447,8 @@ async def search_user(data: SearchUser):
                 "username": user['username'],
                 "name": user['name'],
                 "bio": user['bio'] or "",
-                "avatar": get_avatar_url(user['avatar'])
+                "avatar": get_avatar_url(user['avatar']),
+                "verified": user['verified']
             }
         
     except Exception as e:
@@ -2046,6 +2062,102 @@ async def _require_admin(request: Request):
             raise HTTPException(status_code=403, detail="Forbidden")
     except Exception:
         raise HTTPException(status_code=401, detail="Unauthorized")
+
+# ── Verification endpoints ───────────────────────────────────────────────────
+
+class VerificationRequest(BaseModel):
+    phone: str
+    message: Optional[str] = None
+
+@app.post("/api/verification/request")
+async def request_verification(data: VerificationRequest, request: Request):
+    auth = request.headers.get("Authorization", "")
+    token = auth.replace("Bearer ", "").strip()
+    phone = decode_token(token)
+    if not phone or phone != data.phone:
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+    try:
+        async with db_conn() as conn:
+            existing = await conn.fetchval("SELECT verified FROM users WHERE phone=$1", phone)
+            if existing:
+                return JSONResponse(status_code=400, content={"error": "Already verified"})
+            pending = await conn.fetchval(
+                "SELECT id FROM verification_requests WHERE phone=$1 AND status='pending'", phone
+            )
+            if pending:
+                return JSONResponse(status_code=400, content={"error": "Request already pending"})
+            await conn.execute(
+                "INSERT INTO verification_requests (phone, message) VALUES ($1, $2)",
+                phone, data.message or ""
+            )
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"Verification request error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/admin/verifications")
+async def admin_verifications(request: Request):
+    await _require_admin(request)
+    async with db_conn() as conn:
+        rows = await conn.fetch("""
+            SELECT vr.id, vr.phone, vr.message, vr.status, vr.badge_type, vr.created_at,
+                   u.name, u.username
+            FROM verification_requests vr
+            LEFT JOIN users u ON u.phone = vr.phone
+            ORDER BY (vr.status = 'pending') DESC, vr.created_at DESC
+        """)
+    return [
+        {"id": r["id"], "phone": r["phone"], "message": r["message"],
+         "status": r["status"], "badge_type": r["badge_type"],
+         "name": r["name"], "username": r["username"],
+         "created_at": r["created_at"].isoformat() if r["created_at"] else None}
+        for r in rows
+    ]
+
+class VerificationDecision(BaseModel):
+    request_id: int
+    action: str
+
+@app.post("/admin/verifications/decide")
+async def admin_verification_decide(data: VerificationDecision, request: Request):
+    await _require_admin(request)
+    async with db_conn() as conn:
+        req = await conn.fetchrow("SELECT phone FROM verification_requests WHERE id=$1", data.request_id)
+        if not req:
+            return JSONResponse(status_code=404, content={"error": "Not found"})
+        phone = req["phone"]
+        if data.action in ("approve_blue", "approve_black"):
+            badge = "blue" if data.action == "approve_blue" else "black"
+            await conn.execute(
+                "UPDATE verification_requests SET status='approved', badge_type=$1, reviewed_at=NOW() WHERE id=$2",
+                badge, data.request_id
+            )
+            await conn.execute("UPDATE users SET verified=$1 WHERE phone=$2", badge, phone)
+            if phone in clients:
+                try:
+                    await clients[phone].send_json({"action": "verified", "badge": badge})
+                except:
+                    clients.pop(phone, None)
+        else:
+            await conn.execute(
+                "UPDATE verification_requests SET status='rejected', reviewed_at=NOW() WHERE id=$1",
+                data.request_id
+            )
+            if phone in clients:
+                try:
+                    await clients[phone].send_json({"action": "verification_rejected"})
+                except:
+                    clients.pop(phone, None)
+    return {"ok": True}
+
+@app.get("/api/verification/status/{phone}")
+async def verification_status(phone: str):
+    async with db_conn() as conn:
+        verified = await conn.fetchval("SELECT verified FROM users WHERE phone=$1", phone)
+        pending = await conn.fetchval(
+            "SELECT id FROM verification_requests WHERE phone=$1 AND status='pending'", phone
+        )
+    return {"verified": verified, "pending": bool(pending)}
 
 class AdminSetup(BaseModel):
     login: str
