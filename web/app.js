@@ -2548,7 +2548,9 @@ function createChatElement(chat) {
     const unreadBadge = unreadCount > 0 ? 
         `<span class="unread-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>` : ''
     
-    const _vBadge = chat.verified ? `<span class="verified-badge ${chat.verified}"></span>` : ''
+    const _vBadge = chat.verified 
+        ? `<img src="/static/admin-icons/badge-${chat.verified}.svg" class="verified-badge-chat" style="width:16px;height:16px;margin-left:4px;vertical-align:middle">` 
+        : ''
     div.innerHTML = `
         <div class="chat-avatar">${avatarHtml}</div>
         <div class="chat-info">
@@ -2747,7 +2749,7 @@ function openChat(phone, displayName) {
         .then(res => res.json())
         .then(user => {
             const name = user.name || user.username || phone
-            document.getElementById('chatUserName').innerText = name
+            document.getElementById('chatUserName').innerHTML = escapeHtml(name) + verifiedBadge
             // Сохраняем last_seen
             userCache[phone] = user  // кешируем для updateChatInList
             if (user.last_seen) lastSeenMap[phone] = user.last_seen
