@@ -2749,6 +2749,9 @@ function openChat(phone, displayName) {
         .then(res => res.json())
         .then(user => {
             const name = user.name || user.username || phone
+            const verifiedBadge = user.verified
+                ? `<img src="/static/admin-icons/badge-${user.verified}.svg" style="width:18px;height:18px;vertical-align:middle;margin-left:5px;position:relative;top:-1px">`
+                : ''
             document.getElementById('chatUserName').innerHTML = escapeHtml(name) + verifiedBadge
             // Сохраняем last_seen
             userCache[phone] = user  // кешируем для updateChatInList
