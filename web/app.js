@@ -921,8 +921,13 @@ async function showUserProfile(phone, isMyProfile = false) {
         const _nameEl = document.getElementById('modalName')
         _nameEl.innerHTML = escapeHtml(user.name || 'Не указано')
         if (user.verified) {
-            const _badge = document.createElement('span')
-            _badge.className = `verified-badge-lg ${user.verified}`
+            const _badge = document.createElement('img')
+            const badgeUrl = user.verified === 'blue' 
+                ? '/static/admin-icons/badge-blue.svg'
+                : '/static/admin-icons/badge-black.svg'
+            _badge.src = badgeUrl
+            _badge.className = 'verified-badge-icon'
+            _badge.style.cssText = 'width: 18px; height: 18px; margin-left: 6px; vertical-align: middle;'
             _nameEl.appendChild(_badge)
         }
         document.getElementById('modalUsername').innerText = user.username || 'Не установлен'
@@ -955,7 +960,7 @@ async function showUserProfile(phone, isMyProfile = false) {
                 .then(r => r.json()).then(v => {
                     if (user.verified) {
                         _vBtn.className = 'verify-request-btn approved'
-                        _vBtn.innerHTML = `<span class='verified-badge-lg ${user.verified}'></span> Аккаунт верифицирован`
+                        _vBtn.innerHTML = `<img src="/static/admin-icons/badge-${user.verified}.svg" style="width:18px;height:18px;vertical-align:middle;margin-right:6px"> Аккаунт верифицирован`
                         _vBtn.disabled = true
                     } else if (v.pending) {
                         _vBtn.className = 'verify-request-btn pending'
