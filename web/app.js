@@ -960,7 +960,7 @@ async function showUserProfile(phone, isMyProfile = false) {
                 .then(r => r.json()).then(v => {
                     if (user.verified) {
                         _vBtn.className = 'verify-request-btn approved'
-                        _vBtn.innerHTML = `<img src="${_BADGE_URL[user.verified] || \'\'}" style="width:25px;height:25px;vertical-align:middle;margin-right:6px"> Аккаунт верифицирован`
+                        _vBtn.innerHTML = `<img src="${_BADGE_URL[user.verified] || ''}" style="width:25px;height:25px;vertical-align:middle;margin-right:6px"> Аккаунт верифицирован`
                         _vBtn.disabled = true
                     } else if (v.pending) {
                         _vBtn.className = 'verify-request-btn pending'
@@ -2549,7 +2549,7 @@ function createChatElement(chat) {
         `<span class="unread-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>` : ''
     
     const _vBadge = chat.verified 
-        ? `<img src="${_BADGE_URL[chat.verified] || \'\'}" class="verified-badge-chat" style="width:16px;height:16px;margin-left:4px;vertical-align:middle">` 
+        ? `<img src="${_BADGE_URL[chat.verified] || ''}" class="verified-badge-chat" style="width:16px;height:16px;margin-left:4px;vertical-align:middle">` 
         : ''
     div.innerHTML = `
         <div class="chat-avatar">${avatarHtml}</div>
@@ -2750,13 +2750,13 @@ function openChat(phone, displayName) {
         .then(user => {
             const name = user.name || user.username || phone
             const verifiedBadge = user.verified
-                ? `<img src="${_BADGE_URL[user.verified] || \'\'}" style="width:18px;height:18px;vertical-align:middle;margin-left:5px;position:relative;top:-1px">`
+                ? `<img src="${_BADGE_URL[user.verified] || ''}" style="width:18px;height:18px;vertical-align:middle;margin-left:5px;position:relative;top:-1px">`
                 : ''
             document.getElementById('chatUserName').innerHTML = escapeHtml(name) + verifiedBadge
             // Update badge in chat list too
             const _clEl = document.querySelector(`#chat-${cleanPhone(phone)} .chat-name`)
             if (_clEl) {
-                const _lb = user.verified ? `<img src="${_BADGE_URL[user.verified] || \'\'}" style="width:16px;height:16px;margin-left:4px;vertical-align:middle">` : ''
+                const _lb = user.verified ? `<img src="${_BADGE_URL[user.verified] || ''}" style="width:16px;height:16px;margin-left:4px;vertical-align:middle">` : ''
                 _clEl.innerHTML = escapeHtml(name) + _lb
             }
             // Сохраняем last_seen
