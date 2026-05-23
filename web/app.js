@@ -2747,7 +2747,7 @@ function openChat(phone, displayName) {
         .then(res => res.json())
         .then(user => {
             const name = user.name || user.username || phone
-            document.getElementById('chatUserName').innerText = name
+            document.getElementById('chatUserName').innerHTML = escapeHtml(name) + verifiedBadge
             // Сохраняем last_seen
             userCache[phone] = user  // кешируем для updateChatInList
             if (user.last_seen) lastSeenMap[phone] = user.last_seen
