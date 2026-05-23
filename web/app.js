@@ -2753,16 +2753,23 @@ function openChat(phone, displayName) {
                 ? `<img src="/static/admin-icons/badge-${user.verified}.svg" style="width:18px;height:18px;vertical-align:middle;margin-left:5px;position:relative;top:-1px">`
                 : ''
             document.getElementById('chatUserName').innerHTML = escapeHtml(name) + verifiedBadge
+            // Update badge in chat list too
+            const _clEl = document.querySelector(`#chat-${cleanPhone(phone)} .chat-name`)
+            if (_clEl) {
+                const _lb = user.verified ? `<img src="/static/admin-icons/badge-${user.verified}.svg" style="width:16px;height:16px;margin-left:4px;vertical-align:middle">` : ''
+                _clEl.innerHTML = escapeHtml(name) + _lb
+            }
             // Сохраняем last_seen
             userCache[phone] = user  // кешируем для updateChatInList
             if (user.last_seen) lastSeenMap[phone] = user.last_seen
             document.getElementById('chatUserPhone').innerText = formatPhone(phone)
             
-            const chatAvatar = document.getElementById('chatAvatarText')
+            const chatAvatarWrap = document.getElementById('chatAvatar')
+            const chatAvatarSpan = document.getElementById('chatAvatarText')
             if (user.avatar) {
-                chatAvatar.innerHTML = `<img src="${_getAvatarUrl(user.avatar)}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerText='?'">`
+                chatAvatarWrap.innerHTML = `<img src="${_getAvatarUrl(user.avatar)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block" onerror="this.parentElement.innerHTML='<span id=chatAvatarText>?</span>'">`
             } else {
-                chatAvatar.innerText = '?'
+                chatAvatarWrap.innerHTML = `<span id="chatAvatarText">${(name||'?')[0].toUpperCase()}</span>`
             }
             
             if (user.last_seen) lastSeenMap[phone] = user.last_seen
@@ -2773,7 +2780,8 @@ function openChat(phone, displayName) {
         .catch(() => {
             document.getElementById('chatUserName').innerText = displayName || phone
             document.getElementById('chatUserPhone').innerText = formatPhone(phone)
-            document.getElementById('chatAvatarText').innerText = '?'
+            const _caw = document.getElementById('chatAvatar')
+            if (_caw) _caw.innerHTML = `<span id="chatAvatarText">${(displayName||phone||'?')[0].toUpperCase()}</span>`
         })
     
     document.getElementById('emptyChat').style.display = 'none'
