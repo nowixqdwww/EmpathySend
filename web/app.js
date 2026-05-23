@@ -1,4 +1,3 @@
-const _BADGE_URL = { blue: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTIiIGZpbGw9IiMxRDlCRjAiLz48cGF0aCBkPSJNOS41IDE2LjVMNS41IDEyLjVMNi45MiAxMS4wOEw5LjUgMTMuNjdMMTcuMDggNi4wOEwxOC41IDcuNUw5LjUgMTYuNVoiIGZpbGw9IndoaXRlIi8+PC9zdmc+", black: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTIiIGZpbGw9IiMwRjBGMEYiLz48cGF0aCBkPSJNOS41IDE2LjVMNS41IDEyLjVMNi45MiAxMS4wOEw5LjUgMTMuNjdMMTcuMDggNi4wOEwxOC41IDcuNUw5LjUgMTYuNVoiIGZpbGw9IndoaXRlIi8+PC9zdmc+" }
 let ws
 let currentUser = localStorage.getItem('currentUser') || null
 let authToken = localStorage.getItem('authToken') || null
@@ -922,13 +921,8 @@ async function showUserProfile(phone, isMyProfile = false) {
         const _nameEl = document.getElementById('modalName')
         _nameEl.innerHTML = escapeHtml(user.name || 'Не указано')
         if (user.verified) {
-            const _badge = document.createElement('img')
-            const badgeUrl = user.verified === 'blue' 
-                ? _BADGE_URL.blue
-                : _BADGE_URL.black
-            _badge.src = badgeUrl
-            _badge.className = 'verified-badge-icon'
-            _badge.style.cssText = 'width: 18px; height: 18px; margin-left: 6px; vertical-align: middle;'
+            const _badge = document.createElement('span')
+            _badge.className = `verified-badge-lg ${user.verified}`
             _nameEl.appendChild(_badge)
         }
         document.getElementById('modalUsername').innerText = user.username || 'Не установлен'
@@ -961,7 +955,7 @@ async function showUserProfile(phone, isMyProfile = false) {
                 .then(r => r.json()).then(v => {
                     if (user.verified) {
                         _vBtn.className = 'verify-request-btn approved'
-                        _vBtn.innerHTML = `<img src="${_BADGE_URL[user.verified] || ''}" style="width:25px;height:25px;vertical-align:middle;margin-right:6px"> Аккаунт верифицирован`
+                        _vBtn.innerHTML = `<span class='verified-badge-lg ${user.verified}'></span> Аккаунт верифицирован`
                         _vBtn.disabled = true
                     } else if (v.pending) {
                         _vBtn.className = 'verify-request-btn pending'
@@ -2549,9 +2543,7 @@ function createChatElement(chat) {
     const unreadBadge = unreadCount > 0 ? 
         `<span class="unread-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>` : ''
     
-    const _vBadge = chat.verified 
-        ? `<img src="${_BADGE_URL[chat.verified] || ''}" class="verified-badge-chat" style="width:16px;height:16px;margin-left:4px;vertical-align:middle">` 
-        : ''
+    const _vBadge = chat.verified ? `<span class="verified-badge ${chat.verified}"></span>` : ''
     div.innerHTML = `
         <div class="chat-avatar">${avatarHtml}</div>
         <div class="chat-info">
@@ -2750,27 +2742,17 @@ function openChat(phone, displayName) {
         .then(res => res.json())
         .then(user => {
             const name = user.name || user.username || phone
-            const verifiedBadge = user.verified
-                ? `<img src="${_BADGE_URL[user.verified] || ''}" style="width:18px;height:18px;vertical-align:middle;margin-left:5px;position:relative;top:-1px">`
-                : ''
-            document.getElementById('chatUserName').innerHTML = escapeHtml(name) + verifiedBadge
-            // Update badge in chat list too
-            const _clEl = document.querySelector(`#chat-${cleanPhone(phone)} .chat-name`)
-            if (_clEl) {
-                const _lb = user.verified ? `<img src="${_BADGE_URL[user.verified] || ''}" style="width:16px;height:16px;margin-left:4px;vertical-align:middle">` : ''
-                _clEl.innerHTML = escapeHtml(name) + _lb
-            }
+            document.getElementById('chatUserName').innerText = name
             // Сохраняем last_seen
             userCache[phone] = user  // кешируем для updateChatInList
             if (user.last_seen) lastSeenMap[phone] = user.last_seen
             document.getElementById('chatUserPhone').innerText = formatPhone(phone)
             
-            const chatAvatarWrap = document.getElementById('chatAvatar')
-            const chatAvatarSpan = document.getElementById('chatAvatarText')
+            const chatAvatar = document.getElementById('chatAvatarText')
             if (user.avatar) {
-                chatAvatarWrap.innerHTML = `<img src="${_getAvatarUrl(user.avatar)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block" onerror="this.parentElement.innerHTML='<span id=chatAvatarText>?</span>'">`
+                chatAvatar.innerHTML = `<img src="${_getAvatarUrl(user.avatar)}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerText='?'">`
             } else {
-                chatAvatarWrap.innerHTML = `<span id="chatAvatarText">${(name||'?')[0].toUpperCase()}</span>`
+                chatAvatar.innerText = '?'
             }
             
             if (user.last_seen) lastSeenMap[phone] = user.last_seen
@@ -2781,8 +2763,7 @@ function openChat(phone, displayName) {
         .catch(() => {
             document.getElementById('chatUserName').innerText = displayName || phone
             document.getElementById('chatUserPhone').innerText = formatPhone(phone)
-            const _caw = document.getElementById('chatAvatar')
-            if (_caw) _caw.innerHTML = `<span id="chatAvatarText">${(displayName||phone||'?')[0].toUpperCase()}</span>`
+            document.getElementById('chatAvatarText').innerText = '?'
         })
     
     document.getElementById('emptyChat').style.display = 'none'
@@ -5727,8 +5708,8 @@ function stopRingtone() {
 // Хелпер для аватарок — поддерживаем оба формата (старый filename и новый data URI)
 function getAvatarUrl(avatar) {
     if (!avatar) return null
-    if (avatar.startsWith('data:') || avatar.startsWith('http') || avatar.startsWith('/')) return avatar
-    // old format: bare filename
+    if (avatar.startsWith('data:') || avatar.startsWith('http')) return avatar
+    // Старый формат — filename
     return '/avatars/' + avatar
 }
 window._getAvatarUrl = getAvatarUrl
