@@ -1535,8 +1535,8 @@ async def get_users(me: str):
                     "name": user_data['name'],
                     "displayName": display_name,
                     "avatar": get_avatar_url(user_data['avatar']),
-                    "online": phone in clients,
                     "verified": user_data['verified'],
+                    "online": phone in clients,
                     "last": last_msg['text'] if last_msg else None,
                     "last_ts": last_msg['timestamp'].isoformat() if last_msg and last_msg['timestamp'] else None,
                     "unread": unread or 0
