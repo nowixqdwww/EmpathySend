@@ -1,3 +1,4 @@
+const _BADGE_URL = { blue: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTIiIGZpbGw9IiMxRDlCRjAiLz48cGF0aCBkPSJNOS41IDE2LjVMNS41IDEyLjVMNi45MiAxMS4wOEw5LjUgMTMuNjdMMTcuMDggNi4wOEwxOC41IDcuNUw5LjUgMTYuNVoiIGZpbGw9IndoaXRlIi8+PC9zdmc+", black: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTIiIGZpbGw9IiMwRjBGMEYiLz48cGF0aCBkPSJNOS41IDE2LjVMNS41IDEyLjVMNi45MiAxMS4wOEw5LjUgMTMuNjdMMTcuMDggNi4wOEwxOC41IDcuNUw5LjUgMTYuNVoiIGZpbGw9IndoaXRlIi8+PC9zdmc+" }
 let ws
 let currentUser = localStorage.getItem('currentUser') || null
 let authToken = localStorage.getItem('authToken') || null
