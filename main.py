@@ -1514,7 +1514,7 @@ async def get_users(me: str):
             for contact in contacts:
                 phone = contact['contact']
                 user_data = await conn.fetchrow(
-                    "SELECT phone, username, name, avatar, verified FROM users WHERE phone = $1", phone
+                    "SELECT phone, username, name, avatar FROM users WHERE phone = $1", phone
                 )
                 if not user_data:
                     continue
@@ -1535,7 +1535,6 @@ async def get_users(me: str):
                     "name": user_data['name'],
                     "displayName": display_name,
                     "avatar": get_avatar_url(user_data['avatar']),
-                    "verified": user_data['verified'],
                     "online": phone in clients,
                     "last": last_msg['text'] if last_msg else None,
                     "last_ts": last_msg['timestamp'].isoformat() if last_msg and last_msg['timestamp'] else None,
@@ -2279,3 +2278,4 @@ if __name__ == "__main__":
         port=port,
         reload=False
     )
+
