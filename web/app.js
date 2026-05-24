@@ -2548,16 +2548,21 @@ function createChatElement(chat) {
     const unreadBadge = unreadCount > 0 ? 
         `<span class="unread-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>` : ''
     
-    const _vBadge = chat.verified ? `<span class="verified-badge ${chat.verified}"></span>` : ''
+    // Галочка верификации
+    const verifiedBadge = chat.verified 
+        ? `<img src="/static/admin-icons/badge-${chat.verified}.svg" class="verified-badge-chat" style="width:14px;height:14px;margin-left:4px;vertical-align:middle;display:inline-block">`
+        : ''
+    
     div.innerHTML = `
         <div class="chat-avatar">${avatarHtml}</div>
         <div class="chat-info">
-            <div class="chat-name">${escapeHtml(displayName)}${_vBadge}</div>
+            <div class="chat-name">${escapeHtml(displayName)}${verifiedBadge}</div>
             <div class="chat-last-message">${escapeHtml(lastMessage)}</div>
         </div>
         ${unreadBadge}
         <div class="chat-status ${isOnline ? '' : 'offline'}"></div>
     `
+    
     // Staggered animation
     const idx = document.querySelectorAll('.chatItem').length
     div.style.animationDelay = `${Math.min(idx * 30, 200)}ms`
@@ -2608,6 +2613,28 @@ function createChatElement(chat) {
     })
     
     return div
+}
+
+// Обновить бейдж верификации в списке чатов
+function updateChatVerifiedBadge(phone, verified) {
+    const chatEl = document.getElementById(`chat-${cleanPhone(phone)}`)
+    if (!chatEl) return
+    
+    const nameEl = chatEl.querySelector('.chat-name')
+    if (!nameEl) return
+    
+    // Удаляем старую галочку
+    const oldBadge = nameEl.querySelector('.verified-badge-chat')
+    if (oldBadge) oldBadge.remove()
+    
+    // Добавляем новую если есть
+    if (verified) {
+        const newBadge = document.createElement('img')
+        newBadge.src = `/static/admin-icons/badge-${verified}.svg`
+        newBadge.className = 'verified-badge-chat'
+        newBadge.style.cssText = 'width:14px;height:14px;margin-left:4px;vertical-align:middle;display:inline-block'
+        nameEl.appendChild(newBadge)
+    }
 }
 
 // Обновляет чат в списке: last message, unread badge, позиция
@@ -2722,7 +2749,7 @@ async function loadChats() {
         })
         
         chats.forEach(chat => {
-            userCache[chat.phone] = chat  // кешируем
+            userCache[chat.phone] = chat  // кешируем (теперь с verified)
             list.appendChild(createChatElement(chat))
         })
         
@@ -2747,12 +2774,24 @@ function openChat(phone, displayName) {
         .then(res => res.json())
         .then(user => {
             const name = user.name || user.username || phone
+            
+            // Создаём HTML с галочкой верификации для шапки чата
+            const verifiedBadge = user.verified 
+                ? `<img src="/static/admin-icons/badge-${user.verified}.svg" class="verified-badge-header" style="width:16px;height:16px;margin-left:6px;vertical-align:middle;display:inline-block">`
+                : ''
+            
+            // Устанавливаем имя с галочкой в шапке
             document.getElementById('chatUserName').innerHTML = escapeHtml(name) + verifiedBadge
+            
+            // Обновляем бейдж верификации в списке чатов
+            updateChatVerifiedBadge(phone, user.verified)
+            
             // Сохраняем last_seen
             userCache[phone] = user  // кешируем для updateChatInList
             if (user.last_seen) lastSeenMap[phone] = user.last_seen
             document.getElementById('chatUserPhone').innerText = formatPhone(phone)
             
+            // Аватар в шапке
             const chatAvatar = document.getElementById('chatAvatarText')
             if (user.avatar) {
                 chatAvatar.innerHTML = `<img src="${_getAvatarUrl(user.avatar)}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerText='?'">`
@@ -2760,13 +2799,14 @@ function openChat(phone, displayName) {
                 chatAvatar.innerText = '?'
             }
             
-            if (user.last_seen) lastSeenMap[phone] = user.last_seen
+            // Статус онлайн
             const isOnline = window.clients && window.clients[phone] === true
             if (user.last_seen) lastSeenMap[phone] = user.last_seen
             updateChatStatusText(phone, isOnline)
         })
         .catch(() => {
-            document.getElementById('chatUserName').innerText = displayName || phone
+            // Если ошибка — показываем без галочки
+            document.getElementById('chatUserName').innerHTML = escapeHtml(displayName || phone)
             document.getElementById('chatUserPhone').innerText = formatPhone(phone)
             document.getElementById('chatAvatarText').innerText = '?'
         })
@@ -2796,7 +2836,6 @@ function openChat(phone, displayName) {
         activeChat.classList.add('active')
     }
 }
-
 function loadMessages() {
     if (!currentChat) return
     if (!ws || ws.readyState !== WebSocket.OPEN) {
