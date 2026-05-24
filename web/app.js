@@ -919,7 +919,7 @@ async function showUserProfile(phone, isMyProfile = false) {
         
         // Show name with badge
         const _nameEl = document.getElementById('modalName')
-        _nameEl.innerHTML = escapeHtml(user.name || 'Не указано') + verifiedBadge
+        _nameEl.innerHTML = escapeHtml(user.name || 'Не указано')
         if (user.verified) {
             const _badge = document.createElement('img')
             const badgeUrl = user.verified === 'blue' 
