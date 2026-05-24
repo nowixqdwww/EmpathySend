@@ -1502,19 +1502,20 @@ async def search_users(query: str, request: Request):
 async def get_users(me: str):
     try:
         async with db_conn() as conn:
-        
             contacts = await conn.fetch("""
                 SELECT DISTINCT
                     CASE WHEN sender = $1 THEN receiver ELSE sender END as contact
                 FROM messages
                 WHERE sender = $1 OR receiver = $1
             """, me)
-        
+            
             result = []
             for contact in contacts:
                 phone = contact['contact']
+                # ДОБАВЛЯЕМ verified в SELECT
                 user_data = await conn.fetchrow(
-                    "SELECT phone, username, name, avatar FROM users WHERE phone = $1", phone
+                    "SELECT phone, username, name, avatar, verified FROM users WHERE phone = $1",  # ← добавили verified
+                    phone
                 )
                 if not user_data:
                     continue
@@ -1535,18 +1536,17 @@ async def get_users(me: str):
                     "name": user_data['name'],
                     "displayName": display_name,
                     "avatar": get_avatar_url(user_data['avatar']),
+                    "verified": user_data['verified'],  # ← ДОБАВЛЯЕМ verified
                     "online": phone in clients,
                     "last": last_msg['text'] if last_msg else None,
                     "last_ts": last_msg['timestamp'].isoformat() if last_msg and last_msg['timestamp'] else None,
                     "unread": unread or 0
                 })
             result.sort(key=lambda x: x['last_ts'] or '', reverse=True)
-        
             return result
-        
     except Exception as e:
-            logger.error(f"Error getting users for {me}: {e}")
-            return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.error(f"Error getting users for {me}: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 # Добавить реакцию
 @app.post("/reaction/add")
