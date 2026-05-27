@@ -3018,11 +3018,9 @@ function showContextMenu(event, type, data) {
         }
     }
     
-    // Сброс стилей перед показом
+    // Скрываем меню перед позиционированием
+    menu.classList.remove('visible')
     menu.style.display = 'block'
-    menu.style.opacity = '0'
-    menu.style.transform = 'scale(0.92)'
-    menu.style.transition = 'none'
     menu.style.left = x + 'px'
     menu.style.top = y + 'px'
     
@@ -3042,12 +3040,34 @@ function showContextMenu(event, type, data) {
     const fromLeft = x < window.innerWidth / 2
     menu.style.transformOrigin = `${fromTop ? 'top' : 'bottom'} ${fromLeft ? 'left' : 'right'}`
     
-    // Запускаем анимацию в следующем кадре
+    // Запускаем анимацию появления
     requestAnimationFrame(() => {
-        menu.style.transition = 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease'
-        menu.style.transform = 'scale(1)'
-        menu.style.opacity = '1'
+        menu.classList.add('visible')
     })
+    
+    // Авто-скрытие через 5 секунд
+    if (window._ctxTimeout) clearTimeout(window._ctxTimeout)
+    window._ctxTimeout = setTimeout(() => hideContextMenus(), 5000)
+}
+
+function hideContextMenus() {
+    ['messageContextMenu', 'chatContextMenu'].forEach(id => {
+        const m = document.getElementById(id)
+        if (m && m.classList.contains('visible')) {
+            m.classList.remove('visible')
+            setTimeout(() => {
+                if (!m.classList.contains('visible')) {
+                    m.style.display = 'none'
+                }
+            }, 200)
+        }
+    })
+    selectedMessageId = null
+    selectedMessageElement = null
+    selectedMessageText = null
+    selectedMessageSender = null
+    selectedChatElement = null
+    if (window._ctxTimeout) clearTimeout(window._ctxTimeout)
 }
 
 function hideContextMenus() {
