@@ -45,10 +45,7 @@ let selectedMessageText = null
 let selectedMessageSender = null
 
 // Хранилище чатов и непрочитанных сообщений
-const chatsCache = {}
-const userCache = {}
-const messagesCache = {}
-const CACHE_TTL = 1000 * 60 * 5
+let chatsCache = {}
 let unreadCounts = {}
 
 // ============= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =============
@@ -736,58 +733,20 @@ function checkAuthOnLoad() {
     }
 }
 
-async function completeLogin() {
-    try {
-        document.getElementById('loginScreen').style.display = 'none'
-        document.getElementById('registerScreen').style.display = 'none'
-        document.getElementById('app').style.display = 'flex'
+function completeLogin() {
+    // Account saved in loadUserProfile once name is known
+    loadTheme()
+    loadChatThemesFromServer()
+    document.getElementById('loginScreen').style.display = 'none'
+    document.getElementById('app').style.display = 'flex'
+    document.getElementById('sidebar').classList.add('open')
 
-        const headers = {
-            Authorization: `Bearer ${authToken}`
-        }
-
-        const [
-            userRes,
-            themeRes,
-            chatsThemeRes,
-            stickersRes
-        ] = await Promise.all([
-            fetch(`/users/${currentUser}`, { headers }),
-            fetch('/api/theme', { headers }),
-            fetch(`/api/theme/${currentUser}_chats`, { headers }),
-            fetch('/stickers', { headers })
-        ])
-
-        const [
-            users,
-            theme,
-            chatThemes,
-            stickers
-        ] = await Promise.all([
-            userRes.json(),
-            themeRes.json(),
-            chatsThemeRes.json(),
-            stickersRes.json()
-        ])
-
-        window.chatThemes = chatThemes || {}
-        userStickers = stickers || []
-
-        if (theme?.theme) {
-            document.documentElement.setAttribute('data-theme', theme.theme)
-        }
-
-        users.forEach(user => {
-            userCache[user.phone] = user
-        })
-
-        renderChatList(users)
-
-        connectWebSocket()
-
-    } catch (err) {
-        console.error(err)
-    }
+    document.getElementById('myPhone').innerText = formatPhone(currentUser)
+    
+    loadUserProfile()
+    connect()
+    loadChats()
+    loadStickers() // Загружаем стикеры при входе
 }
 
 function openChangePassword() {
@@ -1486,9 +1445,7 @@ function addStickerMessage(user, stickerUrl) {
     div.appendChild(img)
     
     messagesDiv.appendChild(div)
-    requestAnimationFrame(() => {
-        messagesDiv.scrollTop = messagesDiv.scrollHeight
-    })
+    messagesDiv.scrollTop = messagesDiv.scrollHeight
 }
 
 function addMessage(user, text, messageId = null, isRead = false, reply = null) {
@@ -1636,9 +1593,7 @@ function addMessage(user, text, messageId = null, isRead = false, reply = null) 
     }
 
     messagesDiv.appendChild(div)
-    requestAnimationFrame(() => {
-        messagesDiv.scrollTop = messagesDiv.scrollHeight
-    })
+    messagesDiv.scrollTop = messagesDiv.scrollHeight
     if (messageId) loadMessageReactions(messageId)
 }
 
@@ -2203,9 +2158,7 @@ async function sendVoiceMessage() {
             <span class="voice-time">${Math.floor(duration/60)}:${(duration%60).toString().padStart(2,'0')}</span>
         </div>`
     messagesDiv.appendChild(placeholder)
-    requestAnimationFrame(() => {
-        messagesDiv.scrollTop = messagesDiv.scrollHeight
-    })
+    messagesDiv.scrollTop = messagesDiv.scrollHeight
     // Запускаем анимацию появления
     requestAnimationFrame(() => {
         placeholder.style.opacity = '1'
@@ -2806,68 +2759,83 @@ async function loadChats() {
     }
 }
 
-async function openChat(phone) {
+function openChat(phone, displayName) {
+    if (currentChat === phone) return
+    
     currentChat = phone
-
-    const cachedUser = userCache[phone]
-
-    if (cachedUser) {
-        updateChatHeader(cachedUser)
+    // Если чата нет в списке — добавляем сразу
+    if (!document.getElementById(`chat-${cleanPhone(phone)}`)) {
+        createChatElement({ phone, displayName, name: displayName, last: '', unread: 0 })
     }
-
+    // Применяем тему этого чата
+    loadChatTheme(phone)
+    
+    fetch(`/user/${phone}`)
+        .then(res => res.json())
+        .then(user => {
+            const name = user.name || user.username || phone
+            
+            // Создаём HTML с галочкой верификации для шапки чата
+            const verifiedBadge = user.verified 
+                ? `<img src="/static/admin-icons/badge-${user.verified}.svg" class="verified-badge-header" style="width:16px;height:16px;margin-left:6px;vertical-align:middle;display:inline-block">`
+                : ''
+            
+            // Устанавливаем имя с галочкой в шапке
+            document.getElementById('chatUserName').innerHTML = escapeHtml(name) + verifiedBadge
+            
+            // Обновляем бейдж верификации в списке чатов
+            updateChatVerifiedBadge(phone, user.verified)
+            
+            // Сохраняем last_seen
+            userCache[phone] = user  // кешируем для updateChatInList
+            if (user.last_seen) lastSeenMap[phone] = user.last_seen
+            document.getElementById('chatUserPhone').innerText = formatPhone(phone)
+            
+            // Аватар в шапке
+            const chatAvatar = document.getElementById('chatAvatarText')
+            if (user.avatar) {
+                chatAvatar.innerHTML = `<img src="${_getAvatarUrl(user.avatar)}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" onerror="this.onerror=null; this.parentElement.innerText='?'">`
+            } else {
+                chatAvatar.innerText = '?'
+            }
+            
+            // Статус онлайн
+            const isOnline = window.clients && window.clients[phone] === true
+            if (user.last_seen) lastSeenMap[phone] = user.last_seen
+            updateChatStatusText(phone, isOnline)
+        })
+        .catch(() => {
+            // Если ошибка — показываем без галочки
+            document.getElementById('chatUserName').innerHTML = escapeHtml(displayName || phone)
+            document.getElementById('chatUserPhone').innerText = formatPhone(phone)
+            document.getElementById('chatAvatarText').innerText = '?'
+        })
+    
     document.getElementById('emptyChat').style.display = 'none'
     document.getElementById('chatBlock').style.display = 'flex'
-
-    if (messagesCache[phone]) {
-        renderMessages(messagesCache[phone])
-        return
+    
+    if (window.innerWidth <= 768) {
+        document.getElementById('sidebar').classList.remove('open')
     }
-
-    try {
-        const res = await fetch(`/messages/${phone}`, {
-            headers: {
-                Authorization: `Bearer ${authToken}`
-            }
-        })
-
-        const messages = await res.json()
-
-        messagesCache[phone] = messages
-
-        renderMessages(messages)
-
-    } catch (err) {
-        console.error(err)
-    }
-}
-
-function renderMessages(messages) {
-    const container = document.getElementById('messages')
-
-    container.innerHTML = ''
-
-    const fragment = document.createDocumentFragment()
-
-    messages.forEach(message => {
-        const el = createMessageElement(message)
-        fragment.appendChild(el)
+    
+    loadMessages()
+    
+    // Сбрасываем unread badge и активный класс
+    document.querySelectorAll('.chatItem').forEach(el => {
+        el.classList.remove('active')
     })
-
-    container.appendChild(fragment)
-
-    requestAnimationFrame(() => {
-        container.scrollTop = container.scrollHeight
-    })
-}
-
-function trimMessages() {
-    const container = document.getElementById('messages')
-
-    while (container.children.length > 200) {
-        container.removeChild(container.firstChild)
+    const chatElCurrent = document.getElementById(`chat-${cleanPhone(phone)}`)
+    if (chatElCurrent) {
+        const badge = chatElCurrent.querySelector('.unread-badge')
+        if (badge) badge.remove()
+        chatElCurrent.classList.add('active')
+    }
+    
+    const activeChat = document.getElementById(`chat-${cleanPhone(phone)}`)
+    if (activeChat) {
+        activeChat.classList.add('active')
     }
 }
-
 function loadMessages() {
     if (!currentChat) return
     if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -2970,9 +2938,7 @@ function addMediaMessage(user, media, msgId, isMe) {
     }
 
     messagesDiv.appendChild(div)
-    requestAnimationFrame(() => {
-        messagesDiv.scrollTop = messagesDiv.scrollHeight
-    })
+    messagesDiv.scrollTop = messagesDiv.scrollHeight
 }
 
 function openMediaViewer(src) {
@@ -4196,9 +4162,7 @@ async function sendVideoMessage() {
         </div>
     </div>`
     messagesDiv.appendChild(placeholder)
-    requestAnimationFrame(() => {
-        messagesDiv.scrollTop = messagesDiv.scrollHeight
-    })
+    messagesDiv.scrollTop = messagesDiv.scrollHeight
     requestAnimationFrame(() => { placeholder.style.opacity='1'; placeholder.style.transform='translateY(0)' })
 
     try {
@@ -5682,9 +5646,7 @@ function addCallMessage(peer, type, duration, callType, fromHistory) {
     const messagesDiv = document.getElementById("messages")
     if (messagesDiv) {
         messagesDiv.appendChild(div)
-        requestAnimationFrame(() => {
-            messagesDiv.scrollTop = messagesDiv.scrollHeight
-        })
+        messagesDiv.scrollTop = messagesDiv.scrollHeight
     }
 }
 
