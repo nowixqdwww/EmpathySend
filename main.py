@@ -1498,55 +1498,80 @@ async def search_users(query: str, request: Request):
 
 # ============= ЧАТЫ И СООБЩЕНИЯ =============
 
-@app.get("/users/{me}")
-async def get_users(me: str):
-    try:
-        async with db_conn() as conn:
-            contacts = await conn.fetch("""
-                SELECT DISTINCT
-                    CASE WHEN sender = $1 THEN receiver ELSE sender END as contact
-                FROM messages
-                WHERE sender = $1 OR receiver = $1
-            """, me)
-            
-            result = []
-            for contact in contacts:
-                phone = contact['contact']
-                # ДОБАВЛЯЕМ verified в SELECT
-                user_data = await conn.fetchrow(
-                    "SELECT phone, username, name, avatar, verified FROM users WHERE phone = $1",  # ← добавили verified
-                    phone
+@app.get('/users/{me}')
+async def get_user_chats(
+    me: str,
+    current_user: str = Depends(get_current_user)
+):
+    if me != current_user:
+        raise HTTPException(status_code=403, detail='Forbidden')
+
+    async with db_conn() as conn:
+        rows = await conn.fetch("""
+            WITH latest_messages AS (
+                SELECT DISTINCT ON (
+                    LEAST(sender_phone, receiver_phone),
+                    GREATEST(sender_phone, receiver_phone)
                 )
-                if not user_data:
-                    continue
-                last_msg = await conn.fetchrow("""
-                    SELECT text, timestamp FROM messages
-                    WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
-                    AND is_deleted = 0
-                    ORDER BY timestamp DESC LIMIT 1
-                """, me, phone)
-                unread = await conn.fetchval("""
-                    SELECT COUNT(*) FROM messages
-                    WHERE sender = $1 AND receiver = $2 AND is_read = 0 AND is_deleted = 0
-                """, phone, me)
-                display_name = user_data['name'] or user_data['username'] or phone
-                result.append({
-                    "phone": user_data['phone'],
-                    "username": user_data['username'],
-                    "name": user_data['name'],
-                    "displayName": display_name,
-                    "avatar": get_avatar_url(user_data['avatar']),
-                    "verified": user_data['verified'],  # ← ДОБАВЛЯЕМ verified
-                    "online": phone in clients,
-                    "last": last_msg['text'] if last_msg else None,
-                    "last_ts": last_msg['timestamp'].isoformat() if last_msg and last_msg['timestamp'] else None,
-                    "unread": unread or 0
-                })
-            result.sort(key=lambda x: x['last_ts'] or '', reverse=True)
-            return result
-    except Exception as e:
-        logger.error(f"Error getting users for {me}: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
+                    id,
+                    sender_phone,
+                    receiver_phone,
+                    text,
+                    created_at
+                FROM messages
+                WHERE sender_phone = $1 OR receiver_phone = $1
+                ORDER BY
+                    LEAST(sender_phone, receiver_phone),
+                    GREATEST(sender_phone, receiver_phone),
+                    created_at DESC
+            ),
+
+            unread_counts AS (
+                SELECT
+                    sender_phone,
+                    COUNT(*) as unread_count
+                FROM messages
+                WHERE receiver_phone = $1
+                AND read = false
+                GROUP BY sender_phone
+            )
+
+            SELECT
+                u.phone,
+                u.username,
+                u.name,
+                u.avatar,
+                u.last_seen,
+
+                lm.text as last_message,
+                lm.created_at as last_message_time,
+
+                COALESCE(uc.unread_count, 0) as unread_count
+
+            FROM users u
+
+            LEFT JOIN latest_messages lm ON (
+                (lm.sender_phone = u.phone AND lm.receiver_phone = $1)
+                OR
+                (lm.receiver_phone = u.phone AND lm.sender_phone = $1)
+            )
+
+            LEFT JOIN unread_counts uc ON uc.sender_phone = u.phone
+
+            WHERE u.phone != $1
+            AND EXISTS (
+                SELECT 1
+                FROM messages m
+                WHERE
+                    (m.sender_phone = $1 AND m.receiver_phone = u.phone)
+                    OR
+                    (m.receiver_phone = $1 AND m.sender_phone = u.phone)
+            )
+
+            ORDER BY lm.created_at DESC NULLS LAST
+        """, me)
+
+        return [dict(r) for r in rows]
 
 # Добавить реакцию
 @app.post("/reaction/add")
