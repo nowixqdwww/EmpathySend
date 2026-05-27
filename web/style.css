@@ -3614,10 +3614,6 @@ button:active:not(:disabled) {
     to   { opacity: 1; transform: none; }
 }
 
-/* Context menu */
-.context-menu[style*="block"] {
-    transform-origin: top left;
-}
 @keyframes contextIn {
     from { opacity: 0; transform: scale(0.92); }
     to   { opacity: 1; transform: scale(1); }
