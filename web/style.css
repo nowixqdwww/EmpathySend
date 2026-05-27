@@ -1829,24 +1829,32 @@ body {
    Контекстное меню — пружинные анимации
 ══════════════════════════════════════════ */
 
+/* ══════════════════════════════════════════
+   Контекстное меню — пружинные анимации
+══════════════════════════════════════════ */
+
 .context-menu {
     position: fixed;
     background: var(--ctx-menu-bg);
     backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-radius: 12px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.2);
     padding: 6px 0;
     z-index: 10000;
     min-width: 200px;
+    border: 1px solid rgba(255,255,255,0.08);
+    
+    /* Начальное состояние — скрыто */
     opacity: 0;
-    transform: scale(0.92) translateY(-4px);
-    transition: opacity 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
-                transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform: scale(0.92) translateY(-6px);
+    transition: opacity 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+                transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
     pointer-events: none;
     visibility: hidden;
-    border: 1px solid rgba(255,255,255,0.08);
 }
 
+/* Видимое состояние */
 .context-menu.visible {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -1854,6 +1862,7 @@ body {
     visibility: visible;
 }
 
+/* Элементы меню */
 .context-menu-item {
     padding: 10px 14px;
     cursor: pointer;
@@ -1861,54 +1870,58 @@ body {
     align-items: center;
     gap: 12px;
     font-size: 14px;
+    font-weight: 500;
     color: var(--ctx-menu-text);
     border-radius: 8px;
     position: relative;
     margin: 2px 6px;
-    transition: color 0.12s;
-    transform: translateZ(0); /* GPU acceleration */
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+                background 0.15s ease;
+    transform: translateZ(0);
 }
 
-/* Пружинный эффект при наведении — через scale, НЕ трогаем transform */
+/* Пружинный эффект при наведении */
 .context-menu-item:hover {
     transform: scale(1.02);
-    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
     background: rgba(10,132,255,0.12);
 }
 
 .context-menu-item:active {
-    transform: scale(0.96);
+    transform: scale(0.97);
     transition: transform 0.08s ease;
 }
 
-/* Фоновый подсвет через псевдоэлемент (не мешает transform) */
-.context-menu-item::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 8px;
-    background: var(--accent, #0A84FF);
-    opacity: 0;
-    transition: opacity 0.18s ease;
-    pointer-events: none;
-    z-index: -1;
-}
-
-.context-menu-item:hover::before {
-    opacity: 0.15;
-}
-
-/* Для удаления — красная подсветка */
+/* Удаление (красный пункт) */
 .context-menu-item.delete {
     color: #FF3B30;
 }
 
-.context-menu-item.delete::before {
-    background: #FF3B30;
-}
-
 .context-menu-item.delete:hover {
     background: rgba(255,59,48,0.12);
+}
+
+/* Иконки */
+.context-menu-item i {
+    width: 20px;
+    text-align: center;
+    font-size: 15px;
+    opacity: 0.75;
+}
+
+/* Мобильные устройства — увеличенные отступы */
+@media (max-width: 768px) {
+    .context-menu {
+        min-width: 180px;
+        padding: 8px 0;
+    }
+    .context-menu-item {
+        padding: 14px 18px;
+        font-size: 16px;
+    }
+    .context-menu-item i {
+        width: 24px;
+        font-size: 18px;
+    }
 }
 
 /* Call bubbles in chat */
