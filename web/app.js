@@ -2985,7 +2985,6 @@ function showContextMenu(event, type, data) {
         selectedMessageElement = data.element
         selectedMessageText = data.text || ''
         selectedMessageSender = data.sender || currentUser
-        // Скрываем "Удалить" для чужих сообщений — иначе 403 от сервера
         const _isOwn = selectedMessageSender === currentUser
         const _isText = !!(data.text && !data.text.startsWith('sticker:') && !data.text.startsWith('[MEDIA:'))
         const _deleteBtn = document.querySelector('#messageContextMenu .context-menu-item.delete')
@@ -3008,7 +3007,6 @@ function showContextMenu(event, type, data) {
         x = event.pageX
         y = event.pageY
     } else {
-        // Fallback — позиционируем по центру элемента
         const el = data.element
         if (el) {
             const r = el.getBoundingClientRect()
@@ -3020,36 +3018,35 @@ function showContextMenu(event, type, data) {
         }
     }
     
-    // Spring open
+    // Сброс стилей перед показом
     menu.style.display = 'block'
+    menu.style.opacity = '0'
+    menu.style.transform = 'scale(0.92)'
+    menu.style.transition = 'none'
     menu.style.left = x + 'px'
     menu.style.top = y + 'px'
-    menu.style.transformOrigin = 'top left'
-    menu.style.transform = 'scale(0.7)'
-    menu.style.opacity = '0'
-    menu.style.transition = 'none'
-
+    
+    // Корректировка позиции
+    const rect = menu.getBoundingClientRect()
+    if (rect.right > window.innerWidth) {
+        x = window.innerWidth - rect.width - 10
+        menu.style.left = x + 'px'
+    }
+    if (rect.bottom > window.innerHeight) {
+        y = window.innerHeight - rect.height - 10
+        menu.style.top = y + 'px'
+    }
+    
+    // Определяем transform-origin
+    const fromTop = y < window.innerHeight / 2
+    const fromLeft = x < window.innerWidth / 2
+    menu.style.transformOrigin = `${fromTop ? 'top' : 'bottom'} ${fromLeft ? 'left' : 'right'}`
+    
+    // Запускаем анимацию в следующем кадре
     requestAnimationFrame(() => {
-        // Corrects position first, then animates
-        const rect = menu.getBoundingClientRect()
-        if (rect.right > window.innerWidth) {
-            x = window.innerWidth - rect.width - 10
-            menu.style.left = x + 'px'
-        }
-        if (rect.bottom > window.innerHeight) {
-            y = window.innerHeight - rect.height - 10
-            menu.style.top = y + 'px'
-        }
-        // Determine transform-origin from position on screen
-        const fromTop = y < window.innerHeight / 2
-        const fromLeft = x < window.innerWidth / 2
-        menu.style.transformOrigin = `${fromTop ? 'top' : 'bottom'} ${fromLeft ? 'left' : 'right'}`
-
-        requestAnimationFrame(() => {
-            menu.style.transition = 'transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s ease'
-            menu.style.transform = 'scale(1)'
-            menu.style.opacity = '1'
-        })
+        menu.style.transition = 'transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s ease'
+        menu.style.transform = 'scale(1)'
+        menu.style.opacity = '1'
     })
 }
 
