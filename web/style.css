@@ -1834,10 +1834,11 @@ body {
     padding: 8px 0;
     z-index: 10000;
     min-width: 200px;
-    /* animation managed by JS spring */
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
+    /* Анимация управляется из JS, поэтому убираем animation */
+    /* но оставляем базовые стили */
 }
 
 .context-menu-item {
@@ -3615,7 +3616,6 @@ button:active:not(:disabled) {
 
 /* Context menu */
 .context-menu[style*="block"] {
-    animation: contextIn 0.2s var(--spring) both;
     transform-origin: top left;
 }
 @keyframes contextIn {
