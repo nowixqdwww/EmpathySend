@@ -3862,7 +3862,6 @@ button:active:not(:disabled) {
     z-index: 200;
     box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     border: 1px solid rgba(255,255,255,0.08);
-    animation: contextIn 0.2s var(--spring, ease) both;
 }
 .chat-menu-item {
     padding: 11px 14px;
