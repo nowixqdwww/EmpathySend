@@ -1828,10 +1828,21 @@ body {
     padding: 8px 0;
     z-index: 10000;
     min-width: 200px;
-    /* animation managed by JS spring */
     user-select: none;
     -webkit-user-select: none;
     -webkit-touch-callout: none;
+    /* Spring open animation */
+    opacity: 0;
+    transform: scale(0.75);
+    pointer-events: none;
+    transition: none;
+}
+
+.context-menu.visible {
+    opacity: 1;
+    transform: scale(1);
+    pointer-events: auto;
+    transition: opacity 0.2s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
 }
 
 .context-menu-item {
