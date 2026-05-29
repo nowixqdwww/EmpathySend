@@ -3070,22 +3070,6 @@ function hideContextMenus() {
     if (window._ctxTimeout) clearTimeout(window._ctxTimeout)
 }
 
-function hideContextMenus() {
-    ['messageContextMenu', 'chatContextMenu'].forEach(id => {
-        const m = document.getElementById(id)
-        if (m && m.style.display !== 'none') {
-            m.style.transition = 'transform 0.2s cubic-bezier(0.4,0,1,1), opacity 0.15s ease'
-            m.style.transform = 'scale(0.85)'
-            m.style.opacity = '0'
-            setTimeout(() => { m.style.display = 'none'; m.style.transform = ''; m.style.opacity = '' }, 160)
-        }
-    })
-    selectedMessageId = null
-    selectedMessageElement = null
-    selectedMessageText = null
-    selectedMessageSender = null
-    selectedChatElement = null
-}
 
 function scrollToMessage(id) {
     const el = document.querySelector(`[data-message-id="${id}"]`)
