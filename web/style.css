@@ -161,15 +161,15 @@ body {
 
 .login-container {
     background: rgba(255,255,255,0.07);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
     border: 1px solid rgba(255,255,255,0.3);
     padding: 2.2rem 2rem;
     border-radius: 28px;
     width: 90%;
     max-width: 400px;
     text-align: center;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.4);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18), inset 0 1px 0 rgba(255,255,255,0.4);
     animation: slideUp 0.45s cubic-bezier(0.34,1.56,0.64,1);
     position: relative;
     z-index: 1;
@@ -310,8 +310,7 @@ body {
     flex-direction: column;
     height: 100dvh;
     position: relative;
-    will-change: transform;
-    contain: layout style paint;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     border-right: none;
     overflow: hidden;
 }
@@ -581,14 +580,13 @@ body {
     background: #1a2533;
     color: white;
     font-size: 14px;
-    transition: background-color 0.2s, opacity 0.2s, transform 0.2s, border-color 0.2s;
+    transition: all 0.2s;
 }
 
 .search-input:focus {
     outline: none;
     border-color: #0A84FF;
-    outline: 2px solid rgba(102,126,234,0.2);
-    box-shadow: none;
+    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
 }
 
 .search-input::placeholder {
@@ -714,7 +712,7 @@ body {
 .chats-count {
     background: #0A84FF;
     color: white;
-    padding: 4px 8px;
+    padding: 2px 8px;
     border-radius: 12px;
     font-size: 12px;
 }
@@ -745,10 +743,6 @@ body {
 
 .chatItem:hover {
     background: rgba(255,255,255,0.1);
-}
-
-.chatItem {
-    will-change: background-color;
 }
 
 .chatItem.active {
@@ -1267,7 +1261,7 @@ body {
     cursor: pointer;
     font-size: 14px;
     color: var(--text-secondary);
-    transition: background-color 0.2s, opacity 0.2s, transform 0.2s, border-color 0.2s;
+    transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1825,104 +1819,87 @@ body {
     background: #fecaca;
 }
 
-/* ══════════════════════════════════════════
-   Контекстное меню — пружинные анимации
-══════════════════════════════════════════ */
-
-/* ══════════════════════════════════════════
-   Контекстное меню — пружинные анимации
-══════════════════════════════════════════ */
-
+/* Context menu */
 .context-menu {
     position: fixed;
-    background: var(--ctx-menu-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: var(--bg-secondary);
     border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-    padding: 6px 0;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+    padding: 8px 0;
     z-index: 10000;
     min-width: 200px;
-    border: 1px solid rgba(255,255,255,0.08);
-    
-    /* Начальное состояние — скрыто */
-    opacity: 0;
-    transform: scale(0.92) translateY(-6px);
-    transition: opacity 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
-                transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    pointer-events: none;
-    visibility: hidden;
+    /* animation managed by JS spring */
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
 }
 
-/* Видимое состояние */
-.context-menu.visible {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-    pointer-events: auto;
-    visibility: visible;
-}
-
-/* Элементы меню */
 .context-menu-item {
-    padding: 10px 14px;
+    padding: 10px 12px;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     font-size: 14px;
-    font-weight: 500;
-    color: var(--ctx-menu-text);
-    border-radius: 8px;
+    color: var(--text-primary);
+    border-radius: 10px;
     position: relative;
-    margin: 2px 6px;
-    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
-                background 0.15s ease;
-    transform: translateZ(0);
+    transition: color 0.12s;
+    margin: 1px 0;
+    transform: scale(1);
 }
 
-/* Пружинный эффект при наведении */
-.context-menu-item:hover {
-    transform: scale(1.02);
-    background: rgba(10,132,255,0.12);
+/* Spring hover via ::before pseudo-element */
+.context-menu-item::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 10px;
+    background: var(--accent, #0A84FF);
+    opacity: 0;
+    transform: scale(0.88);
+    transition: opacity 0.18s ease, transform 0.28s cubic-bezier(0.34,1.56,0.64,1);
+    pointer-events: none;
+}
+
+.context-menu-item:hover::before {
+    opacity: 0.18;
+    transform: scale(1);
+}
+
+.context-menu-item:active::before {
+    opacity: 0.28;
+    transform: scale(0.96);
+    transition: opacity 0.08s, transform 0.1s ease;
 }
 
 .context-menu-item:active {
-    transform: scale(0.97);
+    transform: scale(0.98);
     transition: transform 0.08s ease;
 }
 
-/* Удаление (красный пункт) */
+.context-menu-item i {
+    position: relative;
+    z-index: 1;
+    width: 20px;
+    text-align: center;
+    font-size: 16px;
+    opacity: 0.75;
+}
+
+.context-menu-item span, .context-menu-item > *:not(i) {
+    position: relative;
+    z-index: 1;
+}
+
 .context-menu-item.delete {
     color: #FF3B30;
 }
 
-.context-menu-item.delete:hover {
-    background: rgba(255,59,48,0.12);
+.context-menu-item.delete::before {
+    background: #FF3B30;
 }
 
-/* Иконки */
-.context-menu-item i {
-    width: 20px;
-    text-align: center;
-    font-size: 15px;
-    opacity: 0.75;
-}
-
-/* Мобильные устройства — увеличенные отступы */
-@media (max-width: 768px) {
-    .context-menu {
-        min-width: 180px;
-        padding: 8px 0;
-    }
-    .context-menu-item {
-        padding: 14px 18px;
-        font-size: 16px;
-    }
-    .context-menu-item i {
-        width: 24px;
-        font-size: 18px;
-    }
-}
 
 /* Call bubbles in chat */
 .call-bubble {
@@ -2290,11 +2267,6 @@ body {
     }
 }
 
-.message {
-    contain: layout paint;
-    will-change: transform;
-}
-
 /* Landscape mode */
 @media (max-height: 500px) and (orientation: landscape) {
     .sidebar {
@@ -2487,7 +2459,7 @@ body {
     background: none;
     font-size: 22px;
     cursor: pointer;
-    transition: background-color 0.2s, opacity 0.2s, transform 0.2s, border-color 0.2s;
+    transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -3630,6 +3602,11 @@ button:active:not(:disabled) {
     to   { opacity: 1; transform: none; }
 }
 
+/* Context menu */
+.context-menu[style*="block"] {
+    animation: contextIn 0.2s var(--spring) both;
+    transform-origin: top left;
+}
 @keyframes contextIn {
     from { opacity: 0; transform: scale(0.92); }
     to   { opacity: 1; transform: scale(1); }
@@ -3875,6 +3852,7 @@ button:active:not(:disabled) {
     z-index: 200;
     box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     border: 1px solid rgba(255,255,255,0.08);
+    animation: contextIn 0.2s var(--spring, ease) both;
 }
 .chat-menu-item {
     padding: 11px 14px;
