@@ -710,6 +710,7 @@ function deleteAccount(phone) {
 }
 function addAccount() {
     closeAccountSwitcher()
+    closeModal()
     if (ws) try { ws.close() } catch(e) {}
     localStorage.removeItem('currentUser')
     localStorage.removeItem('authToken')
