@@ -1862,33 +1862,33 @@ body {
 }
 
 /* Spring hover via ::before pseudo-element */
+/* Spring on the item itself — works even when parent has transform */
 .context-menu-item::before {
     content: '';
     position: absolute;
-    inset: -1px;
+    inset: 0;
     border-radius: 10px;
     background: var(--accent, #0A84FF);
     opacity: 0;
-    transform: scale(0.82);
-    transform-origin: center;
-    transition: opacity 0.15s ease, transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    transition: opacity 0.15s ease;
     pointer-events: none;
     z-index: 0;
 }
 
-.context-menu-item:hover::before {
-    opacity: 0.15;
-    transform: scale(1);
-}
+.context-menu-item:hover::before { opacity: 0.13; }
+.context-menu-item:active::before { opacity: 0.22; }
 
-.context-menu-item:active::before {
-    opacity: 0.25;
-    transform: scale(0.97);
-    transition: opacity 0.06s, transform 0.08s ease;
+/* Spring: animate the item itself */
+.context-menu-item {
+    transform-origin: center;
+    transition: color 0.12s, transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
 }
-
+.context-menu-item:hover {
+    transform: scale(1.04);
+}
 .context-menu-item:active {
     transform: scale(0.97);
+    transition: color 0.12s, transform 0.08s ease;
 }
 
 .context-menu-item i {
