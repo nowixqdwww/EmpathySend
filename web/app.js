@@ -2454,8 +2454,7 @@ async function addReaction(reaction) {
                 user: currentUser,
                 reaction: reaction
             })
-            })
-        }
+            }
         
         const data = await res.json()
         
