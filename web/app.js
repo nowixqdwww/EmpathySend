@@ -2455,7 +2455,7 @@ async function addReaction(reaction) {
                 reaction: reaction
             })
             }
-        })
+        }
         
         const data = await res.json()
         
