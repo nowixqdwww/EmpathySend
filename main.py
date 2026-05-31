@@ -1327,222 +1327,56 @@ async def save_theme(phone: str, request: Request):
             logger.error(f"save_theme error: {e}")
             return JSONResponse(status_code=500, content={"error": str(e)})
 
-# ============= DEEZER МУЗЫКА (без API key) =============
-
-def _deezer_track_fmt(t: dict) -> dict:
-    """Нормализуем трек Deezer в единый формат."""
-    return {
-        "id": str(t.get("id", "")),
-        "name": t.get("title", ""),
-        "artist_name": t.get("artist", {}).get("name", ""),
-        "image": t.get("album", {}).get("cover_medium", ""),
-        "audio": t.get("preview", ""),   # 30-сек MP3, бесплатно
-        "shareurl": t.get("link", ""),
-        "duration": t.get("duration", 0),
-    }
-
-@app.get("/api/jamendo/search")
-async def deezer_search(q: str = "", limit: int = 25, offset: int = 0):
-    """Поиск треков через Deezer API (не требует ключа)."""
-    try:
-        import urllib.request, urllib.parse, json as _j
-        params = urllib.parse.urlencode({"q": q, "limit": limit, "index": offset, "output": "json"})
-        url = f"https://api.deezer.com/search?{params}"
-        req = urllib.request.Request(url, headers={"User-Agent": "NonBlock/1.0"})
-        with urllib.request.urlopen(req, timeout=10) as r:
-            data = _j.loads(r.read())
-        tracks = [_deezer_track_fmt(t) for t in data.get("data", []) if t.get("preview")]
-        return {"ok": True, "tracks": tracks, "total": data.get("total", 0)}
-    except Exception as e:
-        logger.error(f"Deezer search error: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-@app.get("/api/jamendo/trending")
-async def deezer_trending(limit: int = 25):
-    """Топ треки Deezer (chart)."""
-    try:
-        import urllib.request, json as _j
-        url = f"https://api.deezer.com/chart/0/tracks?limit={limit}&output=json"
-        req = urllib.request.Request(url, headers={"User-Agent": "NonBlock/1.0"})
-        with urllib.request.urlopen(req, timeout=10) as r:
-            data = _j.loads(r.read())
-        tracks = [_deezer_track_fmt(t) for t in data.get("data", []) if t.get("preview")]
-        return {"ok": True, "tracks": tracks}
-    except Exception as e:
-        logger.error(f"Deezer trending error: {e}")
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-@app.post("/api/music-status/{phone}")
-async def set_music_status(phone: str, request: Request):
-    """Установить статус 'слушает' для пользователя."""
-    try:
-        data = await request.json()
-        async with db_conn() as conn:
-            await conn.execute("""
-                INSERT INTO music_status (phone, track_id, track_name, artist_name, cover_url, preview_url, jamendo_url, is_playing, updated_at)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
-                ON CONFLICT (phone) DO UPDATE SET
-                    track_id=$2, track_name=$3, artist_name=$4, cover_url=$5,
-                    preview_url=$6, jamendo_url=$7, is_playing=$8, updated_at=NOW()
-            """, phone,
-                data.get("track_id",""), data.get("track_name",""),
-                data.get("artist_name",""), data.get("cover_url",""),
-                data.get("preview_url",""), data.get("jamendo_url",""),
-                data.get("is_playing", False))
-
-            # Уведомляем подписчиков через WS
-            for uid, ws in list(clients.items()):
-                try:
-                    import json as _j2
-                    await ws.send_text(_j2.dumps({
-                        "action": "music_status",
-                        "phone": phone,
-                        **data
-                    }))
-                except Exception:
-                    pass
-            return {"ok": True}
-    except Exception as e:
-            return JSONResponse(status_code=500, content={"error": str(e)})
-
-@app.get("/api/music-status/{phone}")
-async def get_music_status(phone: str):
-    """Получить музыкальный статус пользователя."""
-    try:
-        async with db_conn() as conn:
-            row = await conn.fetchrow("SELECT * FROM music_status WHERE phone=$1", phone)
-            if not row:
-                return {"status": None}
-            return {"status": dict(row)}
-    except Exception as e:
-            return JSONResponse(status_code=500, content={"error": str(e)})
-
-@app.post("/api/online-status")
-async def online_status(request: Request):
-    """Возвращает онлайн-статус для списка телефонов."""
-    try:
-        data = await request.json()
-        phones = data.get("phones", [])
-        return {p: (p in clients) for p in phones}
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-@app.post("/search")
-async def search_user(data: SearchUser):
-    try:
-        async with db_conn() as conn:
-        
-            user = await conn.fetchrow(
-                "SELECT phone, username, name, bio, avatar, verified FROM users WHERE username = $1",
-                data.username
-            )
-        
-        
-            if not user:
-                return {"found": False}
-        
-            return {
-                "found": True,
-                "phone": user['phone'],
-                "username": user['username'],
-                "name": user['name'],
-                "bio": user['bio'] or "",
-                "avatar": get_avatar_url(user['avatar']),
-                "verified": user['verified']
-            }
-        
-    except Exception as e:
-            logger.error(f"Error searching user: {e}")
-            return JSONResponse(status_code=500, content={"error": str(e)})
-
-@app.get("/search-users/{query}")
-async def search_users(query: str, request: Request):
-    try:
-        if len(query) < 2:
-            return {"users": []}
-        
-        async with db_conn() as conn:
-        
-            # me берём из query params
-            me = request.query_params.get("me", "")
-            users = await conn.fetch("""
-                SELECT phone, username, name, avatar 
-                FROM users 
-                WHERE (username ILIKE $1 OR name ILIKE $1)
-                AND phone != $4
-                ORDER BY 
-                    CASE 
-                        WHEN username ILIKE $2 THEN 1
-                        WHEN username ILIKE $3 THEN 2
-                        ELSE 3
-                    END
-                LIMIT 10
-            """, f'%{query}%', f'{query}%', f'%{query}', me)
-        
-        
-            result = []
-            for user in users:
-                result.append({
-                    "phone": user['phone'],
-                    "username": user['username'],
-                    "name": user['name'],
-                    "avatar": get_avatar_url(user['avatar']),
-                    "displayName": user['name'] or user['username'] or user['phone']
-                })
-        
-            return {"users": result}
-        
-    except Exception as e:
-            logger.error(f"Error searching users: {e}")
-            return JSONResponse(status_code=500, content={"error": str(e)})
-
 # ============= ЧАТЫ И СООБЩЕНИЯ =============
 
 @app.get("/users/{me}")
 async def get_users(me: str):
     try:
         async with db_conn() as conn:
-            contacts = await conn.fetch("""
-                SELECT DISTINCT
-                    CASE WHEN sender = $1 THEN receiver ELSE sender END as contact
-                FROM messages
-                WHERE sender = $1 OR receiver = $1
-            """, me)
-            
-            result = []
-            for contact in contacts:
-                phone = contact['contact']
-                # ДОБАВЛЯЕМ verified в SELECT
-                user_data = await conn.fetchrow(
-                    "SELECT phone, username, name, avatar, verified FROM users WHERE phone = $1",  # ← добавили verified
-                    phone
-                )
-                if not user_data:
-                    continue
-                last_msg = await conn.fetchrow("""
-                    SELECT text, timestamp FROM messages
-                    WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
-                    AND is_deleted = 0
+            rows = await conn.fetch("""
+                SELECT
+                    u.phone, u.username, u.name, u.avatar, u.verified,
+                    lm.text   AS last_text,
+                    lm.ts     AS last_ts,
+                    COALESCE(unr.cnt, 0) AS unread
+                FROM (
+                    SELECT DISTINCT
+                        CASE WHEN sender = $1 THEN receiver ELSE sender END AS phone
+                    FROM messages
+                    WHERE sender = $1 OR receiver = $1
+                ) contacts
+                JOIN users u ON u.phone = contacts.phone
+                LEFT JOIN LATERAL (
+                    SELECT text, timestamp AS ts
+                    FROM messages
+                    WHERE ((sender = $1 AND receiver = u.phone) OR (sender = u.phone AND receiver = $1))
+                      AND is_deleted = 0
                     ORDER BY timestamp DESC LIMIT 1
-                """, me, phone)
-                unread = await conn.fetchval("""
-                    SELECT COUNT(*) FROM messages
-                    WHERE sender = $1 AND receiver = $2 AND is_read = 0 AND is_deleted = 0
-                """, phone, me)
-                display_name = user_data['name'] or user_data['username'] or phone
+                ) lm ON true
+                LEFT JOIN LATERAL (
+                    SELECT COUNT(*) AS cnt
+                    FROM messages
+                    WHERE sender = u.phone AND receiver = $1
+                      AND is_read = 0 AND is_deleted = 0
+                ) unr ON true
+                ORDER BY lm.ts DESC NULLS LAST
+            """, me)
+
+            result = []
+            for r in rows:
+                display_name = r['name'] or r['username'] or r['phone']
                 result.append({
-                    "phone": user_data['phone'],
-                    "username": user_data['username'],
-                    "name": user_data['name'],
+                    "phone":       r['phone'],
+                    "username":    r['username'],
+                    "name":        r['name'],
                     "displayName": display_name,
-                    "avatar": get_avatar_url(user_data['avatar']),
-                    "verified": user_data['verified'],  # ← ДОБАВЛЯЕМ verified
-                    "online": phone in clients,
-                    "last": last_msg['text'] if last_msg else None,
-                    "last_ts": last_msg['timestamp'].isoformat() if last_msg and last_msg['timestamp'] else None,
-                    "unread": unread or 0
+                    "avatar":      get_avatar_url(r['avatar']),
+                    "verified":    r['verified'],
+                    "online":      r['phone'] in clients,
+                    "last":        r['last_text'],
+                    "last_ts":     r['last_ts'].isoformat() if r['last_ts'] else None,
+                    "unread":      r['unread'],
                 })
-            result.sort(key=lambda x: x['last_ts'] or '', reverse=True)
             return result
     except Exception as e:
         logger.error(f"Error getting users for {me}: {e}")
