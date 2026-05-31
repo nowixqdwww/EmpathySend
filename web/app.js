@@ -744,10 +744,20 @@ function completeLogin() {
 
     document.getElementById('myPhone').innerText = formatPhone(currentUser)
     
-    loadUserProfile()
+    const _ls = document.getElementById('loginScreen')
+    const _app = document.getElementById('app')
+    _ls.style.opacity = '0'
+    _ls.style.transition = 'opacity 0.25s ease'
+    setTimeout(() => { _ls.style.display = 'none'; _ls.style.opacity = '' }, 250)
+    _app.style.display = 'flex'
+    _app.style.opacity = '0'
+    requestAnimationFrame(() => {
+        _app.style.transition = 'opacity 0.3s ease'
+        _app.style.opacity = '1'
+    })
     connect()
-    loadChats()
-    loadStickers() // Загружаем стикеры при входе
+    Promise.all([loadUserProfile(), loadChats()])
+        .catch(e => console.error('startup error', e))
 }
 
 function openChangePassword() {
@@ -1290,6 +1300,9 @@ async function loadStickers() {
 
 // Переключение модального окна стикеров
 function toggleStickerModal() {
+    let _stickersLoaded = false
+    function toggleStickerModal() {
+        if (!_stickersLoaded) { _stickersLoaded = true; loadStickers() }
     const modal = document.getElementById('stickerModal')
     const btn = document.getElementById('stickerBtn')
     
@@ -2642,7 +2655,12 @@ function updateChatVerifiedBadge(phone, verified) {
 // Кеш данных пользователей для мгновенного создания чатов
 const userCache = {}
 
+const _updateChatDebounced = {}
 function updateChatInList(phone, lastText, incrementUnread = false) {
+    clearTimeout(_updateChatDebounced[phone])
+    _updateChatDebounced[phone] = setTimeout(() => _doUpdateChatInList(phone, lastText, incrementUnread), 30)
+}
+function _doUpdateChatInList(phone, lastText, incrementUnread = false) {
     const cleanPh = cleanPhone(phone)
     let chatEl = document.getElementById(`chat-${cleanPh}`)
     const list = document.getElementById('chatList')
@@ -2718,42 +2736,30 @@ function updateChatInList(phone, lastText, incrementUnread = false) {
     chatEl.style.animation = 'none'
     list.prepend(chatEl)
 }
-
-async function loadChats() {
-    if (!currentUser) {
-        console.error('loadChats: currentUser is null')
-        return
-    }
     
+async function loadChats() {
+    if (!currentUser) { console.error('loadChats: currentUser is null'); return }
+    const list = document.getElementById('chatList')
+    if (!list.children.length) {
+        list.innerHTML = Array(4).fill(0).map(() => `
+            <div class="chat-skeleton">
+                <div class="sk-avatar"></div>
+                <div class="sk-info"><div class="sk-name"></div><div class="sk-msg"></div></div>
+            </div>`).join('')
+    }
     try {
-        const url = `/users/${currentUser}`
-        const res = await fetch(url)
-        
-        if (!res.ok) {
-            throw new Error(`Failed to load chats: ${res.status}`)
-        }
-        
-        let chats = await res.json()
-        
-        let list = document.getElementById('chatList')
+        const res = await fetch(`/users/${currentUser}`)
+        if (!res.ok) throw new Error(`${res.status}`)
+        const chats = await res.json()
         list.innerHTML = ''
-        
         const chatsCount = document.getElementById('chatsCount')
-        if (chatsCount) {
-            chatsCount.textContent = chats.length
-        }
-        
-        chats.sort((a, b) => {
-            if (!a.last) return 1
-            if (!b.last) return -1
-            return 0
-        })
-        
+        if (chatsCount) chatsCount.textContent = chats.length
+        const frag = document.createDocumentFragment()
         chats.forEach(chat => {
-            userCache[chat.phone] = chat  // кешируем (теперь с verified)
-            list.appendChild(createChatElement(chat))
+            userCache[chat.phone] = chat
+            frag.appendChild(createChatElement(chat))
         })
-        
+        list.appendChild(frag)
     } catch (error) {
         console.error('loadChats: error', error)
         showToast('Ошибка загрузки чатов')
