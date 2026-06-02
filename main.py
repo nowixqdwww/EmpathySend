@@ -1327,6 +1327,182 @@ async def save_theme(phone: str, request: Request):
             logger.error(f"save_theme error: {e}")
             return JSONResponse(status_code=500, content={"error": str(e)})
 
+# ============= DEEZER МУЗЫКА (без API key) =============
+
+def _deezer_track_fmt(t: dict) -> dict:
+    """Нормализуем трек Deezer в единый формат."""
+    return {
+        "id": str(t.get("id", "")),
+        "name": t.get("title", ""),
+        "artist_name": t.get("artist", {}).get("name", ""),
+        "image": t.get("album", {}).get("cover_medium", ""),
+        "audio": t.get("preview", ""),   # 30-сек MP3, бесплатно
+        "shareurl": t.get("link", ""),
+        "duration": t.get("duration", 0),
+    }
+
+@app.get("/api/jamendo/search")
+async def deezer_search(q: str = "", limit: int = 25, offset: int = 0):
+    """Поиск треков через Deezer API (не требует ключа)."""
+    try:
+        import urllib.request, urllib.parse, json as _j
+        params = urllib.parse.urlencode({"q": q, "limit": limit, "index": offset, "output": "json"})
+        url = f"https://api.deezer.com/search?{params}"
+        req = urllib.request.Request(url, headers={"User-Agent": "NonBlock/1.0"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = _j.loads(r.read())
+        tracks = [_deezer_track_fmt(t) for t in data.get("data", []) if t.get("preview")]
+        return {"ok": True, "tracks": tracks, "total": data.get("total", 0)}
+    except Exception as e:
+        logger.error(f"Deezer search error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/api/jamendo/trending")
+async def deezer_trending(limit: int = 25):
+    """Топ треки Deezer (chart)."""
+    try:
+        import urllib.request, json as _j
+        url = f"https://api.deezer.com/chart/0/tracks?limit={limit}&output=json"
+        req = urllib.request.Request(url, headers={"User-Agent": "NonBlock/1.0"})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = _j.loads(r.read())
+        tracks = [_deezer_track_fmt(t) for t in data.get("data", []) if t.get("preview")]
+        return {"ok": True, "tracks": tracks}
+    except Exception as e:
+        logger.error(f"Deezer trending error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/api/music-status/{phone}")
+async def set_music_status(phone: str, request: Request):
+    """Установить статус 'слушает' для пользователя."""
+    try:
+        data = await request.json()
+        async with db_conn() as conn:
+            await conn.execute("""
+                INSERT INTO music_status (phone, track_id, track_name, artist_name, cover_url, preview_url, jamendo_url, is_playing, updated_at)
+                VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
+                ON CONFLICT (phone) DO UPDATE SET
+                    track_id=$2, track_name=$3, artist_name=$4, cover_url=$5,
+                    preview_url=$6, jamendo_url=$7, is_playing=$8, updated_at=NOW()
+            """, phone,
+                data.get("track_id",""), data.get("track_name",""),
+                data.get("artist_name",""), data.get("cover_url",""),
+                data.get("preview_url",""), data.get("jamendo_url",""),
+                data.get("is_playing", False))
+
+            # Уведомляем подписчиков через WS
+            for uid, ws in list(clients.items()):
+                try:
+                    import json as _j2
+                    await ws.send_text(_j2.dumps({
+                        "action": "music_status",
+                        "phone": phone,
+                        **data
+                    }))
+                except Exception:
+                    pass
+            return {"ok": True}
+    except Exception as e:
+            return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/api/music-status/{phone}")
+async def get_music_status(phone: str):
+    """Получить музыкальный статус пользователя."""
+    try:
+        async with db_conn() as conn:
+            row = await conn.fetchrow("SELECT * FROM music_status WHERE phone=$1", phone)
+            if not row:
+                return {"status": None}
+            return {"status": dict(row)}
+    except Exception as e:
+            return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.api_route("/api/online-status", methods=["POST", "GET", "OPTIONS"])
+async def online_status(request: Request):
+    """Возвращает онлайн-статус для списка телефонов."""
+    if request.method == "OPTIONS":
+        return JSONResponse({}, headers={"Allow": "POST, GET, OPTIONS"})
+    try:
+        body = await request.body()
+        if body:
+            data = await request.json()
+            phones = data.get("phones", [])
+        else:
+            phones = []
+        return {p: (p in clients) for p in phones}
+    except Exception as e:
+        logger.error(f"online-status error: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/search")
+async def search_user(data: SearchUser):
+    try:
+        async with db_conn() as conn:
+        
+            user = await conn.fetchrow(
+                "SELECT phone, username, name, bio, avatar, verified FROM users WHERE username = $1",
+                data.username
+            )
+        
+        
+            if not user:
+                return {"found": False}
+        
+            return {
+                "found": True,
+                "phone": user['phone'],
+                "username": user['username'],
+                "name": user['name'],
+                "bio": user['bio'] or "",
+                "avatar": get_avatar_url(user['avatar']),
+                "verified": user['verified']
+            }
+        
+    except Exception as e:
+            logger.error(f"Error searching user: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.get("/search-users/{query}")
+async def search_users(query: str, request: Request):
+    try:
+        if len(query) < 2:
+            return {"users": []}
+        
+        async with db_conn() as conn:
+        
+            # me берём из query params
+            me = request.query_params.get("me", "")
+            users = await conn.fetch("""
+                SELECT phone, username, name, avatar 
+                FROM users 
+                WHERE (username ILIKE $1 OR name ILIKE $1)
+                AND phone != $4
+                ORDER BY 
+                    CASE 
+                        WHEN username ILIKE $2 THEN 1
+                        WHEN username ILIKE $3 THEN 2
+                        ELSE 3
+                    END
+                LIMIT 10
+            """, f'%{query}%', f'{query}%', f'%{query}', me)
+        
+        
+            result = []
+            for user in users:
+                result.append({
+                    "phone": user['phone'],
+                    "username": user['username'],
+                    "name": user['name'],
+                    "avatar": get_avatar_url(user['avatar']),
+                    "displayName": user['name'] or user['username'] or user['phone']
+                })
+        
+            return {"users": result}
+        
+    except Exception as e:
+            logger.error(f"Error searching users: {e}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
+
 # ============= ЧАТЫ И СООБЩЕНИЯ =============
 
 @app.get("/users/{me}")
@@ -1350,14 +1526,15 @@ async def get_users(me: str):
                     SELECT text, timestamp AS ts
                     FROM messages
                     WHERE ((sender = $1 AND receiver = u.phone) OR (sender = u.phone AND receiver = $1))
-                      AND is_deleted = 0
+                      AND (is_deleted = 0 OR is_deleted IS NULL OR is_deleted = false)
                     ORDER BY timestamp DESC LIMIT 1
                 ) lm ON true
                 LEFT JOIN LATERAL (
                     SELECT COUNT(*) AS cnt
                     FROM messages
                     WHERE sender = u.phone AND receiver = $1
-                      AND is_read = 0 AND is_deleted = 0
+                      AND (is_read = 0 OR is_read = false)
+                      AND (is_deleted = 0 OR is_deleted IS NULL OR is_deleted = false)
                 ) unr ON true
                 ORDER BY lm.ts DESC NULLS LAST
             """, me)
@@ -2084,6 +2261,21 @@ async def admin_stats(request: Request):
 async def serve_admin():
     return FileResponse("web/admin.html")
 
+
+@app.get("/favicon.ico")
+async def favicon():
+    """Return empty favicon to avoid 404 spam."""
+    from fastapi.responses import Response
+    # 1x1 transparent ICO
+    ico = bytes([
+        0,0,1,0,1,0,1,1,0,0,1,0,32,0,
+        40,0,0,0,22,0,0,0,40,0,0,0,1,0,
+        0,0,2,0,0,0,1,0,32,0,0,0,0,0,
+        4,0,0,0,0,0,0,0,0,0,0,0,0,0,
+        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+    ])
+    return Response(content=ico, media_type="image/x-icon")
+
 import pathlib
 _web_dir = pathlib.Path("web")
 if _web_dir.exists() and _web_dir.is_dir():
@@ -2112,5 +2304,3 @@ if __name__ == "__main__":
         port=port,
         reload=False
     )
-
-
