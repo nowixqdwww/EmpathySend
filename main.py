@@ -1304,11 +1304,22 @@ async def get_video(video_id: int):
 @app.get("/api/theme/{phone}")
 async def get_theme(phone: str):
     try:
+        import json as _json_theme
         async with db_conn() as conn:
             row = await conn.fetchrow("SELECT theme_data FROM theme_settings WHERE phone = $1", phone)
-            return {"theme": dict(row["theme_data"]) if row else {}}
+            if not row:
+                return {"theme": {}}
+            raw = row["theme_data"]
+            if isinstance(raw, str):
+                theme = _json_theme.loads(raw)
+            elif isinstance(raw, dict):
+                theme = raw
+            else:
+                theme = {}
+            return {"theme": theme}
     except Exception as e:
-            return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.error(f"get_theme error: {e}")
+        return {"theme": {}}
 
 @app.post("/api/theme/{phone}")
 async def save_theme(phone: str, request: Request):
@@ -1509,7 +1520,6 @@ async def search_users(query: str, request: Request):
 async def get_users(me: str):
     try:
         async with db_conn() as conn:
-            # Step 1: get all contacts in one query
             contacts = await conn.fetch("""
                 SELECT DISTINCT
                     CASE WHEN sender = $1 THEN receiver ELSE sender END AS phone
@@ -1520,50 +1530,26 @@ async def get_users(me: str):
             if not contacts:
                 return []
 
-            phones = [r['phone'] for r in contacts]
-
-            # Step 2: get user data for all contacts at once
-            users_rows = await conn.fetch("""
-                SELECT phone, username, name, avatar, verified
-                FROM users WHERE phone = ANY($1)
-            """, phones)
-            users_map = {r['phone']: r for r in users_rows}
-
-            # Step 3: get last message per contact in one query
-            last_msgs = await conn.fetch("""
-                SELECT DISTINCT ON (
-                    LEAST(sender, receiver) || '_' || GREATEST(sender, receiver)
-                )
-                sender, receiver, text, timestamp
-                FROM messages
-                WHERE (sender = $1 OR receiver = $1)
-                  AND (is_deleted = 0 OR is_deleted IS NULL OR is_deleted = false)
-                ORDER BY
-                    LEAST(sender, receiver) || '_' || GREATEST(sender, receiver),
-                    timestamp DESC
-            """, me)
-            last_map = {}
-            for r in last_msgs:
-                peer = r['receiver'] if r['sender'] == me else r['sender']
-                last_map[peer] = r
-
-            # Step 4: get unread counts in one query
-            unread_rows = await conn.fetch("""
-                SELECT sender, COUNT(*) AS cnt
-                FROM messages
-                WHERE receiver = $1
-                  AND (is_read = 0 OR is_read = false)
-                  AND (is_deleted = 0 OR is_deleted IS NULL OR is_deleted = false)
-                GROUP BY sender
-            """, me)
-            unread_map = {r['sender']: r['cnt'] for r in unread_rows}
-
             result = []
-            for phone in phones:
-                u = users_map.get(phone)
+            for c in contacts:
+                phone = c['phone']
+                u = await conn.fetchrow(
+                    "SELECT phone, username, name, avatar, verified FROM users WHERE phone = $1",
+                    phone
+                )
                 if not u:
                     continue
-                lm = last_map.get(phone)
+                lm = await conn.fetchrow("""
+                    SELECT text, timestamp FROM messages
+                    WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
+                      AND is_deleted = 0
+                    ORDER BY timestamp DESC LIMIT 1
+                """, me, phone)
+                unread = await conn.fetchval("""
+                    SELECT COUNT(*) FROM messages
+                    WHERE sender = $1 AND receiver = $2
+                      AND is_read = 0 AND is_deleted = 0
+                """, phone, me)
                 display_name = u['name'] or u['username'] or phone
                 result.append({
                     "phone":       phone,
@@ -1575,7 +1561,7 @@ async def get_users(me: str):
                     "online":      phone in clients,
                     "last":        lm['text'] if lm else None,
                     "last_ts":     lm['timestamp'].isoformat() if lm and lm['timestamp'] else None,
-                    "unread":      int(unread_map.get(phone, 0)),
+                    "unread":      int(unread or 0),
                 })
 
             result.sort(key=lambda x: x['last_ts'] or '', reverse=True)
