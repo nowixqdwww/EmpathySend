@@ -1509,51 +1509,76 @@ async def search_users(query: str, request: Request):
 async def get_users(me: str):
     try:
         async with db_conn() as conn:
-            rows = await conn.fetch("""
-                SELECT
-                    u.phone, u.username, u.name, u.avatar, u.verified,
-                    lm.text   AS last_text,
-                    lm.ts     AS last_ts,
-                    COALESCE(unr.cnt, 0) AS unread
-                FROM (
-                    SELECT DISTINCT
-                        CASE WHEN sender = $1 THEN receiver ELSE sender END AS phone
-                    FROM messages
-                    WHERE sender = $1 OR receiver = $1
-                ) contacts
-                JOIN users u ON u.phone = contacts.phone
-                LEFT JOIN LATERAL (
-                    SELECT text, timestamp AS ts
-                    FROM messages
-                    WHERE ((sender = $1 AND receiver = u.phone) OR (sender = u.phone AND receiver = $1))
-                      AND (is_deleted = 0 OR is_deleted IS NULL OR is_deleted = false)
-                    ORDER BY timestamp DESC LIMIT 1
-                ) lm ON true
-                LEFT JOIN LATERAL (
-                    SELECT COUNT(*) AS cnt
-                    FROM messages
-                    WHERE sender = u.phone AND receiver = $1
-                      AND (is_read = 0 OR is_read = false)
-                      AND (is_deleted = 0 OR is_deleted IS NULL OR is_deleted = false)
-                ) unr ON true
-                ORDER BY lm.ts DESC NULLS LAST
+            # Step 1: get all contacts in one query
+            contacts = await conn.fetch("""
+                SELECT DISTINCT
+                    CASE WHEN sender = $1 THEN receiver ELSE sender END AS phone
+                FROM messages
+                WHERE sender = $1 OR receiver = $1
             """, me)
 
+            if not contacts:
+                return []
+
+            phones = [r['phone'] for r in contacts]
+
+            # Step 2: get user data for all contacts at once
+            users_rows = await conn.fetch("""
+                SELECT phone, username, name, avatar, verified
+                FROM users WHERE phone = ANY($1)
+            """, phones)
+            users_map = {r['phone']: r for r in users_rows}
+
+            # Step 3: get last message per contact in one query
+            last_msgs = await conn.fetch("""
+                SELECT DISTINCT ON (
+                    LEAST(sender, receiver) || '_' || GREATEST(sender, receiver)
+                )
+                sender, receiver, text, timestamp
+                FROM messages
+                WHERE (sender = $1 OR receiver = $1)
+                  AND (is_deleted = 0 OR is_deleted IS NULL OR is_deleted = false)
+                ORDER BY
+                    LEAST(sender, receiver) || '_' || GREATEST(sender, receiver),
+                    timestamp DESC
+            """, me)
+            last_map = {}
+            for r in last_msgs:
+                peer = r['receiver'] if r['sender'] == me else r['sender']
+                last_map[peer] = r
+
+            # Step 4: get unread counts in one query
+            unread_rows = await conn.fetch("""
+                SELECT sender, COUNT(*) AS cnt
+                FROM messages
+                WHERE receiver = $1
+                  AND (is_read = 0 OR is_read = false)
+                  AND (is_deleted = 0 OR is_deleted IS NULL OR is_deleted = false)
+                GROUP BY sender
+            """, me)
+            unread_map = {r['sender']: r['cnt'] for r in unread_rows}
+
             result = []
-            for r in rows:
-                display_name = r['name'] or r['username'] or r['phone']
+            for phone in phones:
+                u = users_map.get(phone)
+                if not u:
+                    continue
+                lm = last_map.get(phone)
+                display_name = u['name'] or u['username'] or phone
                 result.append({
-                    "phone":       r['phone'],
-                    "username":    r['username'],
-                    "name":        r['name'],
+                    "phone":       phone,
+                    "username":    u['username'],
+                    "name":        u['name'],
                     "displayName": display_name,
-                    "avatar":      get_avatar_url(r['avatar']),
-                    "verified":    r['verified'],
-                    "online":      r['phone'] in clients,
-                    "last":        r['last_text'],
-                    "last_ts":     r['last_ts'].isoformat() if r['last_ts'] else None,
-                    "unread":      r['unread'],
+                    "avatar":      get_avatar_url(u['avatar']),
+                    "verified":    u['verified'],
+                    "online":      phone in clients,
+                    "last":        lm['text'] if lm else None,
+                    "last_ts":     lm['timestamp'].isoformat() if lm and lm['timestamp'] else None,
+                    "unread":      int(unread_map.get(phone, 0)),
                 })
+
+            result.sort(key=lambda x: x['last_ts'] or '', reverse=True)
             return result
     except Exception as e:
         logger.error(f"Error getting users for {me}: {e}")
