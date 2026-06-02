@@ -1461,6 +1461,38 @@ function addStickerMessage(user, stickerUrl) {
     messagesDiv.scrollTop = messagesDiv.scrollHeight
 }
 
+
+// Date separators in chat
+function formatMessageDate(isoStr) {
+    if (!isoStr) return null
+    const fixed = /[Z+]/.test(isoStr) ? isoStr : isoStr + 'Z'
+    const d = new Date(fixed)
+    if (isNaN(d)) return null
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const diffDays = Math.round((today - msgDay) / 86400000)
+    if (diffDays === 0) return '\u0421\u0435\u0433\u043e\u0434\u043d\u044f'
+    if (diffDays === 1) return '\u0412\u0447\u0435\u0440\u0430'
+    if (diffDays < 7) {
+        const days = ['\u0412\u043e\u0441\u043a\u0440\u0435\u0441\u0435\u043d\u044c\u0435', '\u041f\u043e\u043d\u0435\u0434\u0435\u043b\u044c\u043d\u0438\u043a', '\u0412\u0442\u043e\u0440\u043d\u0438\u043a', '\u0421\u0440\u0435\u0434\u0430', '\u0427\u0435\u0442\u0432\u0435\u0440\u0433', '\u041f\u044f\u0442\u043d\u0438\u0446\u0430', '\u0421\u0443\u0431\u0431\u043e\u0442\u0430']
+        return days[d.getDay()]
+    }
+    if (d.getFullYear() === now.getFullYear()) {
+        return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+    }
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function insertDateSeparator(container, dateLabel) {
+    const sep = document.createElement('div')
+    sep.className = 'date-separator'
+    sep.dataset.date = dateLabel
+    sep.innerHTML = '<span>' + dateLabel + '</span>'
+    container.appendChild(sep)
+}
+
+
 function addMessage(user, text, messageId = null, isRead = false, reply = null) {
     const messagesDiv = document.getElementById('messages')
     const div = document.createElement('div')
@@ -3451,8 +3483,12 @@ function connect() {
             }
 
             if (data.action === 'history') {
-                document.getElementById('messages').innerHTML = ''
+                const _mc = document.getElementById('messages')
+                _mc.innerHTML = ''
+                let _lastDate = null
                 data.messages.forEach(m => {
+                    const _dl = formatMessageDate(m.timestamp)
+                    if (_dl && _dl !== _lastDate) { insertDateSeparator(_mc, _dl); _lastDate = _dl }
                     if (m.type === 'call') {
                         const isMe = m.caller === currentUser
                         let callStatus
