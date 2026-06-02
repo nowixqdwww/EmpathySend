@@ -1299,10 +1299,9 @@ async function loadStickers() {
 }
 
 // Переключение модального окна стикеров
+let _stickersLoaded = false
 function toggleStickerModal() {
-    let _stickersLoaded = false
-    function toggleStickerModal() {
-        if (!_stickersLoaded) { _stickersLoaded = true; loadStickers() }
+    if (!_stickersLoaded) { _stickersLoaded = true; loadStickers() }
     const modal = document.getElementById('stickerModal')
     const btn = document.getElementById('stickerBtn')
     
