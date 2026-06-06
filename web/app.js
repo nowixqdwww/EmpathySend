@@ -734,7 +734,7 @@ function checkAuthOnLoad() {
     }
 }
 
-async function completeLogin() {
+function completeLogin() {
     // Account saved in loadUserProfile once name is known
     loadTheme()
     loadChatThemesFromServer()
@@ -758,7 +758,6 @@ async function completeLogin() {
     connect()
     Promise.all([loadUserProfile(), loadChats()])
         .catch(e => console.error('startup error', e))
-    refreshOnlineStatuses()
 }
 
 function openChangePassword() {
@@ -2792,6 +2791,7 @@ async function loadChats() {
             frag.appendChild(createChatElement(chat))
         })
         list.appendChild(frag)
+        refreshOnlineStatuses()
     } catch (error) {
         console.error('loadChats: error', error)
         showToast('Ошибка загрузки чатов')
