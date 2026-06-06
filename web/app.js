@@ -299,6 +299,9 @@ async function refreshOnlineStatuses() {
             const isOnline = statuses[phone] === true
             if (!window.clients) window.clients = {}
             window.clients[phone] = isOnline
+            // Store last_seen if provided
+            const ls = statuses[phone + '__last_seen']
+            if (ls) lastSeenMap[phone] = ls
             // Обновляем точку статуса
             const el = document.getElementById(`chat-${cleanPhone(phone)}`)
             if (el) {
@@ -2791,6 +2794,8 @@ async function loadChats() {
             frag.appendChild(createChatElement(chat))
         })
         list.appendChild(frag)
+        // Refresh online statuses immediately after chats render
+        refreshOnlineStatuses()
     } catch (error) {
         console.error('loadChats: error', error)
         showToast('Ошибка загрузки чатов')
@@ -3337,6 +3342,8 @@ function connect() {
             
             setTimeout(() => {
                 broadcastOnlineStatus(true)
+                // Request fresh statuses right after connecting
+                refreshOnlineStatuses()
             }, 500)
             
             pingInterval = setInterval(() => {
