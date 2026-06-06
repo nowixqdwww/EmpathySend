@@ -734,51 +734,30 @@ function checkAuthOnLoad() {
     }
 }
 
-async function completeLogin() {
+function completeLogin() {
+    // Account saved in loadUserProfile once name is known
     loadTheme()
     loadChatThemesFromServer()
-
     document.getElementById('loginScreen').style.display = 'none'
     document.getElementById('app').style.display = 'flex'
     document.getElementById('sidebar').classList.add('open')
 
     document.getElementById('myPhone').innerText = formatPhone(currentUser)
-
+    
     const _ls = document.getElementById('loginScreen')
     const _app = document.getElementById('app')
-
     _ls.style.opacity = '0'
     _ls.style.transition = 'opacity 0.25s ease'
-
-    setTimeout(() => {
-        _ls.style.display = 'none'
-        _ls.style.opacity = ''
-    }, 250)
-
+    setTimeout(() => { _ls.style.display = 'none'; _ls.style.opacity = '' }, 250)
     _app.style.display = 'flex'
     _app.style.opacity = '0'
-
     requestAnimationFrame(() => {
         _app.style.transition = 'opacity 0.3s ease'
         _app.style.opacity = '1'
     })
-
-    // Сначала загружаем профиль и чаты
-    try {
-        await loadUserProfile()
-        await loadChats()
-
-        // После загрузки чатов подключаем WS
-        connect()
-
-        // Ещё раз обновляем статусы
-        setTimeout(() => {
-            refreshOnlineStatuses()
-        }, 300)
-
-    } catch (e) {
-        console.error('startup error', e)
-    }
+    connect()
+    Promise.all([loadUserProfile(), loadChats()])
+        .catch(e => console.error('startup error', e))
 }
 
 function openChangePassword() {
@@ -2790,55 +2769,28 @@ function _doUpdateChatInList(phone, lastText, incrementUnread = false) {
 }
     
 async function loadChats() {
-    if (!currentUser) {
-        console.error('loadChats: currentUser is null')
-        return
-    }
-
+    if (!currentUser) { console.error('loadChats: currentUser is null'); return }
     const list = document.getElementById('chatList')
-
     if (!list.children.length) {
         list.innerHTML = Array(4).fill(0).map(() => `
             <div class="chat-skeleton">
                 <div class="sk-avatar"></div>
-                <div class="sk-info">
-                    <div class="sk-name"></div>
-                    <div class="sk-msg"></div>
-                </div>
-            </div>
-        `).join('')
+                <div class="sk-info"><div class="sk-name"></div><div class="sk-msg"></div></div>
+            </div>`).join('')
     }
-
     try {
         const res = await fetch(`/users/${currentUser}`)
-
-        if (!res.ok) {
-            throw new Error(`${res.status}`)
-        }
-
+        if (!res.ok) throw new Error(`${res.status}`)
         const chats = await res.json()
-
         list.innerHTML = ''
-
         const chatsCount = document.getElementById('chatsCount')
-        if (chatsCount) {
-            chatsCount.textContent = chats.length
-        }
-
+        if (chatsCount) chatsCount.textContent = chats.length
         const frag = document.createDocumentFragment()
-
         chats.forEach(chat => {
             userCache[chat.phone] = chat
             frag.appendChild(createChatElement(chat))
         })
-
         list.appendChild(frag)
-
-        // ВАЖНО: обновляем статусы только после отрисовки чатов
-        setTimeout(() => {
-            refreshOnlineStatuses()
-        }, 100)
-
     } catch (error) {
         console.error('loadChats: error', error)
         showToast('Ошибка загрузки чатов')
@@ -3394,9 +3346,7 @@ function connect() {
             }, 30000)
             // Обновляем онлайн-статусы каждые 15 секунд
             window._statusInterval = setInterval(refreshOnlineStatuses, 15000)
-            setTimeout(() => {
-                refreshOnlineStatuses()
-            }, 500)
+            refreshOnlineStatuses()
         }
 
         ws.onmessage = (event) => {
