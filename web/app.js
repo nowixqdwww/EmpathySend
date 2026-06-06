@@ -734,7 +734,7 @@ function checkAuthOnLoad() {
     }
 }
 
-function completeLogin() {
+async function completeLogin() {
     // Account saved in loadUserProfile once name is known
     loadTheme()
     loadChatThemesFromServer()
