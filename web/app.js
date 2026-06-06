@@ -758,6 +758,7 @@ function completeLogin() {
     connect()
     Promise.all([loadUserProfile(), loadChats()])
         .catch(e => console.error('startup error', e))
+    refreshOnlineStatuses()
 }
 
 function openChangePassword() {
