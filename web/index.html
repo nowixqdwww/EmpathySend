@@ -764,9 +764,16 @@
 
 <!-- Контекстное меню для сообщений -->
 <div id="messageContextMenu" class="context-menu" style="display: none;">
-    <div class="context-menu-item" onclick="addReactionFromMenu()">
-        <i class="fas fa-face-smile"></i> Реакция
+    <div class="context-menu-reactions">
+        <button class="ctx-reaction-btn" onclick="addReaction('👍')">👍</button>
+        <button class="ctx-reaction-btn" onclick="addReaction('❤️')">❤️</button>
+        <button class="ctx-reaction-btn" onclick="addReaction('🔥')">🔥</button>
+        <button class="ctx-reaction-btn" onclick="addReaction('😮')">😮</button>
+        <button class="ctx-reaction-btn" onclick="addReaction('😂')">😂</button>
+        <button class="ctx-reaction-btn" onclick="addReaction('😢')">😢</button>
+        <button class="ctx-reaction-btn" onclick="addReaction('👎')">👎</button>
     </div>
+    <div class="context-menu-divider"></div>
     <div class="context-menu-item" onclick="replyMessage()">
         <i class="fas fa-reply"></i> Ответить
     </div>
