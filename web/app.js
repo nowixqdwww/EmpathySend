@@ -3068,29 +3068,40 @@ function showContextMenu(event, type, data) {
         }
     }
     
-    // Скрываем меню перед позиционированием
+    // Position menu — centered on tap, never off-screen
     menu.classList.remove('visible')
     menu.style.display = 'block'
-    menu.style.left = x + 'px'
-    menu.style.top = y + 'px'
-    
-    // Корректировка позиции
-    const rect = menu.getBoundingClientRect()
-    if (rect.right > window.innerWidth) {
-        x = window.innerWidth - rect.width - 10
-        menu.style.left = x + 'px'
+    menu.style.left = '0px'
+    menu.style.top = '0px'
+
+    const mw = menu.offsetWidth || 220
+    const mh = menu.offsetHeight || 200
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    const pad = 8
+
+    // Center horizontally on tap, clamp to screen
+    let fx = x - mw / 2
+    fx = Math.max(pad, Math.min(fx, vw - mw - pad))
+
+    // Show above tap point if near bottom, below if near top
+    let fy
+    if (y + mh + pad > vh) {
+        fy = y - mh - 8  // above
+    } else {
+        fy = y + 8        // below
     }
-    if (rect.bottom > window.innerHeight) {
-        y = window.innerHeight - rect.height - 10
-        menu.style.top = y + 'px'
-    }
-    
-    // Определяем transform-origin
-    const fromTop = y < window.innerHeight / 2
-    const fromLeft = x < window.innerWidth / 2
-    menu.style.transformOrigin = `${fromTop ? 'top' : 'bottom'} ${fromLeft ? 'left' : 'right'}`
-    
-    // Запускаем анимацию появления
+    fy = Math.max(pad, Math.min(fy, vh - mh - pad))
+
+    menu.style.left = fx + 'px'
+    menu.style.top = fy + 'px'
+
+    // transform-origin from tap relative to menu
+    const ox = Math.min(Math.max(x - fx, 0), mw)
+    const oy = y < fy ? 0 : mh
+    menu.style.transformOrigin = `${ox}px ${oy}px`
+
+    // Animate in
     requestAnimationFrame(() => {
         menu.classList.add('visible')
     })
