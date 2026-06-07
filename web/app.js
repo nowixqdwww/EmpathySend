@@ -58,10 +58,10 @@ function pluralize(n, one, few, many) {
     return many
 }
 function formatLastSeen(iso) {
-    if (!iso) return 'был(а) давно'
+    if (!iso) return 'Был(а) давно'
     const isoFixed = /[Z+]/.test(iso) ? iso : iso + 'Z'
     const d = new Date(isoFixed)
-    if (isNaN(d)) return 'был(а) давно'
+    if (isNaN(d)) return 'Был(а) давно'
     const diff = Math.floor((Date.now() - d) / 1000)
     const min  = Math.floor(diff / 60)
     const hour = Math.floor(min / 60)
@@ -70,16 +70,16 @@ function formatLastSeen(iso) {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
     const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate())
     const diffDays = Math.round((today - msgDay) / 86400000)
-    if (diff < 60)   return 'был(а) только что'
-    if (min < 60)    return `был(а) ${min} мин назад`
-    if (diffDays === 0) return `сегодня в ${t}`
-    if (diffDays === 1) return `вчера в ${t}`
+    if (diff < 60)   return 'Был(а) только что'
+    if (min < 60)    return `Был(а) ${min} мин назад`
+    if (diffDays === 0) return `Был(а) сегодня в ${t}`
+    if (diffDays === 1) return `Был(а) вчера в ${t}`
     if (d.getFullYear() === now.getFullYear()) {
         const dateStr = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '')
-        return `${dateStr} в ${t}`
+        return `Был(а) ${dateStr} в ${t}`
     }
     const dateStr = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }).replace('.', '')
-    return `${dateStr} в ${t}`
+    return `Был(а) ${dateStr} в ${t}`
 }
 function updateChatStatusText(phone, isOnline) {
     const el = document.getElementById('chatUserStatus')
