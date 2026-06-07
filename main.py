@@ -1440,7 +1440,18 @@ async def online_status(request: Request):
             phones = data.get("phones", [])
         else:
             phones = []
-        return {p: (p in clients) for p in phones}
+        result = {}
+        async with db_conn() as conn:
+            for p in phones:
+                online = p in clients
+                result[p] = online
+                if not online:
+                    ls = await conn.fetchval(
+                        "SELECT last_seen FROM users WHERE phone = $1", p
+                    )
+                    if ls:
+                        result[f"{p}__last_seen"] = ls.isoformat()
+        return result
     except Exception as e:
         logger.error(f"online-status error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
@@ -1542,13 +1553,13 @@ async def get_users(me: str):
                 lm = await conn.fetchrow("""
                     SELECT text, timestamp FROM messages
                     WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
-                      AND is_deleted = 0
+                      AND is_deleted::integer = 0
                     ORDER BY timestamp DESC LIMIT 1
                 """, me, phone)
                 unread = await conn.fetchval("""
                     SELECT COUNT(*) FROM messages
                     WHERE sender = $1 AND receiver = $2
-                      AND is_read = 0 AND is_deleted = 0
+                      AND is_read::integer = 0 AND is_deleted::integer = 0
                 """, phone, me)
                 display_name = u['name'] or u['username'] or phone
                 result.append({
