@@ -5651,3 +5651,31 @@ img[loading="lazy"].loaded { opacity: 1; }
     background: rgba(255,255,255,0.1);
     color: rgba(255,255,255,0.5);
 }
+
+/* Inline reactions row in context menu */
+.context-menu-reactions {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 6px 8px 4px;
+    gap: 2px;
+}
+.ctx-reaction-btn {
+    background: none;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 8px;
+    line-height: 1;
+    transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.15s;
+    will-change: transform;
+}
+.ctx-reaction-btn:hover { transform: scale(1.35); background: rgba(255,255,255,0.08); }
+.ctx-reaction-btn:active { transform: scale(0.9); }
+
+.context-menu-divider {
+    height: 1px;
+    background: var(--border, rgba(255,255,255,0.08));
+    margin: 2px 8px 4px;
+}
