@@ -2484,14 +2484,16 @@ function showReactionsPanel(event, messageId) {
 
 // Добавить реакцию
 async function addReaction(reaction) {
-    if (!currentMessageId || !currentUser) return
+    const msgId = currentMessageId || selectedMessageId
+    if (!msgId || !currentUser) return
+    hideContextMenus()
     
     try {
         const res = await fetch('/reaction/add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                message_id: currentMessageId,
+                message_id: msgId,
                 user: currentUser,
                 reaction: reaction
             })
@@ -2504,8 +2506,7 @@ async function addReaction(reaction) {
             return
         }
         
-        // Обновляем отображение реакций на сообщении
-        updateMessageReactions(currentMessageId, data.reactions)
+        updateMessageReactions(msgId, data.reactions)
         
     } catch (error) {
         console.error('Error adding reaction:', error)
@@ -3043,6 +3044,8 @@ function showContextMenu(event, type, data) {
         if (_editBtn) _editBtn.style.display = (_isOwn && _isText) ? '' : 'none'
         const _copyBtn = document.getElementById('copyMessageBtn')
         if (_copyBtn) _copyBtn.style.display = _isText ? '' : 'none'
+        // Set currentMessageId so addReaction() works from context menu
+        currentMessageId = data.messageId
     } else {
         menuId = 'chatContextMenu'
         selectedChatPhone = data.phone
