@@ -59,20 +59,27 @@ function pluralize(n, one, few, many) {
 }
 function formatLastSeen(iso) {
     if (!iso) return 'был(а) давно'
-    // Добавляем Z если нет timezone-суффикса (PostgreSQL возвращает без Z)
     const isoFixed = /[Z+]/.test(iso) ? iso : iso + 'Z'
-    const diff = Math.floor((Date.now() - new Date(isoFixed)) / 1000)
+    const d = new Date(isoFixed)
+    if (isNaN(d)) return 'был(а) давно'
+    const diff = Math.floor((Date.now() - d) / 1000)
     const min  = Math.floor(diff / 60)
-    const hour = Math.floor(min  / 60)
-    const day  = Math.floor(hour / 24)
-    const d    = new Date(isoFixed)
-    const t    = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-    if (diff < 60)  return 'был(а) только что'
-    if (min  < 60)  return `был(а) ${min} ${pluralize(min, 'минуту', 'минуты', 'минут')} назад`
-    if (hour < 24)  return `был(а) сегодня в ${t}`
-    if (day  === 1) return `был(а) вчера в ${t}`
-    if (day  < 7)   return `был(а) ${day} ${pluralize(day, 'день', 'дня', 'дней')} назад`
-    return `был(а) ${d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}`
+    const hour = Math.floor(min / 60)
+    const t = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const diffDays = Math.round((today - msgDay) / 86400000)
+    if (diff < 60)   return 'был(а) только что'
+    if (min < 60)    return `был(а) ${min} мин назад`
+    if (diffDays === 0) return `сегодня в ${t}`
+    if (diffDays === 1) return `вчера в ${t}`
+    if (d.getFullYear() === now.getFullYear()) {
+        const dateStr = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }).replace('.', '')
+        return `${dateStr} в ${t}`
+    }
+    const dateStr = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }).replace('.', '')
+    return `${dateStr} в ${t}`
 }
 function updateChatStatusText(phone, isOnline) {
     const el = document.getElementById('chatUserStatus')
