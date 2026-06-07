@@ -5679,3 +5679,16 @@ img[loading="lazy"].loaded { opacity: 1; }
     background: var(--border, rgba(255,255,255,0.08));
     margin: 2px 8px 4px;
 }
+
+/* Disable text selection in messages */
+.message, .message * {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+/* But allow selection in edit textarea */
+.msg-edit-input {
+    -webkit-user-select: text !important;
+    user-select: text !important;
+}
