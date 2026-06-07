@@ -3041,6 +3041,8 @@ function showContextMenu(event, type, data) {
         if (_deleteBtn) _deleteBtn.style.display = _isOwn ? '' : 'none'
         const _editBtn = document.getElementById('editMessageBtn')
         if (_editBtn) _editBtn.style.display = (_isOwn && _isText) ? '' : 'none'
+        const _copyBtn = document.getElementById('copyMessageBtn')
+        if (_copyBtn) _copyBtn.style.display = _isText ? '' : 'none'
     } else {
         menuId = 'chatContextMenu'
         selectedChatPhone = data.phone
@@ -3106,9 +3108,7 @@ function showContextMenu(event, type, data) {
         menu.classList.add('visible')
     })
     
-    // Авто-скрытие через 5 секунд
-    if (window._ctxTimeout) clearTimeout(window._ctxTimeout)
-    window._ctxTimeout = setTimeout(() => hideContextMenus(), 5000)
+    // No auto-hide — only close on outside click
 }
 
 function hideContextMenus() {
@@ -4606,6 +4606,25 @@ function addReactionFromMenu() {
 window.addReactionFromMenu = addReactionFromMenu
 window.deleteMessage = deleteMessage
 window.editMessage = editMessage
+
+function copyMessage() {
+    if (!selectedMessageText) return
+    navigator.clipboard.writeText(selectedMessageText)
+        .then(() => { hideContextMenus(); showToast('Скопировано') })
+        .catch(() => {
+            // Fallback for older browsers
+            const ta = document.createElement('textarea')
+            ta.value = selectedMessageText
+            ta.style.cssText = 'position:fixed;top:-9999px;opacity:0'
+            document.body.appendChild(ta)
+            ta.select()
+            document.execCommand('copy')
+            ta.remove()
+            hideContextMenus()
+            showToast('Скопировано')
+        })
+}
+window.copyMessage = copyMessage
 window.replyMessage = replyMessage
 window.cancelReply = cancelReply
 window.scrollToMessage = scrollToMessage
