@@ -764,7 +764,7 @@
 
 <!-- Контекстное меню для сообщений -->
 <div id="messageContextMenu" class="context-menu" style="display: none;">
-    <div class="context-menu-reactions">
+    <div class="context-menu-reactions" onclick="event.stopPropagation()">
         <button class="ctx-reaction-btn" onclick="addReaction('👍')">👍</button>
         <button class="ctx-reaction-btn" onclick="addReaction('❤️')">❤️</button>
         <button class="ctx-reaction-btn" onclick="addReaction('🔥')">🔥</button>
