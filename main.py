@@ -1304,22 +1304,11 @@ async def get_video(video_id: int):
 @app.get("/api/theme/{phone}")
 async def get_theme(phone: str):
     try:
-        import json as _json_theme
         async with db_conn() as conn:
             row = await conn.fetchrow("SELECT theme_data FROM theme_settings WHERE phone = $1", phone)
-            if not row:
-                return {"theme": {}}
-            raw = row["theme_data"]
-            if isinstance(raw, str):
-                theme = _json_theme.loads(raw)
-            elif isinstance(raw, dict):
-                theme = raw
-            else:
-                theme = {}
-            return {"theme": theme}
+            return {"theme": dict(row["theme_data"]) if row else {}}
     except Exception as e:
-        logger.error(f"get_theme error: {e}")
-        return {"theme": {}}
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/api/theme/{phone}")
 async def save_theme(phone: str, request: Request):
@@ -1428,32 +1417,14 @@ async def get_music_status(phone: str):
     except Exception as e:
             return JSONResponse(status_code=500, content={"error": str(e)})
 
-@app.api_route("/api/online-status", methods=["POST", "GET", "OPTIONS"])
+@app.post("/api/online-status")
 async def online_status(request: Request):
     """Возвращает онлайн-статус для списка телефонов."""
-    if request.method == "OPTIONS":
-        return JSONResponse({}, headers={"Allow": "POST, GET, OPTIONS"})
     try:
-        body = await request.body()
-        if body:
-            data = await request.json()
-            phones = data.get("phones", [])
-        else:
-            phones = []
-        result = {}
-        async with db_conn() as conn:
-            for p in phones:
-                online = p in clients
-                result[p] = online
-                if not online:
-                    ls = await conn.fetchval(
-                        "SELECT last_seen FROM users WHERE phone = $1", p
-                    )
-                    if ls:
-                        result[f"{p}__last_seen"] = ls.isoformat()
-        return result
+        data = await request.json()
+        phones = data.get("phones", [])
+        return {p: (p in clients) for p in phones}
     except Exception as e:
-        logger.error(f"online-status error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/search")
@@ -1533,48 +1504,44 @@ async def get_users(me: str):
         async with db_conn() as conn:
             contacts = await conn.fetch("""
                 SELECT DISTINCT
-                    CASE WHEN sender = $1 THEN receiver ELSE sender END AS phone
+                    CASE WHEN sender = $1 THEN receiver ELSE sender END as contact
                 FROM messages
                 WHERE sender = $1 OR receiver = $1
             """, me)
-
-            if not contacts:
-                return []
-
+            
             result = []
-            for c in contacts:
-                phone = c['phone']
-                u = await conn.fetchrow(
-                    "SELECT phone, username, name, avatar, verified FROM users WHERE phone = $1",
+            for contact in contacts:
+                phone = contact['contact']
+                # ДОБАВЛЯЕМ verified в SELECT
+                user_data = await conn.fetchrow(
+                    "SELECT phone, username, name, avatar, verified FROM users WHERE phone = $1",  # ← добавили verified
                     phone
                 )
-                if not u:
+                if not user_data:
                     continue
-                lm = await conn.fetchrow("""
+                last_msg = await conn.fetchrow("""
                     SELECT text, timestamp FROM messages
                     WHERE ((sender = $1 AND receiver = $2) OR (sender = $2 AND receiver = $1))
-                      AND is_deleted::integer = 0
+                    AND is_deleted = 0
                     ORDER BY timestamp DESC LIMIT 1
                 """, me, phone)
                 unread = await conn.fetchval("""
                     SELECT COUNT(*) FROM messages
-                    WHERE sender = $1 AND receiver = $2
-                      AND is_read::integer = 0 AND is_deleted::integer = 0
+                    WHERE sender = $1 AND receiver = $2 AND is_read = 0 AND is_deleted = 0
                 """, phone, me)
-                display_name = u['name'] or u['username'] or phone
+                display_name = user_data['name'] or user_data['username'] or phone
                 result.append({
-                    "phone":       phone,
-                    "username":    u['username'],
-                    "name":        u['name'],
+                    "phone": user_data['phone'],
+                    "username": user_data['username'],
+                    "name": user_data['name'],
                     "displayName": display_name,
-                    "avatar":      get_avatar_url(u['avatar']),
-                    "verified":    u['verified'],
-                    "online":      phone in clients,
-                    "last":        lm['text'] if lm else None,
-                    "last_ts":     lm['timestamp'].isoformat() if lm and lm['timestamp'] else None,
-                    "unread":      int(unread or 0),
+                    "avatar": get_avatar_url(user_data['avatar']),
+                    "verified": user_data['verified'],  # ← ДОБАВЛЯЕМ verified
+                    "online": phone in clients,
+                    "last": last_msg['text'] if last_msg else None,
+                    "last_ts": last_msg['timestamp'].isoformat() if last_msg and last_msg['timestamp'] else None,
+                    "unread": unread or 0
                 })
-
             result.sort(key=lambda x: x['last_ts'] or '', reverse=True)
             return result
     except Exception as e:
@@ -1985,7 +1952,7 @@ async def websocket_endpoint(ws: WebSocket, user: str, token: str = ""):
                                 SELECT m.id, m.sender, m.text, m.is_read, m.edited, m.timestamp, 'msg' AS kind,
                                        m.reply_to, r.sender AS reply_sender, r.text AS reply_text
                                 FROM messages m
-                                LEFT JOIN messages r ON r.id = m.reply_to
+                                LEFT JOIN messages r ON r.id = m.reply_to AND r.is_deleted = 0
                                 WHERE ((m.sender = $1 AND m.receiver = $2) OR (m.sender = $2 AND m.receiver = $1))
                                 AND m.is_deleted = 0
                                 UNION ALL
@@ -1997,7 +1964,7 @@ async def websocket_endpoint(ws: WebSocket, user: str, token: str = ""):
                             for m in messages:
                                 if m['kind'] == 'msg':
                                     reply_data = None
-                                    if m['reply_to']:
+                                    if m['reply_to'] and m['reply_sender'] is not None:
                                         reply_data = {"id": m['reply_to'], "sender": m['reply_sender'], "text": m['reply_text']}
                                     history.append({"type": "msg", "id": m['id'], "sender": m['sender'], "text": m['text'], "is_read": m['is_read'], "edited": bool(m['edited']), "reply": reply_data})
                                 else:
@@ -2282,21 +2249,6 @@ async def admin_stats(request: Request):
 @app.get("/admin")
 async def serve_admin():
     return FileResponse("web/admin.html")
-
-
-@app.get("/favicon.ico")
-async def favicon():
-    """Return empty favicon to avoid 404 spam."""
-    from fastapi.responses import Response
-    # 1x1 transparent ICO
-    ico = bytes([
-        0,0,1,0,1,0,1,1,0,0,1,0,32,0,
-        40,0,0,0,22,0,0,0,40,0,0,0,1,0,
-        0,0,2,0,0,0,1,0,32,0,0,0,0,0,
-        4,0,0,0,0,0,0,0,0,0,0,0,0,0,
-        0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
-    ])
-    return Response(content=ico, media_type="image/x-icon")
 
 import pathlib
 _web_dir = pathlib.Path("web")
