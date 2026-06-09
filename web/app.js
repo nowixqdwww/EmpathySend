@@ -3004,18 +3004,42 @@ function authHeaders() {
     return authToken ? { 'Authorization': `Bearer ${authToken}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' }
 }
 
-function send() {
+async function send() {
     if (!currentChat) { showToast('Выберите чат'); return }
-    if (!ws || ws.readyState !== WebSocket.OPEN) { showToast('Нет соединения с сервером'); return }
 
     const text = document.getElementById('text').value.trim()
     if (!text) return
+
+    // Edit mode
+    if (editState) {
+        const { id, element, originalText } = editState
+        if (text === originalText) { cancelEdit(); return }
+        cancelEdit()
+        // Update DOM immediately
+        const textEl = element.querySelector('.message-text')
+        if (textEl) textEl.textContent = text
+        if (!element.querySelector('.msg-edited')) {
+            const mark = document.createElement('span')
+            mark.className = 'msg-edited'
+            mark.textContent = 'изм.'
+            element.querySelector('.message-meta')?.prepend(mark)
+        }
+        try {
+            await fetch(`/message/${id}`, {
+                method: 'PATCH',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ user: currentUser, text })
+            })
+        } catch(e) { console.error('Edit failed', e) }
+        return
+    }
+
+    if (!ws || ws.readyState !== WebSocket.OPEN) { showToast('Нет соединения с сервером'); return }
 
     ws.send(JSON.stringify({ action: 'send', to: currentChat, text, reply_to: replyState?.id || null }))
     cancelReply()
     document.getElementById('text').value = ''
     updateInputButtons()
-    // Сразу обновляем список чатов (создаёт если новый)
     updateChatInList(currentChat, text, false)
 }
 
@@ -3168,69 +3192,43 @@ function cancelReply() {
     if (bar) bar.style.display = 'none'
 }
 
-async function editMessage() {
+let editState = null  // { id, element, originalText }
+
+function editMessage() {
     if (!selectedMessageId || !selectedMessageElement || !selectedMessageText) return
     const msgId = selectedMessageId
     const el = selectedMessageElement
-    hideContextMenus()
-
-    // Find the text node inside the bubble
     const textEl = el.querySelector('.message-text')
     if (!textEl) return
     const originalText = textEl.innerText
+    hideContextMenus()
 
-    // Replace text with inline textarea
-    const textarea = document.createElement('textarea')
-    textarea.className = 'msg-edit-input'
-    textarea.value = originalText
-    textarea.rows = 1
-    textarea.style.height = 'auto'
-    textEl.replaceWith(textarea)
-    // Auto-resize AFTER insertion so scrollHeight is accurate
-    const autoResize = () => {
-        textarea.style.height = '1px'
-        textarea.style.height = (textarea.scrollHeight) + 'px'
-    }
-    textarea.addEventListener('input', autoResize)
-    // Measure after browser has laid it out
-    requestAnimationFrame(() => {
-        autoResize()
-        textarea.focus()
-        textarea.setSelectionRange(textarea.value.length, textarea.value.length)
-    })
+    editState = { id: msgId, element: el, originalText }
 
-    const finish = async (save) => {
-        const newText = textarea.value.trim()
-        const newTextEl = document.createElement('div')
-        newTextEl.className = 'message-text'
-        if (save && newText && newText !== originalText) {
-            newTextEl.textContent = newText
-            textarea.replaceWith(newTextEl)
-            // Add edited mark
-            if (!el.querySelector('.msg-edited')) {
-                const mark = document.createElement('span')
-                mark.className = 'msg-edited'
-                mark.textContent = 'изм.'
-                el.querySelector('.message-meta')?.prepend(mark)
-            }
-            try {
-                await fetch(`/message/${msgId}`, {
-                    method: 'PATCH',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ user: currentUser, text: newText })
-                })
-            } catch(e) { console.error('Edit failed', e) }
-        } else {
-            newTextEl.textContent = originalText
-            textarea.replaceWith(newTextEl)
-        }
+    // Show edit bar
+    const bar = document.getElementById('editBar')
+    const msgPreview = document.getElementById('editBarMsg')
+    if (bar) {
+        msgPreview.textContent = originalText.length > 80 ? originalText.slice(0, 80) + '...' : originalText
+        bar.style.display = 'flex'
     }
 
-    textarea.addEventListener('keydown', e => {
-        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); finish(true) }
-        if (e.key === 'Escape') finish(false)
-    })
-    textarea.addEventListener('blur', () => setTimeout(() => finish(false), 150))
+    // Put text in input field
+    const input = document.getElementById('text')
+    if (input) {
+        input.value = originalText
+        input.focus()
+        input.setSelectionRange(input.value.length, input.value.length)
+        updateInputButtons()
+    }
+}
+
+function cancelEdit() {
+    editState = null
+    const bar = document.getElementById('editBar')
+    if (bar) bar.style.display = 'none'
+    const input = document.getElementById('text')
+    if (input) { input.value = ''; updateInputButtons() }
 }
 
 async function deleteMessage() {
@@ -3919,6 +3917,7 @@ document.getElementById('searchUser')?.addEventListener('keydown', (e) => {
 
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+        if (editState) { cancelEdit(); return }
         closeModal()
         closeAvatarEditor()
         closeChangePassword()
