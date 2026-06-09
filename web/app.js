@@ -3433,6 +3433,22 @@ function connect() {
             }
 
             if (data.action === 'message_deleted') {
+                // First: collapse reply-quotes in OTHER messages that cited this one
+                document.querySelectorAll(`.reply-quote[data-reply-id="${data.id}"]`).forEach(q => {
+                    const h = q.offsetHeight
+                    q.style.maxHeight = h + 'px'
+                    q.style.overflow = 'hidden'
+                    q.style.transition = 'opacity 0.15s ease, max-height 0.2s ease, margin 0.2s ease, padding 0.2s ease'
+                    requestAnimationFrame(() => {
+                        q.style.opacity = '0'
+                        q.style.maxHeight = '0'
+                        q.style.marginBottom = '0'
+                        q.style.paddingTop = '0'
+                        q.style.paddingBottom = '0'
+                    })
+                    setTimeout(() => q.remove(), 220)
+                })
+                // Then: remove the deleted message itself
                 const el = document.querySelector(`[data-message-id="${data.id}"]`)
                 if (el) {
                     el.style.transition = 'transform 0.2s,opacity 0.2s'
