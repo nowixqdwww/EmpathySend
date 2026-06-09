@@ -1946,20 +1946,41 @@ async def websocket_endpoint(ws: WebSocket, user: str, token: str = ""):
 
                 elif action == "history":
                     chat_user = data.get("user")
+                    before_id = data.get("before_id")  # for pagination
                     if chat_user:
                         async with db_conn() as conn2:
-                            messages = await conn2.fetch("""
-                                SELECT m.id, m.sender, m.text, m.is_read, m.edited, m.timestamp, 'msg' AS kind,
-                                       m.reply_to, r.sender AS reply_sender, r.text AS reply_text
-                                FROM messages m
-                                LEFT JOIN messages r ON r.id = m.reply_to AND r.is_deleted = 0
-                                WHERE ((m.sender = $1 AND m.receiver = $2) OR (m.sender = $2 AND m.receiver = $1))
-                                AND m.is_deleted = 0
-                                UNION ALL
-                                SELECT id, caller AS sender, '' AS text, 0 AS is_read, FALSE AS edited, timestamp, 'call' AS kind, NULL::INTEGER, NULL::TEXT, NULL::TEXT FROM calls
-                                WHERE (caller = $1 AND callee = $2) OR (caller = $2 AND callee = $1)
-                                ORDER BY timestamp
-                            """, user, chat_user)
+                            PAGE = 50
+                            if before_id:
+                                messages = await conn2.fetch("""
+                                    SELECT * FROM (
+                                        SELECT m.id, m.sender, m.text, m.is_read, m.edited, m.timestamp, 'msg' AS kind,
+                                               m.reply_to, r.sender AS reply_sender, r.text AS reply_text
+                                        FROM messages m
+                                        LEFT JOIN messages r ON r.id = m.reply_to AND r.is_deleted = 0
+                                        WHERE ((m.sender = $1 AND m.receiver = $2) OR (m.sender = $2 AND m.receiver = $1))
+                                        AND m.is_deleted = 0 AND m.id < $3
+                                        UNION ALL
+                                        SELECT id, caller AS sender, '' AS text, 0 AS is_read, FALSE AS edited, timestamp, 'call' AS kind, NULL::INTEGER, NULL::TEXT, NULL::TEXT FROM calls
+                                        WHERE (caller = $1 AND callee = $2) OR (caller = $2 AND callee = $1)
+                                        AND id < $3
+                                        ORDER BY timestamp DESC LIMIT $4
+                                    ) t ORDER BY timestamp
+                                """, user, chat_user, before_id, PAGE)
+                            else:
+                                messages = await conn2.fetch("""
+                                    SELECT * FROM (
+                                        SELECT m.id, m.sender, m.text, m.is_read, m.edited, m.timestamp, 'msg' AS kind,
+                                               m.reply_to, r.sender AS reply_sender, r.text AS reply_text
+                                        FROM messages m
+                                        LEFT JOIN messages r ON r.id = m.reply_to AND r.is_deleted = 0
+                                        WHERE ((m.sender = $1 AND m.receiver = $2) OR (m.sender = $2 AND m.receiver = $1))
+                                        AND m.is_deleted = 0
+                                        UNION ALL
+                                        SELECT id, caller AS sender, '' AS text, 0 AS is_read, FALSE AS edited, timestamp, 'call' AS kind, NULL::INTEGER, NULL::TEXT, NULL::TEXT FROM calls
+                                        WHERE (caller = $1 AND callee = $2) OR (caller = $2 AND callee = $1)
+                                        ORDER BY timestamp DESC LIMIT $3
+                                    ) t ORDER BY timestamp
+                                """, user, chat_user, PAGE)
                             history = []
                             for m in messages:
                                 if m['kind'] == 'msg':
@@ -1973,7 +1994,7 @@ async def websocket_endpoint(ws: WebSocket, user: str, token: str = ""):
                                     if call_row:
                                         history.append({"type": "call", "id": m['id'], "caller": call_row['caller'], "callee": call_row['callee'],
                                                         "call_type": call_row['call_type'], "status": call_row['status'], "duration": call_row['duration']})
-                            await ws.send_json({"action": "history", "messages": history})
+                            await ws.send_json({"action": "history", "messages": history, "has_more": len(history) >= PAGE, "oldest_id": history[0]["id"] if history else None})
                             # Помечаем входящие как прочитанные и уведомляем отправителя
                             updated = await conn2.fetch("""
                                 UPDATE messages SET is_read = 1
