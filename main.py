@@ -1966,7 +1966,7 @@ async def websocket_endpoint(ws: WebSocket, user: str, token: str = ""):
                                     reply_data = None
                                     if m['reply_to'] and m['reply_sender'] is not None:
                                         reply_data = {"id": m['reply_to'], "sender": m['reply_sender'], "text": m['reply_text']}
-                                    history.append({"type": "msg", "id": m['id'], "sender": m['sender'], "text": m['text'], "is_read": m['is_read'], "edited": bool(m['edited']), "reply": reply_data})
+                                    history.append({"type": "msg", "id": m['id'], "sender": m['sender'], "text": m['text'], "is_read": m['is_read'], "edited": bool(m['edited']), "reply": reply_data, "timestamp": m['timestamp'].isoformat() if m['timestamp'] else None})
                                 else:
                                     # fetch call details
                                     call_row = await conn2.fetchrow("SELECT caller,callee,call_type,status,duration FROM calls WHERE id=$1", m['id'])
