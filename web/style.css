@@ -415,6 +415,7 @@ body {
     font-weight: bold;
     overflow: hidden;
     flex-shrink: 0;
+    position: relative;
     aspect-ratio: 1 / 1;
     object-fit: cover;
 }
@@ -429,6 +430,9 @@ body {
     height: 100%;
     object-fit: cover;
     border-radius: 50% !important;
+    display: block;
+    position: absolute;
+    top: 0; left: 0;
 }
 
 /* Для букв внутри аватарок */
@@ -5699,3 +5703,21 @@ img[loading="lazy"].loaded { opacity: 1; }
 /* Edit bar accent */
 .edit-bar .reply-bar-icon { color: var(--accent); }
 .edit-bar { border-left-color: var(--accent); }
+
+/* Load more history button */
+.load-more-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 8px auto;
+    padding: 6px 16px;
+    background: rgba(255,255,255,0.1);
+    color: rgba(255,255,255,0.7);
+    border-radius: 20px;
+    font-size: 13px;
+    cursor: pointer;
+    width: fit-content;
+    transition: background 0.15s;
+    user-select: none;
+}
+.load-more-btn:hover { background: rgba(255,255,255,0.18); }
