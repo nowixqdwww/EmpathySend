@@ -47,6 +47,8 @@ let selectedMessageSender = null
 // Хранилище чатов и непрочитанных сообщений
 let chatsCache = {}
 let unreadCounts = {}
+let historyHasMore = false
+let historyLoadingMore = false
 
 // ============= ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ =============
 
@@ -2878,6 +2880,24 @@ function openChat(phone, displayName) {
         activeChat.classList.add('active')
     }
 }
+function loadMoreHistory() {
+    if (!currentChat || !ws || ws.readyState !== WebSocket.OPEN || historyLoadingMore || !historyHasMore) return
+    historyLoadingMore = true
+    const _mc = document.getElementById('messages')
+    // Find oldest message id in DOM
+    const _first = _mc.querySelector('[data-message-id]')
+    const _oldestId = _first ? parseInt(_first.dataset.messageId) : null
+    if (!_oldestId) return
+    // Show spinner
+    const _sp = document.createElement('div')
+    _sp.id = 'loadMoreSpinner'
+    _sp.className = 'load-more-btn'
+    _sp.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'
+    const _btn = document.getElementById('loadMoreBtn')
+    if (_btn) _btn.replaceWith(_sp); else _mc.insertBefore(_sp, _mc.firstChild)
+    ws.send(JSON.stringify({ action: 'history', user: currentChat, before_id: _oldestId }))
+}
+
 function loadMessages() {
     if (!currentChat) return
     if (!ws || ws.readyState !== WebSocket.OPEN) {
@@ -3336,6 +3356,11 @@ function sendForwarded(toPhone, text, originalSender) {
 
 // ============= WEBSOCKET =============
 
+// Load more on scroll to top
+document.getElementById('messages')?.addEventListener('scroll', function() {
+    if (this.scrollTop < 80 && historyHasMore && !historyLoadingMore) loadMoreHistory()
+})
+
 function connect() {
     if (pingInterval) clearInterval(pingInterval)
     if (reconnectTimeout) clearTimeout(reconnectTimeout)
@@ -3517,11 +3542,27 @@ function connect() {
 
             if (data.action === 'history') {
                 const _mc = document.getElementById('messages')
-                _mc.innerHTML = ''
-                let _lastDate = null
+                const _isPagination = data.oldest_id && _mc.children.length > 0
+                historyHasMore = !!data.has_more
+                historyLoadingMore = false
+                if (!_isPagination) {
+                    _mc.innerHTML = ''
+                }
+                // Remove load-more spinner if exists
+                document.getElementById('loadMoreSpinner')?.remove()
+                const _scrollBottom = _mc.scrollHeight - _mc.scrollTop
+                let _lastDate = _isPagination ? null : null
+                const _frag = document.createDocumentFragment()
                 data.messages.forEach(m => {
                     const _dl = formatMessageDate(m.timestamp)
-                    if (_dl && _dl !== _lastDate) { insertDateSeparator(_mc, _dl); _lastDate = _dl }
+                    if (_dl && _dl !== _lastDate) {
+                        const _sep = document.createElement('div')
+                        _sep.className = 'date-separator'
+                        _sep.dataset.date = _dl
+                        _sep.innerHTML = '<span>' + _dl + '</span>'
+                        _frag.appendChild(_sep)
+                        _lastDate = _dl
+                    }
                     if (m.type === 'call') {
                         const isMe = m.caller === currentUser
                         let callStatus
@@ -3542,6 +3583,27 @@ function connect() {
                         }
                     }
                 })
+                // Append rendered fragment
+                if (_isPagination) {
+                    _mc.insertBefore(_frag, _mc.firstChild)
+                    _mc.scrollTop = _mc.scrollHeight - _scrollBottom
+                } else {
+                    _mc.appendChild(_frag)
+                    _mc.scrollTop = _mc.scrollHeight
+                }
+                document.getElementById('loadMoreSpinner')?.remove()
+                if (historyHasMore) {
+                    if (!document.getElementById('loadMoreBtn')) {
+                        const _btn = document.createElement('div')
+                        _btn.id = 'loadMoreBtn'
+                        _btn.className = 'load-more-btn'
+                        _btn.textContent = '↑ Загрузить ещё'
+                        _btn.onclick = loadMoreHistory
+                        _mc.insertBefore(_btn, _mc.firstChild)
+                    }
+                } else {
+                    document.getElementById('loadMoreBtn')?.remove()
+                }
             }
 
             if (data.action === 'call_record') {
