@@ -5692,3 +5692,7 @@ img[loading="lazy"].loaded { opacity: 1; }
     -webkit-user-select: text !important;
     user-select: text !important;
 }
+
+/* Edit bar accent */
+.edit-bar .reply-bar-icon { color: var(--accent); }
+.edit-bar { border-left-color: var(--accent); }
