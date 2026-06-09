@@ -1146,18 +1146,24 @@ function openAvatarEditor(imageUrl) {
         }
         
         cropper = new Cropper(image, {
-            aspectRatio: 1 / 1,
-            viewMode: 1,
+            aspectRatio: 1,
+            viewMode: 2,
             dragMode: 'move',
-            autoCropArea: 1,
+            autoCropArea: 0.9,
             cropBoxMovable: true,
             cropBoxResizable: true,
             toggleDragModeOnDblclick: false,
-            minCropBoxWidth: 100,
-            minCropBoxHeight: 100,
+            minCropBoxWidth: 80,
+            minCropBoxHeight: 80,
             zoomable: true,
-            scalable: true,
-            rotatable: true
+            scalable: false,
+            rotatable: true,
+            background: false,
+            modal: true,
+            guides: false,
+            center: true,
+            highlight: false,
+            movable: true
         })
         
         updateZoomLevel()
