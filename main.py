@@ -1304,11 +1304,15 @@ async def get_video(video_id: int):
 @app.get("/api/theme/{phone}")
 async def get_theme(phone: str):
     try:
+        import json as _jt
         async with db_conn() as conn:
             row = await conn.fetchrow("SELECT theme_data FROM theme_settings WHERE phone = $1", phone)
-            return {"theme": dict(row["theme_data"]) if row else {}}
+            if not row: return {"theme": {}}
+            raw = row["theme_data"]
+            return {"theme": _jt.loads(raw) if isinstance(raw, str) else (raw if isinstance(raw, dict) else {})}
     except Exception as e:
-            return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.error(f"get_theme error: {e}")
+        return {"theme": {}}
 
 @app.post("/api/theme/{phone}")
 async def save_theme(phone: str, request: Request):
@@ -1417,14 +1421,22 @@ async def get_music_status(phone: str):
     except Exception as e:
             return JSONResponse(status_code=500, content={"error": str(e)})
 
-@app.post("/api/online-status")
+@app.api_route("/api/online-status", methods=["POST", "GET", "OPTIONS"])
 async def online_status(request: Request):
-    """Возвращает онлайн-статус для списка телефонов."""
+    if request.method == "OPTIONS":
+        return JSONResponse({}, headers={"Allow": "POST, GET, OPTIONS"})
     try:
-        data = await request.json()
-        phones = data.get("phones", [])
-        return {p: (p in clients) for p in phones}
+        body = await request.body()
+        phones = (await request.json()).get("phones", []) if body else []
+        result = {p: (p in clients) for p in phones}
+        async with db_conn() as conn:
+            for p in phones:
+                if not result[p]:
+                    ls = await conn.fetchval("SELECT last_seen FROM users WHERE phone = $1", p)
+                    if ls: result[f"{p}__last_seen"] = ls.isoformat()
+        return result
     except Exception as e:
+        logger.error(f"online-status error: {e}")
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/search")
@@ -1946,41 +1958,20 @@ async def websocket_endpoint(ws: WebSocket, user: str, token: str = ""):
 
                 elif action == "history":
                     chat_user = data.get("user")
-                    before_id = data.get("before_id")  # for pagination
                     if chat_user:
                         async with db_conn() as conn2:
-                            PAGE = 50
-                            if before_id:
-                                messages = await conn2.fetch("""
-                                    SELECT * FROM (
-                                        SELECT m.id, m.sender, m.text, m.is_read, m.edited, m.timestamp, 'msg' AS kind,
-                                               m.reply_to, r.sender AS reply_sender, r.text AS reply_text
-                                        FROM messages m
-                                        LEFT JOIN messages r ON r.id = m.reply_to AND r.is_deleted = 0
-                                        WHERE ((m.sender = $1 AND m.receiver = $2) OR (m.sender = $2 AND m.receiver = $1))
-                                        AND m.is_deleted = 0 AND m.id < $3
-                                        UNION ALL
-                                        SELECT id, caller AS sender, '' AS text, 0 AS is_read, FALSE AS edited, timestamp, 'call' AS kind, NULL::INTEGER, NULL::TEXT, NULL::TEXT FROM calls
-                                        WHERE (caller = $1 AND callee = $2) OR (caller = $2 AND callee = $1)
-                                        AND id < $3
-                                        ORDER BY timestamp DESC LIMIT $4
-                                    ) t ORDER BY timestamp
-                                """, user, chat_user, before_id, PAGE)
-                            else:
-                                messages = await conn2.fetch("""
-                                    SELECT * FROM (
-                                        SELECT m.id, m.sender, m.text, m.is_read, m.edited, m.timestamp, 'msg' AS kind,
-                                               m.reply_to, r.sender AS reply_sender, r.text AS reply_text
-                                        FROM messages m
-                                        LEFT JOIN messages r ON r.id = m.reply_to AND r.is_deleted = 0
-                                        WHERE ((m.sender = $1 AND m.receiver = $2) OR (m.sender = $2 AND m.receiver = $1))
-                                        AND m.is_deleted = 0
-                                        UNION ALL
-                                        SELECT id, caller AS sender, '' AS text, 0 AS is_read, FALSE AS edited, timestamp, 'call' AS kind, NULL::INTEGER, NULL::TEXT, NULL::TEXT FROM calls
-                                        WHERE (caller = $1 AND callee = $2) OR (caller = $2 AND callee = $1)
-                                        ORDER BY timestamp DESC LIMIT $3
-                                    ) t ORDER BY timestamp
-                                """, user, chat_user, PAGE)
+                            messages = await conn2.fetch("""
+                                SELECT m.id, m.sender, m.text, m.is_read, m.edited, m.timestamp, 'msg' AS kind,
+                                       m.reply_to, r.sender AS reply_sender, r.text AS reply_text
+                                FROM messages m
+                                LEFT JOIN messages r ON r.id = m.reply_to AND r.is_deleted = 0
+                                WHERE ((m.sender = $1 AND m.receiver = $2) OR (m.sender = $2 AND m.receiver = $1))
+                                AND m.is_deleted = 0
+                                UNION ALL
+                                SELECT id, caller AS sender, '' AS text, 0 AS is_read, FALSE AS edited, timestamp, 'call' AS kind, NULL::INTEGER, NULL::TEXT, NULL::TEXT FROM calls
+                                WHERE (caller = $1 AND callee = $2) OR (caller = $2 AND callee = $1)
+                                ORDER BY timestamp
+                            """, user, chat_user)
                             history = []
                             for m in messages:
                                 if m['kind'] == 'msg':
@@ -1994,7 +1985,7 @@ async def websocket_endpoint(ws: WebSocket, user: str, token: str = ""):
                                     if call_row:
                                         history.append({"type": "call", "id": m['id'], "caller": call_row['caller'], "callee": call_row['callee'],
                                                         "call_type": call_row['call_type'], "status": call_row['status'], "duration": call_row['duration']})
-                            await ws.send_json({"action": "history", "messages": history, "has_more": len(history) >= PAGE, "oldest_id": history[0]["id"] if history else None})
+                            await ws.send_json({"action": "history", "messages": history})
                             # Помечаем входящие как прочитанные и уведомляем отправителя
                             updated = await conn2.fetch("""
                                 UPDATE messages SET is_read = 1
@@ -2270,6 +2261,13 @@ async def admin_stats(request: Request):
 @app.get("/admin")
 async def serve_admin():
     return FileResponse("web/admin.html")
+
+
+@app.get("/favicon.ico")
+async def favicon():
+    from fastapi.responses import Response
+    ico = bytes([0,0,1,0,1,0,1,1,0,0,1,0,32,0,40,0,0,0,22,0,0,0,40,0,0,0,1,0,0,0,2,0,0,0,1,0,32,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0])
+    return Response(content=ico, media_type="image/x-icon")
 
 import pathlib
 _web_dir = pathlib.Path("web")
