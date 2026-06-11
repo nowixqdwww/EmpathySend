@@ -16,6 +16,22 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
+<svg width="0" height="0" style="position:absolute">
+    <filter id="liquid-glass">
+        <feTurbulence
+            type="fractalNoise"
+            baseFrequency="0.012 0.012"
+            numOctaves="2"
+            result="noise"
+        />
+    
+        <feDisplacementMap
+            in="SourceGraphic"
+            in2="noise"
+            scale="18"
+        />
+    </filter>
+</svg>
 <body>
 
 <!-- Экран входа -->
