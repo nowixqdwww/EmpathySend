@@ -6225,3 +6225,27 @@ img[loading="lazy"].loaded { opacity: 1; }
     color: rgba(255,255,255,.65);
     font-size: 14px;
 }
+
+.profile-header-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    margin-top: 12px;
+    margin-bottom: 24px;
+
+    text-align: center;
+}
+
+.profile-name {
+    font-size: 24px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.profile-status {
+    margin-top: 4px;
+
+    font-size: 14px;
+    color: rgba(255,255,255,.65);
+}
