@@ -38,8 +38,8 @@
     --input-area-bg: rgba(242,242,247,0.95);
 
     /* Модалки */
-    --modal-bg: #ffffff;
-    --modal-overlay: rgba(0,0,0,0.4);
+    --modal-bg: rgba(255,255,255,0.72);
+    --modal-overlay: rgba(0,0,0,0.25);
 
     /* Контекстное меню */
     --ctx-menu-bg: rgba(255,255,255,0.95);
@@ -47,8 +47,8 @@
 
     /* Сообщения фон */
     --messages-bg: #f2f2f7;
-    --modal-bg: #ffffff;
-    --modal-overlay: rgba(0,0,0,0.4);
+    --modal-bg: rgba(255,255,255,0.72);
+    --modal-overlay: rgba(0,0,0,0.25);
     --ctx-menu-bg: rgba(255,255,255,0.97);
     --ctx-menu-text: #1c1c1e;
     --bg-input: #ffffff;
@@ -87,8 +87,8 @@
     --chat-header-bg: rgba(28,28,30,0.95);
     --input-area-bg: rgba(28,28,30,0.95);
 
-    --modal-bg: #2c2c2e;
-    --modal-overlay: rgba(0,0,0,0.6);
+    --modal-bg: rgba(44,44,46,0.78);
+    --modal-overlay: rgba(0,0,0,0.45);
 
     --ctx-menu-bg: rgba(44,44,46,0.97);
     --ctx-menu-text: #ffffff;
@@ -1536,6 +1536,10 @@ body {
 
 .modal-body {
     padding: 20px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    flex: 1;
+    min-height: 0;
 }
 
 /* Просмотр профиля */
@@ -4335,7 +4339,7 @@ body { background: var(--bg-primary); }
 .reactions-panel, .settings-section,
 .forward-modal-content, .profile-view,
 .theme-modal-content {
-    background: var(--modal-bg) !important;
+    background: var(--modal-bg);
 }
 
 /* ── Контекстные меню ── */
