@@ -5972,3 +5972,226 @@ img[loading="lazy"].loaded { opacity: 1; }
     background:
         rgba(138,108,255,.25);
 }
+
+/* =========================
+   PROFILE SCREEN
+========================= */
+
+#section-profile {
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    background:
+        radial-gradient(circle at top left,
+            rgba(138,108,255,.35),
+            transparent 40%),
+        radial-gradient(circle at bottom right,
+            rgba(91,175,255,.25),
+            transparent 40%),
+        #0f1117;
+}
+
+.app-container {
+    width: 100%;
+    max-width: 450px;
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    background: transparent;
+}
+
+/* =========================
+   CARD
+========================= */
+
+.profile-card {
+    width: 360px;
+
+    padding: 26px;
+
+    border-radius: 36px;
+
+    background: rgba(255,255,255,.08);
+
+    backdrop-filter: blur(30px);
+    -webkit-backdrop-filter: blur(30px);
+
+    border: 1px solid rgba(255,255,255,.12);
+
+    box-shadow:
+        0 12px 40px rgba(0,0,0,.35);
+
+    position: relative;
+}
+
+/* =========================
+   TOP BUTTONS
+========================= */
+
+.icon-close,
+.icon-more {
+    position: absolute;
+
+    width: 36px;
+    height: 36px;
+
+    padding: 10px;
+
+    border-radius: 50%;
+
+    background: rgba(255,255,255,.08);
+
+    border: 1px solid rgba(255,255,255,.12);
+
+    backdrop-filter: blur(16px);
+
+    cursor: pointer;
+}
+
+.icon-close {
+    top: 18px;
+    right: 18px;
+}
+
+.icon-more {
+    top: 18px;
+    right: 62px;
+}
+
+/* =========================
+   PROFILE
+========================= */
+
+.profile-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    margin-top: 10px;
+}
+
+.avatar {
+    width: 110px;
+    height: 110px;
+
+    border-radius: 50%;
+
+    border: 3px solid rgba(255,255,255,.15);
+
+    box-shadow:
+        0 12px 30px rgba(0,0,0,.25);
+
+    margin-bottom: 14px;
+}
+
+.name {
+    color: white;
+    font-size: 22px;
+    font-weight: 700;
+}
+
+.status {
+    color: rgba(255,255,255,.65);
+    font-size: 14px;
+}
+
+/* =========================
+   INFO BLOCK
+========================= */
+
+.details-list {
+    margin-top: 24px;
+
+    border-radius: 24px;
+
+    background: rgba(255,255,255,.05);
+
+    border: 1px solid rgba(255,255,255,.08);
+
+    overflow: hidden;
+}
+
+.detail-item {
+    padding: 16px 20px;
+}
+
+.detail-label {
+    display: block;
+
+    color: rgba(255,255,255,.55);
+
+    font-size: 12px;
+
+    margin-bottom: 4px;
+}
+
+.detail-value {
+    color: white;
+    font-size: 16px;
+    word-break: break-word;
+}
+
+.divider {
+    margin: 0;
+    border: none;
+
+    height: 1px;
+
+    background:
+        rgba(255,255,255,.08);
+}
+
+/* =========================
+   BUTTON
+========================= */
+
+.action-button {
+    margin-top: 22px;
+
+    width: 100%;
+    height: 56px;
+
+    border: none;
+    border-radius: 999px;
+
+    background:
+        linear-gradient(
+            135deg,
+            #8a6cff,
+            #b18cff
+        );
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+
+    cursor: pointer;
+
+    transition: .25s;
+
+    box-shadow:
+        0 10px 25px rgba(138,108,255,.35);
+}
+
+.action-button:hover {
+    transform: translateY(-2px);
+}
+
+.action-button span {
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.icon-message {
+    width: 18px;
+    height: 18px;
+    filter: brightness(0) invert(1);
+}
