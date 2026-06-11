@@ -1468,15 +1468,33 @@ body {
 }
 
 .modal-content {
-    background: #ffffff;
-    border-radius: 20px;
+    position: relative;
+
     width: 90%;
-    max-width: 400px;
+    max-width: 420px;
     max-height: 90vh;
+
     overflow-y: auto;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-    animation: slideUp 0.3s ease;
     -webkit-overflow-scrolling: touch;
+
+    background: rgba(255,255,255,0.08);
+
+    backdrop-filter: blur(30px) saturate(180%);
+    -webkit-backdrop-filter: blur(30px) saturate(180%);
+
+    border-radius: 32px;
+
+    border-top: 1px solid rgba(255,255,255,.35);
+    border-left: 1px solid rgba(255,255,255,.18);
+    border-right: 1px solid rgba(255,255,255,.08);
+    border-bottom: 1px solid rgba(255,255,255,.05);
+
+    box-shadow:
+        0 25px 60px rgba(0,0,0,.35);
+
+    animation: slideUp 0.3s ease;
+
+    overflow: hidden;
 }
 
 .modal-header {
@@ -6262,4 +6280,53 @@ img[loading="lazy"].loaded { opacity: 1; }
     font-weight: 400;
 
     color: rgba(255,255,255,.55);
+}
+
+.modal-content::before {
+    content: "";
+
+    position: absolute;
+    inset: 0;
+
+    background:
+        radial-gradient(
+            circle at top left,
+            rgba(255,255,255,.18),
+            transparent 45%
+        ),
+        radial-gradient(
+            circle at bottom right,
+            rgba(255,255,255,.08),
+            transparent 45%
+        );
+
+    pointer-events: none;
+}
+
+.modal-content::after {
+    content: "";
+
+    position: absolute;
+
+    top: 0;
+    left: 0;
+    right: 0;
+
+    height: 35%;
+
+    background:
+        linear-gradient(
+            to bottom,
+            rgba(255,255,255,.18),
+            transparent
+        );
+
+    pointer-events: none;
+}
+
+#profileModal .modal-content {
+    background: rgba(255,255,255,.08) !important;
+
+    backdrop-filter: blur(30px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
 }
