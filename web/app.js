@@ -2272,11 +2272,24 @@ function updateInputButtons() {
     }
 }
 
+function autoResizeInput(el) {
+    if (!el) return
+    el.style.overflowY = 'hidden'
+    el.style.height = '44px'
+    const h = Math.min(el.scrollHeight, 160)
+    el.style.height = h + 'px'
+    el.style.overflowY = h >= 160 ? 'auto' : 'hidden'
+    el.style.borderRadius = h > 50 ? '16px' : '20px'
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     updateVoiceBtnBehavior()
     updateInputButtons()
 
-    document.getElementById('text')?.addEventListener('input', updateInputButtons)
+    document.getElementById('text')?.addEventListener('input', function() {
+        updateInputButtons()
+        autoResizeInput(this)
+    })
     document.getElementById('videomsgBtn')?.addEventListener('click', () => openVideoRecorder())
     document.getElementById('voiceBtn')?.addEventListener('mousedown', e => {
         if (e.button !== 0) return
@@ -3035,7 +3048,9 @@ async function send() {
 
     ws.send(JSON.stringify({ action: 'send', to: currentChat, text, reply_to: replyState?.id || null }))
     cancelReply()
-    document.getElementById('text').value = ''
+    const _ti = document.getElementById('text')
+    _ti.value = ''
+    autoResizeInput(_ti)
     updateInputButtons()
     updateChatInList(currentChat, text, false)
 }
