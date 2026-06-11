@@ -85,10 +85,10 @@ function updateChatStatusText(phone, isOnline) {
     const el = document.getElementById('chatUserStatus')
     if (!el) return
     if (isOnline) {
-        el.textContent = 'онлайн'
+        el.textContent = 'online' #замена 20:40 11.06
         el.className = 'chat-user-status'
     } else {
-        el.textContent = lastSeenMap[phone] ? formatLastSeen(lastSeenMap[phone]) : 'оффлайн'
+        el.textContent = lastSeenMap[phone] ? formatLastSeen(lastSeenMap[phone]) : 'offline' #замена 20:40 11.06
         el.className = 'chat-user-status offline'
     }
 }
@@ -962,8 +962,8 @@ async function showUserProfile(phone, isMyProfile = false) {
         
         const isOnline = window.clients && window.clients[phone] === true
         document.getElementById('modalStatus').innerHTML = isOnline ? 
-            '<span style="color: #4ade80;">● Онлайн</span>' : 
-            '<span style="color: #f87171;">● Оффлайн</span>'
+            '<span style="color: #4ade80;">online</span>' : 
+            '<span style="color: #f87171;">offline</span>'
         
         modalActions.innerHTML = ''
 
