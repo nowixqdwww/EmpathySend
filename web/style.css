@@ -5721,3 +5721,254 @@ img[loading="lazy"].loaded { opacity: 1; }
     user-select: none;
 }
 .load-more-btn:hover { background: rgba(255,255,255,0.18); }
+
+/* =========================
+   LIQUID GLASS REDESIGN
+========================= */
+
+:root {
+    --glass-bg: rgba(255,255,255,0.08);
+    --glass-border: rgba(255,255,255,0.15);
+    --glass-shadow: 0 8px 32px rgba(0,0,0,.25);
+
+    --accent: #8a6cff;
+    --accent-light: #a68cff;
+}
+
+/* Фон */
+
+.chat-screen,
+.chat-area,
+.messages {
+    background:
+        radial-gradient(circle at top left,
+            rgba(138,108,255,.35),
+            transparent 40%),
+        radial-gradient(circle at bottom right,
+            rgba(83,153,255,.25),
+            transparent 40%),
+        #0f1117;
+}
+
+.chat-container {
+    background: transparent;
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.chat-header {
+    margin: 16px;
+    padding: 12px 18px;
+
+    border-radius: 999px;
+
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+
+    box-shadow: var(--glass-shadow);
+}
+
+.chat-user-avatar,
+.chat-avatar {
+    width: 44px;
+    height: 44px;
+
+    border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.15);
+}
+
+/* =========================
+   CHAT ACTIONS
+========================= */
+
+.chat-actions button,
+.chat-header button {
+    width: 42px;
+    height: 42px;
+
+    border-radius: 50%;
+
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.12);
+
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+
+    transition: .25s;
+}
+
+.chat-actions button:hover,
+.chat-header button:hover {
+    transform: translateY(-2px);
+    background: rgba(255,255,255,.15);
+}
+
+/* =========================
+   MESSAGES AREA
+========================= */
+
+.messages {
+    padding: 24px;
+}
+
+/* Сообщение пользователя */
+
+.message.me,
+.message.sent {
+    background:
+        linear-gradient(
+            135deg,
+            rgba(138,108,255,.95),
+            rgba(166,140,255,.95)
+        );
+
+    color: white;
+
+    border-radius: 24px;
+    box-shadow: 0 8px 24px rgba(138,108,255,.35);
+}
+
+/* Сообщение собеседника */
+
+.message.other,
+.message.received {
+    background: rgba(255,255,255,.08);
+
+    border: 1px solid rgba(255,255,255,.08);
+
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+
+    border-radius: 24px;
+
+    color: white;
+}
+
+/* =========================
+   INPUT BAR
+========================= */
+
+.input-area {
+    margin: 16px;
+    padding: 10px 14px;
+
+    border-radius: 999px;
+
+    background: rgba(255,255,255,.08);
+
+    border: 1px solid rgba(255,255,255,.12);
+
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+
+    box-shadow: var(--glass-shadow);
+}
+
+/* Поле ввода */
+
+.message-input,
+#messageInput {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+
+    color: white;
+}
+
+.message-input::placeholder,
+#messageInput::placeholder {
+    color: rgba(255,255,255,.6);
+}
+
+/* =========================
+   SEND BUTTON
+========================= */
+
+.send-btn,
+.send-button {
+    width: 48px;
+    height: 48px;
+
+    border-radius: 50%;
+
+    background:
+        linear-gradient(
+            135deg,
+            #8a6cff,
+            #b18cff
+        );
+
+    border: none;
+
+    box-shadow:
+        0 6px 24px rgba(138,108,255,.45);
+
+    transition: .25s;
+}
+
+.send-btn:hover,
+.send-button:hover {
+    transform: scale(1.05);
+}
+
+/* =========================
+   ATTACH BUTTONS
+========================= */
+
+.attach-btn,
+.sticker-btn,
+.voice-btn {
+    width: 42px;
+    height: 42px;
+
+    border-radius: 50%;
+
+    background: rgba(255,255,255,.08);
+
+    border: 1px solid rgba(255,255,255,.12);
+
+    backdrop-filter: blur(18px);
+
+    transition: .25s;
+}
+
+.attach-btn:hover,
+.sticker-btn:hover,
+.voice-btn:hover {
+    transform: translateY(-2px);
+    background: rgba(255,255,255,.15);
+}
+
+/* =========================
+   SIDEBAR
+========================= */
+
+.sidebar {
+    background:
+        rgba(255,255,255,.05);
+
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+
+    border-right:
+        1px solid rgba(255,255,255,.08);
+}
+
+.chat-item {
+    border-radius: 18px;
+    transition: .25s;
+}
+
+.chat-item:hover {
+    background: rgba(255,255,255,.08);
+}
+
+.chat-item.active {
+    background:
+        rgba(138,108,255,.25);
+}
