@@ -1129,10 +1129,18 @@ body {
     min-width: 0;
     padding: 12px 15px;
     border: 1px solid var(--border);
-    border-radius: 25px;
+    border-radius: 20px;
     font-size: 14px;
     outline: none;
-    transition: border-color 0.2s;
+    transition: border-color 0.2s, border-radius 0.15s;
+    resize: none;
+    overflow-y: hidden;
+    height: 44px;
+    min-height: 44px;
+    max-height: 160px;
+    line-height: 1.4;
+    display: block;
+    box-sizing: border-box;
 }
 
 .message-input:focus {
@@ -1469,16 +1477,16 @@ body {
 
 .modal-content {
     position: relative;
+    display: flex;
+    flex-direction: column;
 
     width: 90%;
     max-width: 420px;
     max-height: 90vh;
 
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: hidden;
 
     background: rgba(255,255,255,0.08);
-
     backdrop-filter: blur(30px) saturate(180%);
     -webkit-backdrop-filter: blur(30px) saturate(180%);
 
@@ -1489,24 +1497,18 @@ body {
     border-right: 1px solid rgba(255,255,255,.08);
     border-bottom: 1px solid rgba(255,255,255,.05);
 
-    box-shadow:
-        0 25px 60px rgba(0,0,0,.35);
-
+    box-shadow: 0 25px 60px rgba(0,0,0,.35);
     animation: slideUp 0.3s ease;
-
-    overflow: hidden;
 }
 
 .modal-header {
-    padding: 20px;
-    border: 1px solid var(--border);
+    padding: 18px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    position: sticky;
-    top: 0;
-    background: var(--bg-secondary);
-    border-radius: 20px 20px 0 0;
+    flex-shrink: 0;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    background: transparent;
     z-index: 10;
 }
 
@@ -4321,7 +4323,8 @@ body { background: var(--bg-primary); }
 
 /* ── Модалки ── */
 .modal { background: var(--modal-overlay) !important; }
-.modal-content, .modal-body, .modal-header,
+/* modal-content keeps glass bg - only body/header get theme bg */
+.modal-body, .modal-header,
 .sticker-modal, .sticker-modal-header,
 .emoji-picker, .emoji-container,
 .reactions-panel,
@@ -4332,10 +4335,12 @@ body { background: var(--bg-primary); }
 .wallpaper-grid, .theme-preview-chat,
 .chat-dropdown-menu > *,
 .video-recorder-modal > * {
-    background: var(--modal-bg);
     color: var(--text-primary);
 }
-.modal-content, .sticker-modal, .emoji-picker,
+.modal-body {
+    background: transparent;
+}
+.sticker-modal, .emoji-picker,
 .reactions-panel, .settings-section,
 .forward-modal-content, .profile-view,
 .theme-modal-content {
