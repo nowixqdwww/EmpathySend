@@ -85,10 +85,10 @@ function updateChatStatusText(phone, isOnline) {
     const el = document.getElementById('chatUserStatus')
     if (!el) return
     if (isOnline) {
-        el.textContent = 'online' #замена 20:40 11.06
+        el.textContent = 'online' //замена 20:40 11.06
         el.className = 'chat-user-status'
     } else {
-        el.textContent = lastSeenMap[phone] ? formatLastSeen(lastSeenMap[phone]) : 'offline' #замена 20:40 11.06
+        el.textContent = lastSeenMap[phone] ? formatLastSeen(lastSeenMap[phone]) : 'offline' //замена 20:40 11.06
         el.className = 'chat-user-status offline'
     }
 }
