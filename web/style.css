@@ -1542,6 +1542,7 @@ body {
     -webkit-overflow-scrolling: touch;
     flex: 1;
     min-height: 0;
+    background: transparent !important;
 }
 
 /* Просмотр профиля */
@@ -4455,7 +4456,12 @@ button, input, textarea, select,
 button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 0.1s, opacity 0.15s !important; }
 
 /* ═══ ТЁМНАЯ ТЕМА — прямые значения ═══ */
-[data-theme="dark"] .modal-content,
+/* modal-content keeps glass - only inner elements get dark bg */
+[data-theme="dark"] .modal-content {
+    background: rgba(28,28,30,0.72) !important;
+    backdrop-filter: blur(30px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
+}
 [data-theme="dark"] .modal-body,
 [data-theme="dark"] .modal-header,
 [data-theme="dark"] .sticker-modal,
@@ -4472,7 +4478,7 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
 [data-theme="dark"] .theme-modal-body,
 [data-theme="dark"] .chat-dropdown-menu,
 [data-theme="dark"] .context-menu {
-    background: #2c2c2e !important;
+    background: transparent !important;
     color: #ffffff !important;
 }
 
