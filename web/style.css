@@ -6195,3 +6195,33 @@ img[loading="lazy"].loaded { opacity: 1; }
     height: 18px;
     filter: brightness(0) invert(1);
 }
+
+.profile-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.name {
+    width: 100%;
+
+    text-align: center;
+
+    margin-top: 8px;
+    margin-bottom: 4px;
+
+    color: white;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.status {
+    width: 100%;
+
+    text-align: center;
+
+    color: rgba(255,255,255,.65);
+    font-size: 14px;
+}
