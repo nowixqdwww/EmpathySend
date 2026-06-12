@@ -4346,7 +4346,7 @@ body { background: var(--bg-primary); }
 }
 .sticker-modal, .emoji-picker,
 .reactions-panel, .settings-section,
-.forward-modal-content, .profile-view,
+.forward-modal-content,
 .theme-modal-content {
     background: var(--modal-bg);
 }
