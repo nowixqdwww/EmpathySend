@@ -4394,7 +4394,7 @@ body { background: var(--bg-primary); }
 
 /* ── Разделители ── */
 .settings-item { border-bottom-color: var(--border); }
-.settings-section { background: var(--bg-secondary) !important; }
+/*.settings-section { background: var(--bg-secondary) !important; }*/
 
 /* ── Сообщения ── */
 .message.other { background: var(--bubble-other) !important; color: var(--bubble-other-text) !important; }
