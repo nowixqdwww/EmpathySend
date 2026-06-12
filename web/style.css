@@ -6323,7 +6323,7 @@ img[loading="lazy"].loaded { opacity: 1; }
 
 #profileModal .modal-content,
 .profile-modal-content {
-    background: rgba(255,255,255,.50) !important; /*19:30*/
+    background: rgba(255,255,255,.70) !important; /*19:30*/
 
     backdrop-filter: blur(35px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(35px) saturate(180%) !important;
