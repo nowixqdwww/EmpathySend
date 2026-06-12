@@ -6326,7 +6326,7 @@ img[loading="lazy"].loaded { opacity: 1; }
 }
 
 [data-theme="dark"] {
-    --profile-modal-bg: rgba(20, 20, 25, .65);
+    --profile-modal-bg: rgba(255, 255, 255, .10);
 }
 
 #profileModal .modal-content,
