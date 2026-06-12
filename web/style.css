@@ -6320,19 +6320,20 @@ img[loading="lazy"].loaded { opacity: 1; }
     z-index: 0;
     border-radius: inherit;
 }
-
-/* Светлая тема */
-[data-theme="light"] #profileModal .modal-content,
-[data-theme="light"] .profile-modal-content {
-    background: rgba(255, 255, 255, 0.60) !important;
+/*21:17*/
+:root {
+    --profile-modal-bg: rgba(255, 255, 255, .60);
 }
 
-/* Тёмная тема */
-[data-theme="dark"] #profileModal .modal-content,
-[data-theme="dark"] .profile-modal-content {
-    background: rgba(20, 20, 25, 0.10) !important;
-} /*21:00*/
+[data-theme="dark"] {
+    --profile-modal-bg: rgba(20, 20, 25, .65);
+}
 
+#profileModal .modal-content,
+.profile-modal-content {
+    background: var(--profile-modal-bg) !important;
+}
+/*21:17*/
     backdrop-filter: blur(35px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(35px) saturate(180%) !important;
 
