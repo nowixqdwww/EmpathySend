@@ -6321,14 +6321,22 @@ img[loading="lazy"].loaded { opacity: 1; }
     border-radius: inherit;
 }
 
-#profileModal .modal-content,
-.profile-modal-content {
-    background: rgba(255,255,255,.70) !important; /*19:30*/
+/* Светлая тема */
+[data-theme="light"] #profileModal .modal-content,
+[data-theme="light"] .profile-modal-content {
+    background: rgba(255, 255, 255, 0.60) !important;
+}
+
+/* Тёмная тема */
+[data-theme="dark"] #profileModal .modal-content,
+[data-theme="dark"] .profile-modal-content {
+    background: rgba(20, 20, 25, 0.10) !important;
+} /*21:00*/
 
     backdrop-filter: blur(35px) saturate(180%) !important;
     -webkit-backdrop-filter: blur(35px) saturate(180%) !important;
 
-    border: none !important; /*19:30*/
+    border: none !important;
 
     box-shadow:
         0 20px 60px rgba(0,0,0,.15) !important;
