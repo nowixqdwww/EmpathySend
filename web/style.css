@@ -4479,8 +4479,7 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
 [data-theme="dark"] .profile-edit,
 [data-theme="dark"] .theme-modal-content,
 [data-theme="dark"] .theme-modal-body,
-[data-theme="dark"] .chat-dropdown-menu,
-[data-theme="dark"] .context-menu {
+[data-theme="dark"] .chat-dropdown-menu {
     background: transparent !important;
     color: #ffffff !important;
 }
