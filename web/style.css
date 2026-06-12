@@ -934,7 +934,7 @@ body {
 }
 
 .chat-user-status.offline {
-    color: #f87171;
+    color: rgba(255,255,255,.55); /*19:07*/
 }
 
 .chat-actions {
@@ -6350,7 +6350,7 @@ img[loading="lazy"].loaded { opacity: 1; }
 .profile-modal-content {
     position: relative;
 
-    background: rgba(255,255,255,.18); /*19:00*/
+    background: rgba(255,255,255,.30); /*19:05*/
 
     backdrop-filter:
         blur(35px)
@@ -6361,7 +6361,7 @@ img[loading="lazy"].loaded { opacity: 1; }
         saturate(180%);
 
     border-radius: 36px;
-    border: 1px solid rgba(255,255,255,.08); /*19:00*/
+    border: none; /*19:05*/
     border-top: 1px solid rgba(255,255,255,.35);
     border-left: 1px solid rgba(255,255,255,.18);
     border-right: 1px solid rgba(255,255,255,.08);
