@@ -963,7 +963,7 @@ async function showUserProfile(phone, isMyProfile = false) {
         const isOnline = window.clients && window.clients[phone] === true
         document.getElementById('modalStatus').innerHTML = isOnline ? 
             '<span style="color: #4ade80;">online</span>' : 
-            '<span style="color: #f87171;">offline</span>'
+            '<span style="color: #979797;">offline</span>'
         
         modalActions.innerHTML = ''
 
