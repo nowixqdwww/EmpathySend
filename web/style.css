@@ -1867,7 +1867,7 @@ body {
     /* Spring open animation */
     opacity: 0;
     transform: scale(0.75);
-    pointer-events: none;
+    pointer-events: auto;
     transition: none;
 }
 
