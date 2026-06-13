@@ -4535,16 +4535,6 @@ function toggleProfileMenu(e) {
     const rect = btn.getBoundingClientRect();
 
     menu.style.display = 'block';
-
-    requestAnimationFrame(() => {
-        menu.classList.add('visible');
-    });
-
-    menu.classList.remove('visible');
-
-    setTimeout(() => {
-        menu.style.display = 'none';
-    }, 200);
     
     menu.style.position = 'fixed';
     menu.style.top = (rect.bottom + 6) + 'px';
