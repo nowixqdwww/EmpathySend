@@ -4535,7 +4535,6 @@ function toggleProfileMenu(e) {
     const rect = btn.getBoundingClientRect();
 
     menu.style.display = 'block';
-    
     menu.style.position = 'fixed';
     menu.style.top = (rect.bottom + 6) + 'px';
     menu.style.left = (rect.right - 200) + 'px';
