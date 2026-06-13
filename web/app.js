@@ -4525,30 +4525,27 @@ function toggleProfileMenu(e) {
     e.stopPropagation();
 
     const menu = document.getElementById('profileDropdownMenu');
-    const btn = e.currentTarget;
+    const rect = e.currentTarget.getBoundingClientRect();
 
     if (menu.style.display === 'block') {
         menu.style.display = 'none';
         return;
     }
 
-    const rect = btn.getBoundingClientRect();
-
     menu.style.display = 'block';
-    menu.style.position = 'fixed';
-    menu.style.top = (rect.bottom + 6) + 'px';
-    menu.style.left = (rect.right - 200) + 'px';
-    menu.style.zIndex = '999999';
 
-    const close = (event) => {
-        if (!menu.contains(event.target) && event.target !== btn) {
+    menu.style.top = `${rect.bottom + 8}px`;
+    menu.style.left = `${rect.left}px`;
+
+    const closeMenu = (event) => {
+        if (!menu.contains(event.target)) {
             menu.style.display = 'none';
-            document.removeEventListener('click', close);
+            document.removeEventListener('click', closeMenu);
         }
     };
 
     setTimeout(() => {
-        document.addEventListener('click', close);
+        document.addEventListener('click', closeMenu);
     }, 0);
 }
 
