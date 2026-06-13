@@ -3969,7 +3969,7 @@ document.addEventListener('keydown', (e) => {
 })
 
 document.addEventListener('DOMContentLoaded', () => {
-    checkAuthOnLoad()
+    await checkAuthOnLoad()
     if (!currentUser) document.getElementById('loginPhone')?.focus()
     // Пре-рендер категорий эмодзи при загрузке страницы
     // (не сетку, только catBar — чтобы RAF внутри модала мог работать быстро)
