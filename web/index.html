@@ -380,30 +380,6 @@
             </div>
         </div>
 
-        <!-- Меню вынесено из header -->
-        <div
-            id="profileDropdownMenu"
-            class="context-menu"
-            style="
-                display:none;
-                position:fixed;
-                min-width:200px;
-                z-index:999999;
-            ">
-            <div
-                class="context-menu-item"
-                onclick="openChatThemeFromProfile()">
-                🎨 Тема чата
-            </div>
-
-            <div
-                class="context-menu-item delete"
-                onclick="blockFromProfile()">
-                <i class="fas fa-ban"></i>
-                Заблокировать
-            </div>
-        </div>
-
         <div class="modal-body">
             
             <!-- Просмотр профиля -->
@@ -1072,5 +1048,17 @@
     </div>
 </div>
 
+<!-- Контекстное меню профиля -->
+<div id="profileDropdownMenu" class="context-menu">
+    <div class="context-menu-item" onclick="openChatThemeFromProfile()">
+        🎨 Тема чата
+    </div>
+
+    <div class="context-menu-item delete" onclick="blockFromProfile()">
+        <i class="fas fa-ban"></i>
+        Заблокировать
+    </div>
+</div>
+    
 </body>
 </html>
