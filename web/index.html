@@ -357,32 +357,55 @@
     </div>
 </div>
 
-<!-- Модальное окно профиля (как в Telegram) -->
+<!-- Модальное окно профиля  -->
 <div id="profileModal" class="modal">
-    <div class="modal-content profile-modal-content">
+    <div class="modal-content">
+
         <div class="modal-header">
             <h2>Профиль</h2>
+
             <div style="display:flex;align-items:center;gap:6px">
                 <!-- Три точки — только для профиля собеседника -->
-                <div style="position:relative">
-                    <button class="close-btn" id="profileMenuBtn" style="display:none" onclick="toggleProfileMenu(event)">
-                        <i class="fas fa-ellipsis-vertical"></i>
-                    </button>
-                    <div id="profileDropdownMenu" class="context-menu" style="display:none;position:absolute;right:0;top:calc(100% + 4px);min-width:200px">
-                        <div class="context-menu-item" onclick="openChatThemeFromProfile()">
-                            🎨 Тема чата
-                        </div>
-                        <div class="context-menu-item delete" onclick="blockFromProfile()">
-                            <i class="fas fa-ban"></i> Заблокировать
-                        </div>
-                    </div>
-                </div>
+                <button
+                    class="close-btn"
+                    id="profileMenuBtn"
+                    style="display:none"
+                    onclick="toggleProfileMenu(event)">
+                    <i class="fas fa-ellipsis-vertical"></i>
+                </button>
+
                 <button class="close-btn" onclick="closeModal()">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
         </div>
+
+        <!-- Меню вынесено из header -->
+        <div
+            id="profileDropdownMenu"
+            class="context-menu"
+            style="
+                display:none;
+                position:fixed;
+                min-width:200px;
+                z-index:999999;
+            ">
+            <div
+                class="context-menu-item"
+                onclick="openChatThemeFromProfile()">
+                🎨 Тема чата
+            </div>
+
+            <div
+                class="context-menu-item delete"
+                onclick="blockFromProfile()">
+                <i class="fas fa-ban"></i>
+                Заблокировать
+            </div>
+        </div>
+
         <div class="modal-body">
+            
             <!-- Просмотр профиля -->
             <div class="profile-view" id="profileView">
 
