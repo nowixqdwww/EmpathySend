@@ -4535,7 +4535,7 @@ function toggleProfileMenu(e) {
     menu.style.display = 'block';
 
     menu.style.top = `${rect.bottom + 8}px`;
-    menu.style.left = `${rect.right}px`;
+    menu.style.right = `${rect.right}px`;
 
     const closeMenu = (event) => {
         if (!menu.contains(event.target)) {
