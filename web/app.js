@@ -3968,11 +3968,16 @@ document.addEventListener('keydown', (e) => {
     }
 })
 
-document.addEventListener('DOMContentLoaded', () => {
-    checkAuthOnLoad().catch(console.error)
-    if (!currentUser) document.getElementById('loginPhone')?.focus()
-    // Пре-рендер категорий эмодзи при загрузке страницы
-    // (не сетку, только catBar — чтобы RAF внутри модала мог работать быстро)
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        await checkAuthOnLoad();
+
+        if (!currentUser) {
+            document.getElementById('loginPhone')?.focus();
+        }
+    } catch (error) {
+        console.error(error);
+    }
 })
 
 window.addEventListener('online', () => {
