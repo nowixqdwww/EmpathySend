@@ -6334,7 +6334,7 @@ img[loading="lazy"].loaded { opacity: 1; }
 }
 /*21:17*/
 :root {
-    --profile-modal-bg: rgba(255, 255, 255, .60);
+    --profile-modal-bg: rgba(255, 255, 255, .70);
 }
 
 [data-theme="dark"] {
