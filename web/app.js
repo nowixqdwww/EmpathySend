@@ -4522,15 +4522,34 @@ window.sendVideoMessage   = sendVideoMessage
 window.toggleSidebar = toggleSidebar
 window.closeChat = closeChat
 function toggleProfileMenu(e) {
-    e.stopPropagation()
-    const menu = document.getElementById('profileDropdownMenu')
+    e.stopPropagation();
+
+    const menu = document.getElementById('profileDropdownMenu');
+    const btn = e.currentTarget;
+
     if (menu.style.display === 'block') {
-        menu.style.display = 'none'
-        return
+        menu.style.display = 'none';
+        return;
     }
-    menu.style.display = 'block'
-    const close = () => { menu.style.display = 'none'; document.removeEventListener('click', close) }
-    setTimeout(() => document.addEventListener('click', close), 0)
+
+    const rect = btn.getBoundingClientRect();
+
+    menu.style.display = 'block';
+    menu.style.position = 'fixed';
+    menu.style.top = (rect.bottom + 6) + 'px';
+    menu.style.left = (rect.right - 200) + 'px';
+    menu.style.zIndex = '999999';
+
+    const close = (event) => {
+        if (!menu.contains(event.target) && event.target !== btn) {
+            menu.style.display = 'none';
+            document.removeEventListener('click', close);
+        }
+    };
+
+    setTimeout(() => {
+        document.addEventListener('click', close);
+    }, 0);
 }
 
 function openChatThemeFromProfile() {
