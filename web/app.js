@@ -732,15 +732,44 @@ function addAccount() {
 }
 
 
-function checkAuthOnLoad() {
-    if (currentUser && authToken) {
-        completeLogin()
-    } else {
-        // Clear stale state and show login
-        localStorage.removeItem('currentUser')
-        localStorage.removeItem('authToken')
-        currentUser = null
-        authToken = null
+async function checkAuthOnLoad() {
+    if (!currentUser || !authToken) {
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('authToken');
+
+        currentUser = null;
+        authToken = null;
+
+        return;
+    }
+
+    try {
+        const response = await fetch(
+            `${API_BASE_URL}/users/${encodeURIComponent(currentUser)}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${authToken}`
+                }
+            }
+        );
+
+        if (response.status === 401 || response.status === 404) {
+            localStorage.removeItem('currentUser');
+            localStorage.removeItem('authToken');
+
+            currentUser = null;
+            authToken = null;
+
+            return;
+        }
+
+        completeLogin();
+
+    } catch (error) {
+        console.warn('Auth verification failed, using offline mode', error);
+
+        // Нет сети — разрешаем вход
+        completeLogin();
     }
 }
 
