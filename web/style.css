@@ -4358,7 +4358,7 @@ body { background: var(--bg-primary); }
     background: transparent;
 }
 .sticker-modal, .emoji-picker,
-.reactions-panel, .settings-section,
+.reactions-panel,
 .forward-modal-content,
 .theme-modal-content {
     background: var(--modal-bg);
@@ -4407,7 +4407,6 @@ body { background: var(--bg-primary); }
 
 /* ── Разделители ── */
 .settings-item { border-bottom-color: var(--border); }
-.settings-section { background: var(--bg-secondary) !important; }
 
 /* ── Сообщения ── */
 .message.other { background: var(--bubble-other) !important; color: var(--bubble-other-text) !important; }
