@@ -4137,6 +4137,17 @@ function toggleVideoRecord() {
 }
 
 function onVideoRecordStop() {
+    if (videoStream) {
+        videoStream.getTracks().forEach(t => t.stop())
+        videoStream = null
+    }
+    
+    const preview = document.getElementById('videoPreview')
+    if (preview) {
+        preview.pause?.()
+        preview.srcObject = null
+    }
+    
     const mimeType = videoRecorder?.mimeType || 'video/webm'
     videoBlob = new Blob(videoChunks, { type: mimeType })
 
