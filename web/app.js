@@ -4098,6 +4098,7 @@ function stopVideoStream() {
 }
 
 function toggleVideoRecord() {
+    videoPreview.style.transform = 'scaleX(-1)' /*jopa*/
     const btn = document.getElementById('vrRecordBtn')
     if (!videoRecorder || videoRecorder.state === 'inactive') {
         // Начинаем запись
@@ -4106,6 +4107,39 @@ function toggleVideoRecord() {
             ? 'video/webm;codecs=vp9,opus'
             : MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : 'video/mp4'
 
+/*жопа*/const canvas = document.createElement('canvas')
+        canvas.width = 480
+        canvas.height = 480
+        
+        const ctx = canvas.getContext('2d')
+        
+        function renderVideo() {
+            if (!videoStream) return
+        
+            ctx.save()
+            ctx.translate(canvas.width, 0)
+            ctx.scale(-1, 1)
+        
+            ctx.drawImage(videoPreview, 0, 0, canvas.width, canvas.height)
+        
+            ctx.restore()
+        
+            requestAnimationFrame(renderVideo)
+        }
+        
+        renderVideo()
+        
+        const fixedStream = canvas.captureStream(30)
+        
+        // переносим звук
+        videoStream.getAudioTracks().forEach(track => {
+            fixedStream.addTrack(track)
+        })
+        
+        videoRecorder = new MediaRecorder(
+            fixedStream,
+            mimeType ? { mimeType } : {}
+        )
         videoRecorder = new MediaRecorder(videoStream, mimeType ? { mimeType } : {})
         videoRecorder.ondataavailable = e => { if (e.data.size > 0) videoChunks.push(e.data) }
         videoRecorder.onstop = () => onVideoRecordStop()
