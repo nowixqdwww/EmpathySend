@@ -4449,14 +4449,6 @@ body { background: var(--bg-primary); }
 .emoji-category-btn { color: var(--text-secondary) !important; }
 .emoji-category-btn.active { color: var(--accent) !important; }
 
-/* ── Плавное переключение темы ── */
-*, *::before, *::after {
-    transition:
-        background-color 0.2s ease,
-        color 0.15s ease,
-        border-color 0.15s ease,
-        box-shadow 0.15s ease !important;
-}
 /* Исключаем анимируемые элементы */
 .message, .chatItem, .modal-content,
 button, input, textarea, select,
