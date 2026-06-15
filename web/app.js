@@ -4150,8 +4150,8 @@ function onVideoRecordStop() {
     const mimeType = videoRecorder?.mimeType || 'video/webm'
     videoBlob = new Blob(videoChunks, { type: mimeType })
 
-    const playback = document.getElementById('videoPlayback')
-    const preview  = document.getElementById('videoPreview')
+    /*const playback = document.getElementById('videoPlayback')
+    const preview  = document.getElementById('videoPreview')*/
     const ring     = document.getElementById('videoProgressRing')
     const previewCirc = document.querySelector('.video-recorder-circle')
 
