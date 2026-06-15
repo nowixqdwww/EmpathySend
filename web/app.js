@@ -4142,9 +4142,6 @@ function onVideoRecordStop() {
         videoStream = null
     }
 
-    const mimeType = videoRecorder?.mimeType || 'video/webm'
-    videoBlob = new Blob(videoChunks, { type: mimeType })
-
     const playback = document.getElementById('videoPlayback')
     const preview  = document.getElementById('videoPreview')
 
