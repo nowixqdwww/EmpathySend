@@ -4120,8 +4120,16 @@ function toggleVideoRecord() {
             ctx.translate(canvas.width, 0)
             ctx.scale(-1, 1)
         
-            ctx.drawImage(videoPreview, 0, 0, canvas.width, canvas.height)
-        
+            const preview = document.getElementById('videoPreview')
+
+            ctx.drawImage(
+                preview,
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            )
+                    
             ctx.restore()
         
             requestAnimationFrame(renderVideo)
@@ -4140,7 +4148,7 @@ function toggleVideoRecord() {
             fixedStream,
             mimeType ? { mimeType } : {}
         )
-        videoRecorder = new MediaRecorder(videoStream, mimeType ? { mimeType } : {})
+        
         videoRecorder.ondataavailable = e => { if (e.data.size > 0) videoChunks.push(e.data) }
         videoRecorder.onstop = () => onVideoRecordStop()
         videoRecorder.start(100)
