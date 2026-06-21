@@ -2879,7 +2879,7 @@ function openChat(phone, displayName) {
             // Сохраняем last_seen
             userCache[phone] = user  // кешируем для updateChatInList
             if (user.last_seen) lastSeenMap[phone] = user.last_seen
-            document.getElementById('chatUserPhone').innerText = formatPhone(phone)
+            
             
             // Аватар в шапке
             const chatAvatar = document.getElementById('chatAvatarText')
@@ -2897,7 +2897,7 @@ function openChat(phone, displayName) {
         .catch(() => {
             // Если ошибка — показываем без галочки
             document.getElementById('chatUserName').innerHTML = escapeHtml(displayName || phone)
-            document.getElementById('chatUserPhone').innerText = formatPhone(phone)
+            
             document.getElementById('chatAvatarText').innerText = '?'
         })
     
