@@ -141,22 +141,22 @@
                     <i class="fas fa-arrow-left"></i>
                 </button>
 
-                <!-- Центральная плашка: аватар + имя + статус -->
-                <div class="ch-pill ch-center" onclick="openChatProfile()">
-                    <div class="chat-user-avatar" id="chatAvatar">
+                <!-- Центральная плашка: аватар + имя + статус + звонок -->
+                <div class="ch-pill ch-center">
+                    <div class="chat-user-avatar" id="chatAvatar" onclick="openChatProfile()">
                         <span id="chatAvatarText"><i class="fas fa-user"></i></span>
                     </div>
-                    <div class="chat-user-details">
+                    <div class="chat-user-details" onclick="openChatProfile()">
                         <span class="chat-user-name" id="chatUserName">Загрузка...</span>
                         <span class="chat-user-status" id="chatUserStatus">offline</span>
                     </div>
-                </div>
-
-                <!-- Правая плашка: звонок + три точки -->
-                <div class="ch-pill ch-right" style="position:relative;">
-                    <button class="ch-icon-btn" onclick="event.stopPropagation();startCall('audio')" title="Аудио звонок" id="callAudioBtn">
+                    <button class="ch-icon-btn ch-call-btn" onclick="event.stopPropagation();startCall('audio')" title="Аудио звонок" id="callAudioBtn">
                         <i class="fas fa-phone"></i>
                     </button>
+                </div>
+
+                <!-- Правая плашка: три точки -->
+                <div class="ch-pill ch-right" style="position:relative;">
                     <button class="ch-icon-btn" onclick="event.stopPropagation();toggleChatMenu()" title="Ещё">
                         <i class="fas fa-ellipsis-v"></i>
                     </button>
