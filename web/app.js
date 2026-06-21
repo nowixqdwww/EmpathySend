@@ -4082,12 +4082,33 @@ function closeVideoRecorder() {
     document.body.style.overflow = ''
     videoBlob = null
     videoChunks = []
+
+    // Сбрасываем playback и UI
+    const playback = document.getElementById('videoPlayback')
+    const preview  = document.getElementById('videoPreview')
+    if (playback) { playback.pause(); playback.src = ''; playback.style.display = 'none' }
+    if (preview)  { preview.style.display = 'block'; preview.style.transform = '' }
+
+    // Убираем кнопку play если осталась
+    const oldBtn = document.querySelector('.video-recorder-circle .preview-play-btn')
+    if (oldBtn) oldBtn.remove()
+
+    // Сбрасываем кнопку записи
+    const btn = document.getElementById('vrRecordBtn')
+    if (btn) { btn.innerHTML = '<i class="fas fa-circle"></i>'; btn.classList.remove('recording') }
+
+    resetVideoRing()
+    document.getElementById('videoTimer')?.style && (document.getElementById('videoTimer').style.display = 'none')
+    document.getElementById('videoSendActions')?.style && (document.getElementById('videoSendActions').style.display = 'none')
+    document.getElementById('videoRecorderActions')?.style && (document.getElementById('videoRecorderActions').style.display = 'flex')
 }
 
 function stopVideoStream() {
     clearInterval(videoTimer)
-    if (videoRecorder && videoRecorder.state !== 'inactive') {
-        videoRecorder.stop()
+    if (videoRecorder) {
+        videoRecorder.onstop = null  // не триггерим onVideoRecordStop при закрытии
+        if (videoRecorder.state !== 'inactive') videoRecorder.stop()
+        videoRecorder = null
     }
     if (videoStream) {
         videoStream.getTracks().forEach(t => t.stop())
