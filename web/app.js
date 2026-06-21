@@ -4683,6 +4683,23 @@ window.toggleProfileMenu = toggleProfileMenu
 window.openChatThemeFromProfile = openChatThemeFromProfile
 window.blockFromProfile = blockFromProfile
 
+function toggleChatMenu() {
+    const menu = document.getElementById('chatMenu')
+    if (!menu) return
+    const isOpen = menu.style.display !== 'none'
+    menu.style.display = isOpen ? 'none' : 'block'
+    if (!isOpen) {
+        const close = (e) => {
+            if (!menu.contains(e.target)) {
+                menu.style.display = 'none'
+                document.removeEventListener('click', close, true)
+            }
+        }
+        setTimeout(() => document.addEventListener('click', close, true), 0)
+    }
+}
+window.toggleChatMenu = toggleChatMenu
+
 window.openChatProfile = openChatProfile
 window.openMyProfile = openMyProfile
 window.openProfilePanel = openProfilePanel
