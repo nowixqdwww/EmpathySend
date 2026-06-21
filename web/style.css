@@ -877,7 +877,7 @@ body {
     gap: 15px;
     flex-shrink: 0;
     cursor: pointer;
-}
+} 
 
 .back-btn {
     display: none;
@@ -5908,6 +5908,7 @@ img[loading="lazy"].loaded { opacity: 1; }
 .ch-right .chat-dropdown-menu {
     top: calc(100% + 6px);
     right: 0;
+    z-index: 400;
 }
 
 /* =========================
