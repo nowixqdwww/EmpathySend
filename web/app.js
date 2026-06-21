@@ -4063,6 +4063,7 @@ async function openVideoRecorder() {
         videoStream = await navigator.mediaDevices.getUserMedia(getCameraConstraints())
         const preview = document.getElementById('videoPreview')
         preview.srcObject = videoStream
+        preview.style.transform = 'scaleX(-1)'
     } catch (e) {
         let msg = 'Нет доступа к камере'
         if (e.name === 'NotAllowedError')  msg = 'Камера заблокирована. Разрешите доступ в настройках браузера'
@@ -4098,7 +4099,6 @@ function stopVideoStream() {
 }
 
 function toggleVideoRecord() {
-    videoPreview.style.transform = ''
     const btn = document.getElementById('vrRecordBtn')
     if (!videoRecorder || videoRecorder.state === 'inactive') {
         // Начинаем запись
@@ -4116,8 +4116,21 @@ function toggleVideoRecord() {
         function renderVideo() {
             if (!videoStream) return
         
-           const preview = document.getElementById('videoPreview')
-           ctx.drawImage(preview, 0, 0, canvas.width, canvas.height)
+            ctx.save()
+            ctx.translate(canvas.width, 0)
+            ctx.scale(-1, 1)
+        
+            const preview = document.getElementById('videoPreview')
+
+            ctx.drawImage(
+                preview,
+                0,
+                0,
+                canvas.width,
+                canvas.height
+            )
+                    
+            ctx.restore()
         
             requestAnimationFrame(renderVideo)
         }
