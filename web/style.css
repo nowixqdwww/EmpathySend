@@ -5835,19 +5835,23 @@ img[loading="lazy"].loaded { opacity: 1; }
     transform: translateY(-1px);
 }
 
-/* Центр — аватар + имя + статус */
+/* Центр — аватар + имя + статус + звонок */
 .ch-center {
     flex: 1;
     min-width: 0;
-    padding: 6px 14px 6px 8px;
+    padding: 6px 6px 6px 8px;
     gap: 10px;
-    cursor: pointer;
 }
-.ch-center:hover {
-    background: rgba(255,255,255,.12);
+.ch-center .chat-user-details {
+    cursor: pointer;
+    flex: 1;
+}
+.ch-call-btn {
+    margin-left: auto;
+    flex-shrink: 0;
 }
 
-/* Правая — звонок + три точки */
+/* Правая — три точки */
 .ch-right {
     padding: 4px 6px;
     gap: 2px;
