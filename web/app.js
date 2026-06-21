@@ -4098,7 +4098,7 @@ function stopVideoStream() {
 }
 
 function toggleVideoRecord() {
-    videoPreview.style.transform = 'scaleX(-1)' /*jopa*/
+    videoPreview.style.transform = ''
     const btn = document.getElementById('vrRecordBtn')
     if (!videoRecorder || videoRecorder.state === 'inactive') {
         // Начинаем запись
@@ -4116,21 +4116,8 @@ function toggleVideoRecord() {
         function renderVideo() {
             if (!videoStream) return
         
-            ctx.save()
-            ctx.translate(canvas.width, 0)
-            ctx.scale(-1, 1)
-        
-            const preview = document.getElementById('videoPreview')
-
-            ctx.drawImage(
-                preview,
-                0,
-                0,
-                canvas.width,
-                canvas.height
-            )
-                    
-            ctx.restore()
+           const preview = document.getElementById('videoPreview')
+           ctx.drawImage(preview, 0, 0, canvas.width, canvas.height)
         
             requestAnimationFrame(renderVideo)
         }
