@@ -4335,7 +4335,17 @@ function onVideoRecordStop() {
 function retakeVideo() {
     videoBlob = null
     videoChunks = []
-    document.getElementById('videoPlayback').style.display = 'none'
+
+    // Очищаем playback
+    const playback = document.getElementById('videoPlayback')
+    playback.pause()
+    playback.src = ''
+    playback.style.display = 'none'
+
+    // Убираем кнопку play если осталась
+    const oldBtn = document.querySelector('.video-recorder-circle .preview-play-btn')
+    if (oldBtn) oldBtn.remove()
+
     document.getElementById('videoPreview').style.display = 'block'
     document.getElementById('videoSendActions').style.display = 'none'
     document.getElementById('videoRecorderActions').style.display = 'flex'
