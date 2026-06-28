@@ -1546,8 +1546,11 @@ function addMessage(user, text, messageId = null, isRead = false, reply = null) 
             voiceBannedChats.delete(currentChat)
             updateVoiceBanUI()
         }
+        // Если отправитель — текущий пользователь, заменяем имя на «Вы»
+        const myName = currentUserProfile?.name || currentUser
+        const displayText = isMe ? sysText.replace(myName, 'Вы') : sysText
         div.className = 'message system-message'
-        div.innerHTML = `<span>${escapeHtml(sysText)}</span>`
+        div.innerHTML = `<span>${escapeHtml(displayText)}</span>`
         messagesDiv.appendChild(div)
         messagesDiv.scrollTop = messagesDiv.scrollHeight
         return
@@ -3353,18 +3356,11 @@ function toggleVoiceBan() {
     if (!currentChat) return
     const banned = voiceBannedChats.has(currentChat)
     const myName = currentUserProfile?.name || currentUser
-    if (banned) {
-        voiceBannedChats.delete(currentChat)
-        const sysText = `[SYSTEM]${myName} разрешил отправку голосовых сообщений[/SYSTEM]`
-        ws.send(JSON.stringify({ action: 'send', to: currentChat, text: sysText }))
-        addMessage(currentUser, sysText)
-    } else {
-        voiceBannedChats.add(currentChat)
-        const sysText = `[SYSTEM]${myName} запретил отправку голосовых сообщений[/SYSTEM]`
-        ws.send(JSON.stringify({ action: 'send', to: currentChat, text: sysText }))
-        addMessage(currentUser, sysText)
-    }
-    updateVoiceBanUI()
+    const sysText = banned
+        ? `[SYSTEM]${myName} разрешил отправку голосовых сообщений[/SYSTEM]`
+        : `[SYSTEM]${myName} запретил отправку голосовых сообщений[/SYSTEM]`
+    ws.send(JSON.stringify({ action: 'send', to: currentChat, text: sysText }))
+    // НЕ вызываем addMessage — придёт обратно через WS как обычное сообщение
     document.getElementById('chatMenu').style.display = 'none'
 }
 window.toggleVoiceBan = toggleVoiceBan
