@@ -4533,8 +4533,8 @@ function createVideoPlayer(url, isMe, knownDuration) {
 
     let scrubbing = false
     let dragMoved = false
-    let dragStartAngle = 0, dragStartPct = 0
-    const DRAG_THRESHOLD_DEG = 3  // градусы — меньше считается кликом
+    let prevAngle = 0
+    let latestPct = null
 
     function getDur() {
         const d = video.duration
@@ -4563,37 +4563,36 @@ function createVideoPlayer(url, isMe, knownDuration) {
 
     outer.addEventListener('mousedown', (e) => {
         if (e.target === playBtn || e.target.closest('button')) return
-        dragStartAngle = getAngle(e)
-        dragStartPct = getDur() ? video.currentTime / getDur() : 0
+        prevAngle = getAngle(e)
+        latestPct = getDur() ? video.currentTime / getDur() : 0
         dragMoved = false
         scrubbing = true
         e.preventDefault()
     })
     outer.addEventListener('touchstart', (e) => {
         if (e.target === playBtn || e.target.closest('button')) return
-        dragStartAngle = getAngle(e)
-        dragStartPct = getDur() ? video.currentTime / getDur() : 0
+        prevAngle = getAngle(e)
+        latestPct = getDur() ? video.currentTime / getDur() : 0
         dragMoved = false
         scrubbing = true
         e.preventDefault()
     }, { passive: false })
 
-    let latestPct = null
-
     const onMove = (e) => {
         if (!scrubbing) return
-        let da = getAngle(e) - dragStartAngle
-        // Нормализуем [-180, 180]
+        const curAngle = getAngle(e)
+        let da = curAngle - prevAngle
+        // Нормализуем [-180, 180] — инкрементальная дельта
         if (da > 180) da -= 360
         if (da < -180) da += 360
-        if (!dragMoved && Math.abs(da) < DRAG_THRESHOLD_DEG) return
+        if (!dragMoved && Math.abs(da) < 2) return
         if (!dragMoved) {
             dragMoved = true
             if (playing) { video.pause(); playing = false; playBtn.innerHTML = '<i class="fas fa-play"></i>'; showPlayBtn() }
         }
         e.preventDefault()
-        const pct = Math.max(0, Math.min(1, dragStartPct + da / 360))
-        latestPct = applyPct(pct)
+        prevAngle = curAngle
+        latestPct = applyPct((latestPct || 0) + da / 360)
     }
 
     const onUp = () => {
