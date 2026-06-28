@@ -4482,6 +4482,7 @@ function createVideoPlayer(url, isMe, knownDuration) {
     function fmt(s) { s = Math.max(0, Math.floor(s)); return `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}` }
 
     function updateRing() {
+        if (scrubbing) return  // не перебиваем визуал во время перемотки
         const dur = (isFinite(video.duration) && video.duration > 0) ? video.duration : (knownDuration || 0)
         if (!dur) return
         const pct = video.currentTime / dur
