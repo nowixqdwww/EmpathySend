@@ -4558,12 +4558,13 @@ function createVideoPlayer(url, isMe, knownDuration) {
         scrubbing = true
         e.preventDefault()
     }, { passive: false })
-    let pendingSeek = null
+
+    let latestPct = null  // всегда актуальный pct при скрабинге
+
     const onMove = (e) => {
         if (!scrubbing || !video.duration) return
         const mx = e.touches ? e.touches[0].clientX : e.clientX
         const my = e.touches ? e.touches[0].clientY : e.clientY
-        // Проверяем порог — только тогда считаем drag
         if (!dragMoved) {
             const dx = mx - dragStartX, dy = my - dragStartY
             if (Math.sqrt(dx*dx + dy*dy) < DRAG_THRESHOLD) return
@@ -4572,22 +4573,10 @@ function createVideoPlayer(url, isMe, knownDuration) {
         }
         e.preventDefault()
         const pct = getAnglePct(e)
+        latestPct = pct
+        // Визуально обновляем сразу
         fillC.setAttribute('stroke-dashoffset', String(circ * (1 - pct)))
         timeEl.textContent = fmt(Math.max(0, video.duration * (1 - pct)))
-        if (pendingSeek !== null) return
-        pendingSeek = pct
-        const _capturedPct = pct  // захватываем до таймаута, pendingSeek может стать null
-        setTimeout(() => {
-            const dur = video.duration
-            if (pendingSeek !== null && Number.isFinite(dur) && dur > 0) {
-                const t = _capturedPct * dur
-                if (Number.isFinite(t) && t >= 0) {
-                    if (video.fastSeek) video.fastSeek(t)
-                    else video.currentTime = t
-                }
-            }
-            pendingSeek = null
-        }, 80)
     }
     const onUp = () => {
         if (!scrubbing) return
@@ -4600,6 +4589,17 @@ function createVideoPlayer(url, isMe, knownDuration) {
                 playBtn.innerHTML = '<i class="fas fa-play"></i>'
             }
             showPlayBtn()
+        } else if (latestPct !== null) {
+            // Применяем seek по финальной позиции
+            const dur = video.duration
+            if (Number.isFinite(dur) && dur > 0) {
+                const t = latestPct * dur
+                if (Number.isFinite(t) && t >= 0) {
+                    if (video.fastSeek) video.fastSeek(t)
+                    else video.currentTime = t
+                }
+            }
+            latestPct = null
         }
     }
     document.addEventListener('mousemove', onMove)
