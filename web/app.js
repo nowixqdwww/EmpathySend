@@ -2,6 +2,7 @@ let ws
 let currentUser = localStorage.getItem('currentUser') || null
 let authToken = localStorage.getItem('authToken') || null
 let currentChat = null
+const voiceBannedChats = new Set()  // чаты где запрещены голосовые
 let videoMaxDuration = 60  // секунд
 let reconnectAttempts = 0
 const maxReconnectAttempts = 10
@@ -1534,6 +1535,24 @@ function addMessage(user, text, messageId = null, isRead = false, reply = null) 
     const div = document.createElement('div')
     const isMe = user === currentUser
 
+    // Системное сообщение
+    if (text && text.startsWith('[SYSTEM]') && text.endsWith('[/SYSTEM]')) {
+        const sysText = text.slice(8, -9)
+        // Обрабатываем запрет/разрешение голосовых
+        if (sysText.includes('запретил') && sysText.includes('голосов')) {
+            voiceBannedChats.add(currentChat)
+            updateVoiceBanUI()
+        } else if (sysText.includes('разрешил') && sysText.includes('голосов')) {
+            voiceBannedChats.delete(currentChat)
+            updateVoiceBanUI()
+        }
+        div.className = 'message system-message'
+        div.innerHTML = `<span>${escapeHtml(sysText)}</span>`
+        messagesDiv.appendChild(div)
+        messagesDiv.scrollTop = messagesDiv.scrollHeight
+        return
+    }
+
     // Media message
     const mediaData = parseMediaToken(text)
     if (mediaData) {
@@ -2062,6 +2081,7 @@ function hideRecordArea() {
 async function startVoiceRecord(e) {
     if (e) e.preventDefault()
     if (!currentChat) { showToast('Выберите чат'); return }
+    if (voiceBannedChats.has(currentChat)) { showToast('Голосовые сообщения запрещены в этом чате'); return }
     if (mediaRecorder && mediaRecorder.state !== 'inactive') return
 
     try {
@@ -2853,6 +2873,7 @@ function openChat(phone, displayName) {
     if (currentChat === phone) return
     
     currentChat = phone
+    updateVoiceBanUI()  // обновляем состояние запрета голосовых
     // Если чата нет в списке — добавляем сразу
     if (!document.getElementById(`chat-${cleanPhone(phone)}`)) {
         createChatElement({ phone, displayName, name: displayName, last: '', unread: 0 })
@@ -3318,6 +3339,35 @@ function muteChat() {
     showToast('Чат заглушен')
     hideContextMenus()
 }
+
+function updateVoiceBanUI() {
+    const banned = currentChat && voiceBannedChats.has(currentChat)
+    const menuItem = document.getElementById('voiceBanMenuItem')
+    if (menuItem) menuItem.innerHTML = `<i class="fas fa-microphone${banned ? '' : '-slash'}"></i> ${banned ? 'Разрешить' : 'Запретить'} голосовые`
+    // Скрываем кнопку микрофона если запрет
+    const voiceBtn = document.getElementById('voiceBtn')
+    if (voiceBtn) voiceBtn.style.opacity = banned ? '0.35' : ''
+}
+
+function toggleVoiceBan() {
+    if (!currentChat) return
+    const banned = voiceBannedChats.has(currentChat)
+    const myName = currentUserProfile?.name || currentUser
+    if (banned) {
+        voiceBannedChats.delete(currentChat)
+        const sysText = `[SYSTEM]${myName} разрешил отправку голосовых сообщений[/SYSTEM]`
+        ws.send(JSON.stringify({ action: 'send', to: currentChat, text: sysText }))
+        addMessage(currentUser, sysText)
+    } else {
+        voiceBannedChats.add(currentChat)
+        const sysText = `[SYSTEM]${myName} запретил отправку голосовых сообщений[/SYSTEM]`
+        ws.send(JSON.stringify({ action: 'send', to: currentChat, text: sysText }))
+        addMessage(currentUser, sysText)
+    }
+    updateVoiceBanUI()
+    document.getElementById('chatMenu').style.display = 'none'
+}
+window.toggleVoiceBan = toggleVoiceBan
 
 function clearChat() {
     if (!selectedChatPhone) return
@@ -4361,6 +4411,7 @@ function retakeVideo() {
 
 async function sendVideoMessage() {
     if (!videoBlob || !currentChat) return
+    if (voiceBannedChats.has(currentChat)) { showToast('Голосовые сообщения запрещены в этом чате'); closeVideoRecorder(); return }
     // Сохраняем до closeVideoRecorder который обнуляет эти переменные
     const blobToSend = videoBlob
     const chatTo = currentChat
