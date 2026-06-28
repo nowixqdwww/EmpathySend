@@ -4528,22 +4528,34 @@ function createVideoPlayer(url, isMe, knownDuration) {
 
 
 
-    // Перемотка — горизонтальный drag по всему кружку
-    svg.style.pointerEvents = 'none'  // SVG не мешает
+    // Перемотка — circular drag по кольцу
+    svg.style.pointerEvents = 'none'
 
     let scrubbing = false
-    let dragStartX = 0, dragStartPct = 0, dragMoved = false
-    const DRAG_THRESHOLD = 4
+    let dragMoved = false
+    let dragStartAngle = 0, dragStartPct = 0
+    const DRAG_THRESHOLD_DEG = 3  // градусы — меньше считается кликом
 
     function getDur() {
         const d = video.duration
         return (Number.isFinite(d) && d > 0) ? d : (knownDuration || 0)
     }
 
+    function getAngle(e) {
+        const rect = outer.getBoundingClientRect()
+        const cx = rect.left + rect.width / 2
+        const cy = rect.top + rect.height / 2
+        const ex = e.touches ? e.touches[0].clientX : e.clientX
+        const ey = e.touches ? e.touches[0].clientY : e.clientY
+        let a = Math.atan2(ex - cx, -(ey - cy)) * 180 / Math.PI
+        if (a < 0) a += 360
+        return a
+    }
+
     function applyPct(pct) {
         pct = Math.max(0, Math.min(1, pct))
         const dur = getDur()
-        if (!dur) return
+        if (!dur) return pct
         fillC.setAttribute('stroke-dashoffset', String(circ * (1 - pct)))
         timeEl.textContent = fmt(dur * (1 - pct))
         return pct
@@ -4551,7 +4563,7 @@ function createVideoPlayer(url, isMe, knownDuration) {
 
     outer.addEventListener('mousedown', (e) => {
         if (e.target === playBtn || e.target.closest('button')) return
-        dragStartX = e.clientX
+        dragStartAngle = getAngle(e)
         dragStartPct = getDur() ? video.currentTime / getDur() : 0
         dragMoved = false
         scrubbing = true
@@ -4559,7 +4571,7 @@ function createVideoPlayer(url, isMe, knownDuration) {
     })
     outer.addEventListener('touchstart', (e) => {
         if (e.target === playBtn || e.target.closest('button')) return
-        dragStartX = e.touches[0].clientX
+        dragStartAngle = getAngle(e)
         dragStartPct = getDur() ? video.currentTime / getDur() : 0
         dragMoved = false
         scrubbing = true
@@ -4570,18 +4582,18 @@ function createVideoPlayer(url, isMe, knownDuration) {
 
     const onMove = (e) => {
         if (!scrubbing) return
-        const mx = e.touches ? e.touches[0].clientX : e.clientX
-        const dx = mx - dragStartX
-        if (!dragMoved && Math.abs(dx) < DRAG_THRESHOLD) return
+        let da = getAngle(e) - dragStartAngle
+        // Нормализуем [-180, 180]
+        if (da > 180) da -= 360
+        if (da < -180) da += 360
+        if (!dragMoved && Math.abs(da) < DRAG_THRESHOLD_DEG) return
         if (!dragMoved) {
             dragMoved = true
             if (playing) { video.pause(); playing = false; playBtn.innerHTML = '<i class="fas fa-play"></i>'; showPlayBtn() }
         }
         e.preventDefault()
-        // 200px = полный диапазон
-        const pct = Math.max(0, Math.min(1, dragStartPct + dx / 200))
-        latestPct = pct
-        applyPct(pct)
+        const pct = Math.max(0, Math.min(1, dragStartPct + da / 360))
+        latestPct = applyPct(pct)
     }
 
     const onUp = () => {
@@ -4592,10 +4604,7 @@ function createVideoPlayer(url, isMe, knownDuration) {
             showPlayBtn()
         } else if (latestPct !== null) {
             const dur = getDur()
-            if (dur) {
-                const t = latestPct * dur
-                video.currentTime = t
-            }
+            if (dur) video.currentTime = latestPct * dur
             latestPct = null
         }
     }
