@@ -4592,7 +4592,6 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
 
 [data-theme="dark"] .chat-header,
 [data-theme="dark"] .input-area {
-    background: rgba(28,28,30,0.97) !important;
     border-color: rgba(255,255,255,0.08) !important;
 }
 
