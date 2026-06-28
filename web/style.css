@@ -4335,7 +4335,6 @@ button:active:not(:disabled) {
 /* ── Фоны ── */
 body { background: var(--bg-primary); }
 #messages, .empty-chat { background: var(--messages-bg); }
-.chat-header  { background: var(--chat-header-bg) !important; border-color: var(--border) !important; }
 .input-area   { background: var(--input-area-bg)  !important; border-color: var(--border) !important; }
 
 /* ── Модалки ── */
@@ -4596,7 +4595,6 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
 
 [data-theme="dark"] .chat-header,
 [data-theme="dark"] .input-area {
-    background: rgba(28,28,30,0.97) !important;
     border-color: rgba(255,255,255,0.08) !important;
 }
 
