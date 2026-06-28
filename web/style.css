@@ -879,10 +879,6 @@ body {
     cursor: pointer;
 }
 
-.chat-header:hover {
-    background: var(--bg-primary);
-}
-
 .back-btn {
     display: none;
     background: none;
