@@ -4528,77 +4528,73 @@ function createVideoPlayer(url, isMe, knownDuration) {
 
 
 
-    // Перемотка drag по SVG кольцу
-    svg.style.pointerEvents = 'auto'
-    svg.style.cursor = 'pointer'
-
-    function getAnglePct(e) {
-        const rect = outer.getBoundingClientRect()
-        const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2
-        const ex = e.touches ? e.touches[0].clientX : e.clientX
-        const ey = e.touches ? e.touches[0].clientY : e.clientY
-        let a = Math.atan2(ex - cx, -(ey - cy))
-        if (a < 0) a += 2 * Math.PI
-        return a / (2 * Math.PI)
-    }
+    // Перемотка — горизонтальный drag по всему кружку
+    svg.style.pointerEvents = 'none'  // SVG не мешает
 
     let scrubbing = false
-    let dragStartX = 0, dragStartY = 0, dragMoved = false
-    const DRAG_THRESHOLD = 6  // px — меньше этого считается кликом
+    let dragStartX = 0, dragStartPct = 0, dragMoved = false
+    const DRAG_THRESHOLD = 4
 
-    svg.style.pointerEvents = 'auto'
+    function getDur() {
+        const d = video.duration
+        return (Number.isFinite(d) && d > 0) ? d : (knownDuration || 0)
+    }
+
+    function applyPct(pct) {
+        pct = Math.max(0, Math.min(1, pct))
+        const dur = getDur()
+        if (!dur) return
+        fillC.setAttribute('stroke-dashoffset', String(circ * (1 - pct)))
+        timeEl.textContent = fmt(dur * (1 - pct))
+        return pct
+    }
+
     outer.addEventListener('mousedown', (e) => {
         if (e.target === playBtn || e.target.closest('button')) return
-        dragStartX = e.clientX; dragStartY = e.clientY; dragMoved = false
+        dragStartX = e.clientX
+        dragStartPct = getDur() ? video.currentTime / getDur() : 0
+        dragMoved = false
         scrubbing = true
         e.preventDefault()
     })
     outer.addEventListener('touchstart', (e) => {
         if (e.target === playBtn || e.target.closest('button')) return
-        dragStartX = e.touches[0].clientX; dragStartY = e.touches[0].clientY; dragMoved = false
+        dragStartX = e.touches[0].clientX
+        dragStartPct = getDur() ? video.currentTime / getDur() : 0
+        dragMoved = false
         scrubbing = true
         e.preventDefault()
     }, { passive: false })
 
-    let latestPct = null  // всегда актуальный pct при скрабинге
+    let latestPct = null
 
     const onMove = (e) => {
-        if (!scrubbing || !video.duration) return
+        if (!scrubbing) return
         const mx = e.touches ? e.touches[0].clientX : e.clientX
-        const my = e.touches ? e.touches[0].clientY : e.clientY
+        const dx = mx - dragStartX
+        if (!dragMoved && Math.abs(dx) < DRAG_THRESHOLD) return
         if (!dragMoved) {
-            const dx = mx - dragStartX, dy = my - dragStartY
-            if (Math.sqrt(dx*dx + dy*dy) < DRAG_THRESHOLD) return
             dragMoved = true
-            if (playing) { video.pause(); playing = false; playBtn.innerHTML = '<i class="fas fa-play"></i>' }
+            if (playing) { video.pause(); playing = false; playBtn.innerHTML = '<i class="fas fa-play"></i>'; showPlayBtn() }
         }
         e.preventDefault()
-        const pct = getAnglePct(e)
+        // 200px = полный диапазон
+        const pct = Math.max(0, Math.min(1, dragStartPct + dx / 200))
         latestPct = pct
-        // Визуально обновляем сразу
-        fillC.setAttribute('stroke-dashoffset', String(circ * (1 - pct)))
-        timeEl.textContent = fmt(Math.max(0, video.duration * (1 - pct)))
+        applyPct(pct)
     }
+
     const onUp = () => {
         if (!scrubbing) return
         scrubbing = false
         if (!dragMoved) {
-            // Клик на кружок — пауза если играло, показываем кнопку
-            if (playing) {
-                video.pause()
-                playing = false
-                playBtn.innerHTML = '<i class="fas fa-play"></i>'
-            }
+            if (playing) { video.pause(); playing = false; playBtn.innerHTML = '<i class="fas fa-play"></i>' }
             showPlayBtn()
         } else if (latestPct !== null) {
-            // Применяем seek по финальной позиции
-            const dur = video.duration
-            if (Number.isFinite(dur) && dur > 0) {
+            const dur = getDur()
+            if (dur) {
                 const t = latestPct * dur
-                if (Number.isFinite(t) && t >= 0) {
-                    if (video.fastSeek) video.fastSeek(t)
-                    else video.currentTime = t
-                }
+                video.currentTime = t
             }
             latestPct = null
         }
