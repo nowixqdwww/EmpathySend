@@ -1548,7 +1548,12 @@ function addMessage(user, text, messageId = null, isRead = false, reply = null) 
         }
         // Если отправитель — текущий пользователь, заменяем имя на «Вы»
         const myName = currentUserProfile?.name || currentUser
-        const displayText = isMe ? sysText.replace(myName, 'Вы') : sysText
+        let displayText = sysText
+        if (isMe) {
+            displayText = sysText
+                .replace(myName + ' запретил ', 'Вы запретили ')
+                .replace(myName + ' разрешил ', 'Вы разрешили ')
+        }
         div.className = 'message system-message'
         div.innerHTML = `<span>${escapeHtml(displayText)}</span>`
         messagesDiv.appendChild(div)
