@@ -2549,6 +2549,7 @@ body {
     display: flex;
     align-items: flex-start;
     position: relative;
+    will-change: opacity, transform;
 }
 
 .reaction-badge {
