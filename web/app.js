@@ -2550,11 +2550,13 @@ function showReactionsPanel(event, messageId) {
 }
 
 // Добавить реакцию
+let pendingReplyToReaction = null  // реакция на которую отвечаем
+
 async function addReaction(reaction) {
     const msgId = currentMessageId || selectedMessageId
     if (!msgId || !currentUser) return
     hideContextMenus()
-    
+
     try {
         const res = await fetch('/reaction/add', {
             method: 'POST',
@@ -2562,25 +2564,26 @@ async function addReaction(reaction) {
             body: JSON.stringify({
                 message_id: msgId,
                 user: currentUser,
-                reaction: reaction
+                reaction: reaction,
+                reply_to_reaction: pendingReplyToReaction || null
             })
         })
-        
+
         const data = await res.json()
-        
+
         if (data.error) {
             showToast(data.error)
             return
         }
-        
+
         updateMessageReactions(msgId, data.reactions)
-        
+
     } catch (error) {
         console.error('Error adding reaction:', error)
         showToast('Ошибка при добавлении реакции')
     }
-    
-    // Скрываем панель
+
+    pendingReplyToReaction = null
     document.getElementById('reactionsPanel').style.display = 'none'
 }
 
@@ -2668,17 +2671,27 @@ function updateMessageReactions(messageId, reactions) {
         let longPressTimer = null
         badge.addEventListener('mousedown', (e) => {
             if (e.button !== 0) return
-            longPressTimer = setTimeout(() => { currentMessageId = messageId; showReactionsPanel(e, messageId) }, 500)
+            longPressTimer = setTimeout(() => {
+                currentMessageId = messageId
+                pendingReplyToReaction = g.main
+                showReactionsPanel(e, messageId)
+            }, 500)
         })
         badge.addEventListener('mouseup', () => clearTimeout(longPressTimer))
         badge.addEventListener('mouseleave', () => clearTimeout(longPressTimer))
         badge.addEventListener('touchstart', (e) => {
-            longPressTimer = setTimeout(() => { currentMessageId = messageId; showReactionsPanel(e.touches[0], messageId) }, 500)
+            longPressTimer = setTimeout(() => {
+                currentMessageId = messageId
+                pendingReplyToReaction = g.main
+                showReactionsPanel(e.touches[0], messageId)
+            }, 500)
         }, { passive: true })
         badge.addEventListener('touchend', () => clearTimeout(longPressTimer))
         badge.addEventListener('contextmenu', (e) => {
             e.preventDefault(); e.stopPropagation()
-            currentMessageId = messageId; showReactionsPanel(e, messageId)
+            currentMessageId = messageId
+            pendingReplyToReaction = g.main
+            showReactionsPanel(e, messageId)
         })
 
         reactionsDiv.appendChild(badge)
