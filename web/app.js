@@ -3662,6 +3662,10 @@ function connect() {
                 }
             }
 
+            if (data.action === 'reaction_updated') {
+                updateMessageReactions(data.message_id, data.reactions)
+            }
+
             if (data.action === 'message') {
                 // Подтверждаем доставку
                 if (ws && ws.readyState === WebSocket.OPEN) {
