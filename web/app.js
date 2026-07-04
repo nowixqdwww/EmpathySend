@@ -2589,13 +2589,11 @@ function updateMessageReactions(messageId, reactions) {
     const messageElement = document.querySelector(`[data-message-id="${messageId}"]`)
     if (!messageElement) return
     
-    // Удаляем старые реакции
     const oldReactions = messageElement.querySelector('.message-reactions')
     if (oldReactions) oldReactions.remove()
     
     if (reactions.length === 0) return
     
-    // Создаем контейнер для реакций
     const reactionsDiv = document.createElement('div')
     reactionsDiv.className = 'message-reactions'
     
@@ -2603,28 +2601,36 @@ function updateMessageReactions(messageId, reactions) {
         const badge = document.createElement('span')
         badge.className = 'reaction-badge'
 
-        // Обычный клик — добавить/убрать
+        // Обычный клик — добавить/убрать эту же реакцию
         badge.addEventListener('click', (e) => {
             e.stopPropagation()
+            currentMessageId = messageId
             addReaction(r.reaction)
         })
 
-        // Longpress / ПКМ — показать кто поставил
+        // Longpress / ПКМ — открыть панель выбора реакции
         let longPressTimer = null
         badge.addEventListener('mousedown', (e) => {
             if (e.button !== 0) return
-            longPressTimer = setTimeout(() => showReactionDetails(e, messageId, r.reaction, reactions), 500)
+            longPressTimer = setTimeout(() => {
+                currentMessageId = messageId
+                showReactionsPanel(e, messageId)
+            }, 500)
         })
         badge.addEventListener('mouseup', () => clearTimeout(longPressTimer))
         badge.addEventListener('mouseleave', () => clearTimeout(longPressTimer))
         badge.addEventListener('touchstart', (e) => {
-            longPressTimer = setTimeout(() => showReactionDetails(e.touches[0], messageId, r.reaction, reactions), 500)
+            longPressTimer = setTimeout(() => {
+                currentMessageId = messageId
+                showReactionsPanel(e.touches[0], messageId)
+            }, 500)
         }, { passive: true })
         badge.addEventListener('touchend', () => clearTimeout(longPressTimer))
         badge.addEventListener('contextmenu', (e) => {
             e.preventDefault()
             e.stopPropagation()
-            showReactionDetails(e, messageId, r.reaction, reactions)
+            currentMessageId = messageId
+            showReactionsPanel(e, messageId)
         })
 
         badge.innerHTML = `${r.reaction} <span class="count">${r.count}</span>`
@@ -2632,51 +2638,6 @@ function updateMessageReactions(messageId, reactions) {
     })
     
     messageElement.appendChild(reactionsDiv)
-}
-
-async function showReactionDetails(e, messageId, focusedReaction, cachedReactions) {
-    // Закрываем старый попап если есть
-    document.getElementById('reactionDetailsPopup')?.remove()
-
-    // Пробуем получить подробности с бэкенда
-    let reactions = cachedReactions
-    try {
-        const res = await fetch(`/reactions/${messageId}`)
-        const data = await res.json()
-        if (data.reactions) reactions = data.reactions
-    } catch {}
-
-    const popup = document.createElement('div')
-    popup.id = 'reactionDetailsPopup'
-    popup.className = 'reaction-details-popup'
-
-    reactions.forEach(r => {
-        const row = document.createElement('div')
-        row.className = 'reaction-details-row' + (r.reaction === focusedReaction ? ' focused' : '')
-
-        const users = r.users
-            ? r.users.map(u => escapeHtml(u.name || u.username || u.phone)).join(', ')
-            : `${r.count} ${r.count === 1 ? 'человек' : r.count < 5 ? 'человека' : 'человек'}`
-
-        row.innerHTML = `<span class="rd-emoji">${r.reaction}</span><span class="rd-users">${users}</span>`
-        row.onclick = () => { addReaction(r.reaction); popup.remove() }
-        popup.appendChild(row)
-    })
-
-    // Позиционирование
-    const x = e.clientX ?? (e.target?.getBoundingClientRect().left || 0)
-    const y = e.clientY ?? (e.target?.getBoundingClientRect().top || 0)
-    popup.style.position = 'fixed'
-    popup.style.left = Math.min(x, window.innerWidth - 220) + 'px'
-    popup.style.top = (y - 16) + 'px'
-    popup.style.transform = 'translateY(-100%)'
-    document.body.appendChild(popup)
-
-    // Закрытие по клику снаружи
-    setTimeout(() => {
-        const close = (ev) => { if (!popup.contains(ev.target)) { popup.remove(); document.removeEventListener('mousedown', close, true) } }
-        document.addEventListener('mousedown', close, true)
-    }, 0)
 }
 
 // addMessage defined above
