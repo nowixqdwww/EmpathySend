@@ -2547,7 +2547,7 @@ body {
 /* Обёртка — содержит основной + наложенные ответные бейджи */
 .reaction-badge-wrap {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     position: relative;
 }
 
@@ -2567,9 +2567,14 @@ body {
     z-index: 1;
 }
 
-/* Ответный бейдж — наезжает на основной */
+/* Ответный бейдж — наезжает на основной, меньше и ниже */
 .reaction-badge.reaction-badge-reply {
-    box-shadow: -2px 0 6px rgba(0,0,0,0.12);
+    transform: scale(0.78);
+    transform-origin: left center;
+    margin-left: -18px;
+    margin-top: 10px;
+    box-shadow: -2px 2px 6px rgba(0,0,0,0.18);
+    align-self: flex-end;
 }
 
 .reaction-badge:hover {
