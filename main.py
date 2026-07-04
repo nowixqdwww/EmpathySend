@@ -1598,6 +1598,16 @@ async def add_reaction(data: dict):
                     DELETE FROM reactions
                     WHERE message_id = $1 AND user_phone = $2
                 """, message_id, user)
+                # Удаляем осиротевшие ответные реакции на эту
+                await conn.execute("""
+                    DELETE FROM reactions
+                    WHERE message_id = $1 AND reply_to_reaction = $2
+                    AND NOT EXISTS (
+                        SELECT 1 FROM reactions r2
+                        WHERE r2.message_id = $1 AND r2.reaction = $2
+                        AND r2.reply_to_reaction IS NULL
+                    )
+                """, message_id, reaction)
             else:
                 # Новая реакция — удаляем старую и вставляем новую
                 await conn.execute("""
