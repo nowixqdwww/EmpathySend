@@ -2551,8 +2551,9 @@ function showReactionsPanel(event, messageId) {
 
 // Добавить реакцию
 let pendingReplyToReaction = null  // реакция на которую отвечаем
+const reactionCache = {}  // messageId → reactions[]
 
-async function addReaction(reaction) {
+function addReaction(reaction) {
     const msgId = currentMessageId || selectedMessageId
     if (!msgId || !currentUser) return
     hideContextMenus()
@@ -2561,91 +2562,136 @@ async function addReaction(reaction) {
     pendingReplyToReaction = null
     document.getElementById('reactionsPanel').style.display = 'none'
 
-    // Оптимистичное обновление — сразу показываем локально
-    const msgEl = document.querySelector(`[data-message-id="${msgId}"]`)
-    if (msgEl) {
-        const existing = msgEl.querySelector('.message-reactions')
-        let currentReactions = []
-        // Читаем текущее состояние из DOM чтобы не потерять остальные реакции
-        msgEl.querySelectorAll('.reaction-badge-wrap').forEach(wrap => {
-            const mainBadge = wrap.querySelector('.reaction-badge:not(.reaction-badge-reply)')
-            const replyBadge = wrap.querySelector('.reaction-badge-reply')
-            if (mainBadge) {
-                const emoji = mainBadge.querySelector('.rb-emoji')?.textContent
-                if (emoji) currentReactions.push({ reaction: emoji, reply_to_reaction: null, count: 1, users: [{ phone: currentUser, name: currentUser }] })
-            }
-            if (replyBadge) {
-                const emoji = replyBadge.querySelector('.rb-emoji')?.textContent
-                const parent = mainBadge?.querySelector('.rb-emoji')?.textContent
-                if (emoji && parent) currentReactions.push({ reaction: emoji, reply_to_reaction: parent, count: 1, users: [{ phone: currentUser, name: currentUser }] })
-            }
-        })
-        // Убираем старую реакцию этого пользователя и добавляем новую
-        currentReactions = currentReactions.filter(r => !(r.users?.some(u => u.phone === currentUser) && r.reaction === reaction && r.reply_to_reaction === replyTo))
-        currentReactions.push({ reaction, reply_to_reaction: replyTo, count: 1, users: [{ phone: currentUser, name: currentUser }] })
-        updateMessageReactions(msgId, currentReactions)
+    // Строим оптимистичное состояние из кеша
+    const prev = (reactionCache[msgId] || []).map(r => ({ ...r, users: [...(r.users || [])] }))
+
+    // Убираем предыдущую реакцию этого пользователя
+    let userPrev = null
+    const next = prev.map(r => {
+        const idx = (r.users || []).findIndex(u => u.phone === currentUser)
+        if (idx !== -1) {
+            userPrev = r.reaction
+            const users = r.users.filter(u => u.phone !== currentUser)
+            return { ...r, users, count: users.length }
+        }
+        return r
+    }).filter(r => r.count > 0)
+
+    // Удаляем осиротевшие reply если убрали основную
+    const filtered = next.filter(r => {
+        if (!r.reply_to_reaction) return true
+        return next.some(m => m.reaction === r.reply_to_reaction && !m.reply_to_reaction)
+    })
+
+    const isSameToggle = userPrev === reaction && !replyTo
+
+    if (!isSameToggle) {
+        const existing = filtered.find(r => r.reaction === reaction && r.reply_to_reaction === replyTo)
+        const me = { phone: currentUser, name: currentUser }
+        if (existing) {
+            existing.users.push(me)
+            existing.count++
+        } else {
+            filtered.push({ reaction, reply_to_reaction: replyTo, count: 1, users: [me] })
+        }
     }
 
-    try {
-        const res = await fetch('/reaction/add', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message_id: msgId, user: currentUser, reaction, reply_to_reaction: replyTo })
-        })
-        const data = await res.json()
-        if (data.error) { showToast(data.error); return }
-        // Обновляем точными данными с сервера
-        updateMessageReactions(msgId, data.reactions)
-    } catch (error) {
-        console.error('Error adding reaction:', error)
-        showToast('Ошибка при добавлении реакции')
-    }
+    reactionCache[msgId] = filtered
+    renderReactions(msgId, filtered)
+
+    // Fire-and-forget — сервер в фоне
+    fetch('/reaction/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message_id: msgId, user: currentUser, reaction, reply_to_reaction: replyTo })
+    }).then(r => r.json()).then(data => {
+        if (data.reactions) {
+            reactionCache[msgId] = data.reactions
+            renderReactions(msgId, data.reactions)
+        }
+    }).catch(() => {})
 }
 
-// Обновить отображение реакций на сообщении
+// Обновить отображение реакций — с диффом и анимацией
 function updateMessageReactions(messageId, reactions) {
+    reactionCache[messageId] = reactions
+    renderReactions(messageId, reactions)
+}
+
+function renderReactions(messageId, reactions) {
     const messageElement = document.querySelector(`[data-message-id="${messageId}"]`)
     if (!messageElement) return
 
-    const oldReactions = messageElement.querySelector('.message-reactions')
-    if (oldReactions) oldReactions.remove()
+    let container = messageElement.querySelector('.message-reactions')
 
-    if (!reactions || reactions.length === 0) return
+    if (!reactions || reactions.length === 0) {
+        if (container) {
+            container.style.opacity = '0'
+            setTimeout(() => container?.remove(), 150)
+        }
+        return
+    }
 
-    const reactionsDiv = document.createElement('div')
-    reactionsDiv.className = 'message-reactions'
+    if (!container) {
+        container = document.createElement('div')
+        container.className = 'message-reactions'
+        container.style.opacity = '0'
+        messageElement.appendChild(container)
+        requestAnimationFrame(() => { container.style.transition = 'opacity .15s'; container.style.opacity = '1' })
+    }
 
     // Сначала основные реакции (без reply_to_reaction), потом ответные
     const main = reactions.filter(r => !r.reply_to_reaction)
     const replies = reactions.filter(r => r.reply_to_reaction)
 
-    // Группируем ответные по reply_to_reaction
     const replyMap = {}
     replies.forEach(r => {
         if (!replyMap[r.reply_to_reaction]) replyMap[r.reply_to_reaction] = []
         replyMap[r.reply_to_reaction].push(r)
     })
 
+    // Диффим по ключу — не перерисовываем то что не изменилось
+    const newKeys = new Set()
     main.forEach(r => {
-        // Обёртка — содержит основной бейдж + наложенные ответные
-        const wrap = document.createElement('div')
-        wrap.className = 'reaction-badge-wrap'
+        const reps = replyMap[r.reaction] || []
+        const key = r.reaction + '|' + reps.map(x => x.reaction).join(',')
+        newKeys.add(key)
+
+        let wrap = container.querySelector(`[data-rkey="${CSS.escape(key)}"]`)
+        if (!wrap) {
+            wrap = document.createElement('div')
+            wrap.className = 'reaction-badge-wrap'
+            wrap.dataset.rkey = key
+            wrap.style.opacity = '0'
+            wrap.style.transform = 'scale(0.7)'
+            container.appendChild(wrap)
+            requestAnimationFrame(() => {
+                wrap.style.transition = 'opacity .18s, transform .18s'
+                wrap.style.opacity = '1'
+                wrap.style.transform = 'scale(1)'
+            })
+        } else {
+            wrap.innerHTML = ''
+        }
 
         wrap.appendChild(makeBadge(r, messageId, null))
-
-        // Ответные реакции — накладываются поверх
-        const reps = replyMap[r.reaction] || []
         reps.forEach((rep, i) => {
             const repBadge = makeBadge(rep, messageId, r.reaction)
             repBadge.style.marginLeft = '-40px'
             repBadge.style.zIndex = String(10 + i + 1)
             wrap.appendChild(repBadge)
         })
-
-        reactionsDiv.appendChild(wrap)
     })
 
-    messageElement.appendChild(reactionsDiv)
+    // Удаляем исчезнувшие с анимацией
+    container.querySelectorAll('[data-rkey]').forEach(wrap => {
+        if (!newKeys.has(wrap.dataset.rkey)) {
+            wrap.style.transition = 'opacity .15s, transform .15s'
+            wrap.style.opacity = '0'
+            wrap.style.transform = 'scale(0.7)'
+            setTimeout(() => wrap.remove(), 150)
+        }
+    })
 }
 
 function makeBadge(r, messageId, replyingTo) {
@@ -2729,22 +2775,19 @@ async function loadMessageReactions(messageId) {
     try {
         const res = await fetch(`/reactions/${messageId}`)
         const data = await res.json()
-        
-        if (data.reactions && data.reactions.length > 0) {
-            updateMessageReactions(messageId, data.reactions)
+        if (data.reactions) {
+            reactionCache[messageId] = data.reactions
+            renderReactions(messageId, data.reactions)
         }
-    } catch (error) {
-        console.error('Error loading reactions:', error)
-    }
+    } catch {}
 }
 
 async function refreshVisibleReactions() {
     if (!currentChat) return
-    const els = document.querySelectorAll('#messages [data-message-id]')
-    for (const el of els) {
-        const id = parseInt(el.dataset.messageId)
-        if (id) await loadMessageReactions(id)
-    }
+    const ids = [...document.querySelectorAll('#messages [data-message-id]')]
+        .map(el => parseInt(el.dataset.messageId)).filter(Boolean)
+    // Параллельно, не ждём каждый
+    await Promise.allSettled(ids.map(id => loadMessageReactions(id)))
 }
 
 setInterval(refreshVisibleReactions, 3000)
