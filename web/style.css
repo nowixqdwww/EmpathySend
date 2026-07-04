@@ -2537,6 +2537,20 @@ body {
     padding: 2px 0;
 }
 
+.message-reactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+/* Обёртка — содержит основной + наложенные ответные бейджи */
+.reaction-badge-wrap {
+    display: flex;
+    align-items: center;
+    position: relative;
+}
+
 .reaction-badge {
     background: rgba(255,255,255,0.9);
     border-radius: 20px;
@@ -2548,8 +2562,14 @@ body {
     cursor: pointer;
     border: 1px solid rgba(0,0,0,0.1);
     box-shadow: 0 2px 5px rgba(0,0,0,0.08);
-    transition: transform 0.2s;
+    transition: transform 0.15s;
     position: relative;
+    z-index: 1;
+}
+
+/* Ответный бейдж — наезжает на основной */
+.reaction-badge.reaction-badge-reply {
+    box-shadow: -2px 0 6px rgba(0,0,0,0.12);
 }
 
 .reaction-badge:hover {
@@ -2557,7 +2577,7 @@ body {
     background: var(--bg-secondary);
 }
 
-/* Эмодзи в бейдже */
+/* Emoji в бейдже */
 .reaction-badge .rb-emoji {
     font-size: 16px;
     line-height: 1;
@@ -2590,30 +2610,14 @@ body {
     margin-left: 0;
 }
 
-/* Стэкинг: реакция на реакцию — второй emoji накладывается */
-.reaction-badge .rb-emoji-stack {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
-}
-.reaction-badge .rb-emoji-stack .rb-emoji-reply {
-    position: absolute;
-    bottom: -4px;
-    right: -6px;
-    font-size: 11px;
-    line-height: 1;
-    filter: drop-shadow(0 0 1px rgba(255,255,255,0.8));
-}
-
 /* Для своих сообщений */
 .message.me .reaction-badge {
     background: rgba(255,255,255,0.2);
     border-color: rgba(255,255,255,0.3);
 }
 .message.me .reaction-badge .rb-avatar {
-    border-color: rgba(255,255,255,0.5);
+    border-color: rgba(255,255,255,0.4);
 }
-
 .message.me .reaction-badge:hover {
     background: rgba(255,255,255,0.3);
 }
