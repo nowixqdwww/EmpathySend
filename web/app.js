@@ -2622,7 +2622,7 @@ function updateMessageReactions(messageId, reactions) {
         const reps = replyMap[r.reaction] || []
         reps.forEach((rep, i) => {
             const repBadge = makeBadge(rep, messageId, r.reaction)
-            repBadge.style.marginLeft = '-10px'
+            repBadge.style.marginLeft = '-40px'
             repBadge.style.zIndex = String(10 + i + 1)
             wrap.appendChild(repBadge)
         })
