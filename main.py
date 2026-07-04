@@ -385,14 +385,29 @@ async def init_db():
                     message_id INTEGER NOT NULL,
                     user_phone TEXT NOT NULL,
                     reaction TEXT NOT NULL,
+                    reply_to_reaction TEXT DEFAULT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE,
                     FOREIGN KEY (user_phone) REFERENCES users(phone) ON DELETE CASCADE,
-                    UNIQUE(message_id, user_phone, reaction)
+                    UNIQUE(message_id, user_phone)
                 )
             """)
         
             logger.info("Reactions table created")
+
+            # Миграция reactions: добавляем reply_to_reaction если нет
+            try:
+                await conn.execute("ALTER TABLE reactions ADD COLUMN reply_to_reaction TEXT DEFAULT NULL")
+                logger.info("Added reply_to_reaction column to reactions")
+            except Exception:
+                pass
+            # Миграция: меняем уникальный constraint на (message_id, user_phone)
+            try:
+                await conn.execute("ALTER TABLE reactions DROP CONSTRAINT IF EXISTS reactions_message_id_user_phone_reaction_key")
+                await conn.execute("ALTER TABLE reactions ADD CONSTRAINT reactions_message_id_user_phone_key UNIQUE (message_id, user_phone)")
+                logger.info("Updated reactions unique constraint")
+            except Exception:
+                pass
         
             logger.info("Database initialized successfully")
         except Exception as e:
@@ -1567,37 +1582,39 @@ async def add_reaction(data: dict):
         message_id = data.get("message_id")
         user = data.get("user")
         reaction = data.get("reaction")
-        
+        reply_to_reaction = data.get("reply_to_reaction")  # опционально
+
         async with db_conn() as conn:
-        
-            # Проверяем, есть ли уже такая реакция
-            existing = await conn.fetchval("""
-                SELECT id FROM reactions 
-                WHERE message_id = $1 AND user_phone = $2 AND reaction = $3
-            """, message_id, user, reaction)
-        
-            if existing:
-                # Если есть - удаляем (toggle)
+
+            # Проверяем текущую реакцию этого пользователя
+            existing = await conn.fetchrow("""
+                SELECT id, reaction FROM reactions
+                WHERE message_id = $1 AND user_phone = $2
+            """, message_id, user)
+
+            if existing and existing['reaction'] == reaction:
+                # Та же реакция — убираем (toggle)
                 await conn.execute("""
-                    DELETE FROM reactions 
-                    WHERE message_id = $1 AND user_phone = $2 AND reaction = $3
-                """, message_id, user, reaction)
+                    DELETE FROM reactions
+                    WHERE message_id = $1 AND user_phone = $2
+                """, message_id, user)
             else:
-                # Если нет - добавляем
+                # Новая реакция — удаляем старую и вставляем новую
                 await conn.execute("""
-                    INSERT INTO reactions (message_id, user_phone, reaction)
-                    VALUES ($1, $2, $3)
-                """, message_id, user, reaction)
-        
-        
-            # Получаем обновленные реакции для сообщения
+                    DELETE FROM reactions
+                    WHERE message_id = $1 AND user_phone = $2
+                """, message_id, user)
+                await conn.execute("""
+                    INSERT INTO reactions (message_id, user_phone, reaction, reply_to_reaction)
+                    VALUES ($1, $2, $3, $4)
+                """, message_id, user, reaction, reply_to_reaction)
+
             reactions = await get_message_reactions(message_id)
-        
             return {"ok": True, "reactions": reactions}
-        
+
     except Exception as e:
-            logger.error(f"Error adding reaction: {e}")
-            return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.error(f"Error adding reaction: {e}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 # Получить реакции для сообщения
 @app.get("/reactions/{message_id}")
@@ -1612,21 +1629,33 @@ async def get_reactions(message_id: int):
 async def get_message_reactions(message_id: int):
     async with db_conn() as conn:
         rows = await conn.fetch("""
-            SELECT reaction, COUNT(*) as count, 
-                   array_agg(user_phone) as users
-            FROM reactions 
-            WHERE message_id = $1
-            GROUP BY reaction
+            SELECT r.reaction, r.reply_to_reaction, r.user_phone,
+                   u.name, u.avatar
+            FROM reactions r
+            LEFT JOIN users u ON u.phone = r.user_phone
+            WHERE r.message_id = $1
+            ORDER BY r.created_at
         """, message_id)
-    
-        return [
-            {
-                "reaction": row['reaction'],
-                "count": row['count'],
-                "users": row['users']
-            }
-            for row in rows
-        ]
+
+        # Группируем по reaction
+        grouped = {}
+        for row in rows:
+            key = row['reaction']
+            if key not in grouped:
+                grouped[key] = {
+                    "reaction": key,
+                    "reply_to_reaction": row['reply_to_reaction'],
+                    "count": 0,
+                    "users": []
+                }
+            grouped[key]['count'] += 1
+            grouped[key]['users'].append({
+                "phone": row['user_phone'],
+                "name": row['name'],
+                "avatar": row['avatar']
+            })
+
+        return list(grouped.values())
 
 @app.get("/messages/{user1}/{user2}")
 async def get_messages(user1: str, user2: str):
