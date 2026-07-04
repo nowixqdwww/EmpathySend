@@ -1610,6 +1610,18 @@ async def add_reaction(data: dict):
                 """, message_id, user, reaction, reply_to_reaction)
 
             reactions = await get_message_reactions(message_id)
+
+            # WS broadcast обоим участникам чата
+            msg_row = await conn.fetchrow(
+                "SELECT sender, receiver FROM messages WHERE id = $1", message_id
+            )
+            if msg_row:
+                payload = {"action": "reaction_updated", "message_id": message_id, "reactions": reactions}
+                for target in (msg_row["sender"], msg_row["receiver"]):
+                    if target in clients:
+                        try: await clients[target].send_json(payload)
+                        except: clients.pop(target, None)
+
             return {"ok": True, "reactions": reactions}
 
     except Exception as e:
