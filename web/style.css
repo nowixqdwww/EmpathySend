@@ -5954,7 +5954,7 @@ img[loading="lazy"].loaded { opacity: 1; }
 
 /* Правая — три точки */
 .ch-right {
-    padding: 4px 6px;
+    padding: 8px 1px;
     gap: 2px;
     flex-shrink: 0;
 }
