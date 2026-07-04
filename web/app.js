@@ -2588,55 +2588,102 @@ async function addReaction(reaction) {
 function updateMessageReactions(messageId, reactions) {
     const messageElement = document.querySelector(`[data-message-id="${messageId}"]`)
     if (!messageElement) return
-    
+
     const oldReactions = messageElement.querySelector('.message-reactions')
     if (oldReactions) oldReactions.remove()
-    
-    if (reactions.length === 0) return
-    
+
+    if (!reactions || reactions.length === 0) return
+
     const reactionsDiv = document.createElement('div')
     reactionsDiv.className = 'message-reactions'
-    
+
+    // Группируем: основная реакция → массив ответных реакций
+    // Формат: каждый r = { reaction, count, users?, reply_to_reaction? }
+    // Группируем по reaction, складываем ответные поверх
+    const grouped = new Map()
     reactions.forEach(r => {
+        const key = r.reply_to_reaction || r.reaction
+        if (!grouped.has(key)) grouped.set(key, { main: key, replies: [], users: [], count: 0 })
+        const g = grouped.get(key)
+        if (r.reply_to_reaction) {
+            g.replies.push(r.reaction)
+        }
+        g.count += r.count || 1
+        if (r.users) g.users.push(...r.users)
+    })
+
+    grouped.forEach((g) => {
         const badge = document.createElement('span')
         badge.className = 'reaction-badge'
 
-        // Обычный клик — добавить/убрать эту же реакцию
+        // Emoji (с наложением ответной реакции)
+        const emojiStack = document.createElement('span')
+        emojiStack.className = 'rb-emoji-stack'
+        const mainEmoji = document.createElement('span')
+        mainEmoji.className = 'rb-emoji'
+        mainEmoji.textContent = g.main
+        emojiStack.appendChild(mainEmoji)
+        if (g.replies.length > 0) {
+            const replyEmoji = document.createElement('span')
+            replyEmoji.className = 'rb-emoji-reply'
+            replyEmoji.textContent = g.replies[g.replies.length - 1]
+            emojiStack.appendChild(replyEmoji)
+        }
+        badge.appendChild(emojiStack)
+
+        // Аватарки вместо цифр
+        const avatarsDiv = document.createElement('div')
+        avatarsDiv.className = 'rb-avatars'
+        const usersToShow = g.users.slice(0, 3)
+        if (usersToShow.length > 0) {
+            usersToShow.forEach(u => {
+                const av = document.createElement('div')
+                av.className = 'rb-avatar'
+                const avatarUrl = u.avatar ? getAvatarUrl(u.avatar) : null
+                if (avatarUrl) {
+                    av.innerHTML = `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover" onerror="this.onerror=null;this.parentElement.textContent='${escapeHtml((u.name||u.phone||'?')[0]).toUpperCase()}'"/>`
+                } else {
+                    av.textContent = (u.name || u.phone || '?')[0].toUpperCase()
+                }
+                avatarsDiv.appendChild(av)
+            })
+        } else {
+            // Нет данных о пользователях — показываем счётчик
+            const av = document.createElement('div')
+            av.className = 'rb-avatar'
+            av.textContent = g.count
+            av.style.fontSize = '9px'
+            avatarsDiv.appendChild(av)
+        }
+        badge.appendChild(avatarsDiv)
+
+        // Клик — добавить/убрать главную реакцию (одна на человека — контролируется бэком)
         badge.addEventListener('click', (e) => {
             e.stopPropagation()
             currentMessageId = messageId
-            addReaction(r.reaction)
+            addReaction(g.main)
         })
 
-        // Longpress / ПКМ — открыть панель выбора реакции
+        // Longpress / ПКМ — панель выбора реакции (реакция на реакцию)
         let longPressTimer = null
         badge.addEventListener('mousedown', (e) => {
             if (e.button !== 0) return
-            longPressTimer = setTimeout(() => {
-                currentMessageId = messageId
-                showReactionsPanel(e, messageId)
-            }, 500)
+            longPressTimer = setTimeout(() => { currentMessageId = messageId; showReactionsPanel(e, messageId) }, 500)
         })
         badge.addEventListener('mouseup', () => clearTimeout(longPressTimer))
         badge.addEventListener('mouseleave', () => clearTimeout(longPressTimer))
         badge.addEventListener('touchstart', (e) => {
-            longPressTimer = setTimeout(() => {
-                currentMessageId = messageId
-                showReactionsPanel(e.touches[0], messageId)
-            }, 500)
+            longPressTimer = setTimeout(() => { currentMessageId = messageId; showReactionsPanel(e.touches[0], messageId) }, 500)
         }, { passive: true })
         badge.addEventListener('touchend', () => clearTimeout(longPressTimer))
         badge.addEventListener('contextmenu', (e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            currentMessageId = messageId
-            showReactionsPanel(e, messageId)
+            e.preventDefault(); e.stopPropagation()
+            currentMessageId = messageId; showReactionsPanel(e, messageId)
         })
 
-        badge.innerHTML = `${r.reaction} <span class="count">${r.count}</span>`
         reactionsDiv.appendChild(badge)
     })
-    
+
     messageElement.appendChild(reactionsDiv)
 }
 
