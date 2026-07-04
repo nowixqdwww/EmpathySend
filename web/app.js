@@ -2738,6 +2738,17 @@ async function loadMessageReactions(messageId) {
     }
 }
 
+async function refreshVisibleReactions() {
+    if (!currentChat) return
+    const els = document.querySelectorAll('#messages [data-message-id]')
+    for (const el of els) {
+        const id = parseInt(el.dataset.messageId)
+        if (id) await loadMessageReactions(id)
+    }
+}
+
+setInterval(refreshVisibleReactions, 3000)
+
 // ============= ФУНКЦИИ ДЛЯ ЧАТОВ =============
 
 function formatLastMessage(text) {
