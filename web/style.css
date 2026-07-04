@@ -2540,15 +2540,16 @@ body {
 .reaction-badge {
     background: rgba(255,255,255,0.9);
     border-radius: 20px;
-    padding: 3px 8px;
-    font-size: 13px;
+    padding: 3px 8px 3px 6px;
+    font-size: 16px;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 0;
     cursor: pointer;
     border: 1px solid rgba(0,0,0,0.1);
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.08);
     transition: transform 0.2s;
+    position: relative;
 }
 
 .reaction-badge:hover {
@@ -2556,10 +2557,52 @@ body {
     background: var(--bg-secondary);
 }
 
-.reaction-badge .count {
-    font-size: 12px;
-    color: var(--text-secondary);
-    font-weight: 500;
+/* Эмодзи в бейдже */
+.reaction-badge .rb-emoji {
+    font-size: 16px;
+    line-height: 1;
+}
+
+/* Стэк аватарок */
+.reaction-badge .rb-avatars {
+    display: flex;
+    margin-left: 4px;
+}
+
+.reaction-badge .rb-avatar {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1.5px solid #fff;
+    object-fit: cover;
+    margin-left: -5px;
+    background: var(--accent, #5b8dee);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: #fff;
+    font-weight: 600;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+.reaction-badge .rb-avatars .rb-avatar:first-child {
+    margin-left: 0;
+}
+
+/* Стэкинг: реакция на реакцию — второй emoji накладывается */
+.reaction-badge .rb-emoji-stack {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+.reaction-badge .rb-emoji-stack .rb-emoji-reply {
+    position: absolute;
+    bottom: -4px;
+    right: -6px;
+    font-size: 11px;
+    line-height: 1;
+    filter: drop-shadow(0 0 1px rgba(255,255,255,0.8));
 }
 
 /* Для своих сообщений */
@@ -2567,9 +2610,8 @@ body {
     background: rgba(255,255,255,0.2);
     border-color: rgba(255,255,255,0.3);
 }
-
-.message.me .reaction-badge .count {
-    color: rgba(255,255,255,0.9);
+.message.me .reaction-badge .rb-avatar {
+    border-color: rgba(255,255,255,0.5);
 }
 
 .message.me .reaction-badge:hover {
@@ -2623,28 +2665,7 @@ body {
 
 /* Кнопка добавления реакции */
 .add-reaction-btn {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    border: 1px solid rgba(0,0,0,0.1);
-    background: var(--bg-secondary);
-    font-size: 14px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.2s, transform 0.2s;
-    margin-left: 4px;
-}
-
-.message:hover .add-reaction-btn {
-    opacity: 1;
-}
-
-.add-reaction-btn:hover {
-    transform: scale(1.1);
-    background: var(--bg-primary);
+    display: none !important;
 }
 
 /* Мобильные */
