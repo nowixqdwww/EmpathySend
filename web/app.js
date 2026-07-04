@@ -2557,34 +2557,49 @@ async function addReaction(reaction) {
     if (!msgId || !currentUser) return
     hideContextMenus()
 
+    const replyTo = pendingReplyToReaction || null
+    pendingReplyToReaction = null
+    document.getElementById('reactionsPanel').style.display = 'none'
+
+    // Оптимистичное обновление — сразу показываем локально
+    const msgEl = document.querySelector(`[data-message-id="${msgId}"]`)
+    if (msgEl) {
+        const existing = msgEl.querySelector('.message-reactions')
+        let currentReactions = []
+        // Читаем текущее состояние из DOM чтобы не потерять остальные реакции
+        msgEl.querySelectorAll('.reaction-badge-wrap').forEach(wrap => {
+            const mainBadge = wrap.querySelector('.reaction-badge:not(.reaction-badge-reply)')
+            const replyBadge = wrap.querySelector('.reaction-badge-reply')
+            if (mainBadge) {
+                const emoji = mainBadge.querySelector('.rb-emoji')?.textContent
+                if (emoji) currentReactions.push({ reaction: emoji, reply_to_reaction: null, count: 1, users: [{ phone: currentUser, name: currentUser }] })
+            }
+            if (replyBadge) {
+                const emoji = replyBadge.querySelector('.rb-emoji')?.textContent
+                const parent = mainBadge?.querySelector('.rb-emoji')?.textContent
+                if (emoji && parent) currentReactions.push({ reaction: emoji, reply_to_reaction: parent, count: 1, users: [{ phone: currentUser, name: currentUser }] })
+            }
+        })
+        // Убираем старую реакцию этого пользователя и добавляем новую
+        currentReactions = currentReactions.filter(r => !(r.users?.some(u => u.phone === currentUser) && r.reaction === reaction && r.reply_to_reaction === replyTo))
+        currentReactions.push({ reaction, reply_to_reaction: replyTo, count: 1, users: [{ phone: currentUser, name: currentUser }] })
+        updateMessageReactions(msgId, currentReactions)
+    }
+
     try {
         const res = await fetch('/reaction/add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message_id: msgId,
-                user: currentUser,
-                reaction: reaction,
-                reply_to_reaction: pendingReplyToReaction || null
-            })
+            body: JSON.stringify({ message_id: msgId, user: currentUser, reaction, reply_to_reaction: replyTo })
         })
-
         const data = await res.json()
-
-        if (data.error) {
-            showToast(data.error)
-            return
-        }
-
+        if (data.error) { showToast(data.error); return }
+        // Обновляем точными данными с сервера
         updateMessageReactions(msgId, data.reactions)
-
     } catch (error) {
         console.error('Error adding reaction:', error)
         showToast('Ошибка при добавлении реакции')
     }
-
-    pendingReplyToReaction = null
-    document.getElementById('reactionsPanel').style.display = 'none'
 }
 
 // Обновить отображение реакций на сообщении
