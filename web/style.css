@@ -5954,6 +5954,7 @@ img[loading="lazy"].loaded { opacity: 1; }
     display: flex;
     flex-direction: column;
     justify-content: center;
+    padding: 6px 0;
 }
 .ch-call-btn {
     margin-left: auto;
