@@ -869,14 +869,15 @@ body {
 }
 
 .chat-header {
-    padding: 15px 20px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--border);
+    padding: 0;
+    background: none;
+    border: none;
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 8px;
     flex-shrink: 0;
-    cursor: pointer;
+    cursor: default;
+    margin: 12px 16px;
 }
 
 .back-btn {
