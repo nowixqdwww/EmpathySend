@@ -5942,10 +5942,11 @@ img[loading="lazy"].loaded { opacity: 1; }
 .ch-center {
     flex: 1;
     min-width: 0;
-    padding: 4px 4px 4px 6px;
+    padding: 0 4px 0 6px;
     gap: 8px;
-    align-items: center;
+    align-items: stretch;
     display: flex;
+    height: 44px;
 }
 .ch-center .chat-user-details {
     cursor: pointer;
@@ -5954,7 +5955,10 @@ img[loading="lazy"].loaded { opacity: 1; }
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 6px 0;
+    align-self: center;
+}
+.ch-center .chat-user-avatar {
+    align-self: center;
 }
 .ch-call-btn {
     margin-left: auto;
