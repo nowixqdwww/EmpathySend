@@ -2,7 +2,6 @@ let ws
 let currentUser = localStorage.getItem('currentUser') || null
 let authToken = localStorage.getItem('authToken') || null
 let currentChat = null
-const voiceBannedChats = new Set()  // чаты где запрещены голосовые
 let videoMaxDuration = 60  // секунд
 let reconnectAttempts = 0
 const maxReconnectAttempts = 10
@@ -1535,32 +1534,6 @@ function addMessage(user, text, messageId = null, isRead = false, reply = null) 
     const div = document.createElement('div')
     const isMe = user === currentUser
 
-    // Системное сообщение
-    if (text && text.startsWith('[SYSTEM]') && text.endsWith('[/SYSTEM]')) {
-        const sysText = text.slice(8, -9)
-        // Обрабатываем запрет/разрешение голосовых
-        if (sysText.includes('запретил') && sysText.includes('голосов')) {
-            voiceBannedChats.add(currentChat)
-            updateVoiceBanUI()
-        } else if (sysText.includes('разрешил') && sysText.includes('голосов')) {
-            voiceBannedChats.delete(currentChat)
-            updateVoiceBanUI()
-        }
-        // Если отправитель — текущий пользователь, заменяем имя на «Вы»
-        const myName = currentUserProfile?.name || currentUser
-        let displayText = sysText
-        if (isMe) {
-            displayText = sysText
-                .replace(myName + ' запретил ', 'Вы запретили ')
-                .replace(myName + ' разрешил ', 'Вы разрешили ')
-        }
-        div.className = 'message system-message'
-        div.innerHTML = `<span>${escapeHtml(displayText)}</span>`
-        messagesDiv.appendChild(div)
-        messagesDiv.scrollTop = messagesDiv.scrollHeight
-        return
-    }
-
     // Media message
     const mediaData = parseMediaToken(text)
     if (mediaData) {
@@ -1943,9 +1916,6 @@ let voiceStartTime = null
 let voiceTimer = null
 let voiceCancelled = false
 let voiceTouchStartX = 0
-let voiceMode = localStorage.getItem('voiceMode') || 'tap'  // 'tap' | 'hold'
-let voiceTapActive = false  // для режима tap
-
 // ── Настройки камеры ──────────────────────────────────────────
 function loadCameraSettings() {
     const facing  = localStorage.getItem('cameraFacing')  || 'user'
@@ -1985,73 +1955,79 @@ function getCameraConstraints() {
     }
 }
 
-function saveVoiceMode() {
-    const sel = document.getElementById('voiceMode')
-    if (!sel) return
-    voiceMode = sel.value
-    localStorage.setItem('voiceMode', voiceMode)
-    updateVoiceBtnBehavior()
-    showToast(voiceMode === 'hold' ? 'Режим: зажать кнопку' : 'Режим: нажать дважды')
+// 'voice' | 'video' — режим кнопки, тап переключает
+let mediaRecordMode = localStorage.getItem('mediaRecordMode') || 'voice'
+
+function updateVoiceBtnIcon() {
+    const btn = document.getElementById('voiceBtn')
+    if (!btn) return
+    const icon = btn.querySelector('i')
+    if (mediaRecordMode === 'video') {
+        icon.className = 'fas fa-video'
+        btn.title = 'Зажать — видеосообщение • Нажать — голосовое'
+    } else {
+        icon.className = 'fas fa-microphone'
+        btn.title = 'Зажать — голосовое • Нажать — видеосообщение'
+    }
 }
 
-function loadVoiceModeSetting() {
-    const sel = document.getElementById('voiceMode')
-    if (sel) sel.value = voiceMode
-    updateVoiceBtnBehavior()
+function switchMediaRecordMode() {
+    mediaRecordMode = mediaRecordMode === 'voice' ? 'video' : 'voice'
+    localStorage.setItem('mediaRecordMode', mediaRecordMode)
+    updateVoiceBtnIcon()
+    showToast(mediaRecordMode === 'video' ? '📹 Режим: видеосообщение' : '🎤 Режим: голосовое')
 }
 
 function updateVoiceBtnBehavior() {
     const btn = document.getElementById('voiceBtn')
     if (!btn) return
 
-    // Сбрасываем все обработчики
-    btn.onmousedown = btn.onmouseup = btn.onmouseleave = null
-    btn.ontouchstart = btn.ontouchend = btn.ontouchcancel = null
-    btn.onclick = null
-
-    // Используем Pointer Events — работают одинаково на мышке и тачскрине
-    // Удаляем старые листенеры через замену элемента
     const newBtn = btn.cloneNode(true)
     btn.parentNode.replaceChild(newBtn, btn)
     const b = newBtn
 
-    if (voiceMode === 'hold') {
-        b.title = 'Зажать и держать для записи'
-        b.style.cursor = 'grab'
-        b.addEventListener('pointerdown', (e) => {
-            e.preventDefault()
-            b.setPointerCapture(e.pointerId)
-            startVoiceRecord(e)
-        })
-        b.addEventListener('pointerup', (e) => {
-            e.preventDefault()
-            stopVoiceRecord(e)
-        })
-        b.addEventListener('pointercancel', () => cancelVoiceRecord())
-    } else {
-        b.title = 'Нажать для начала/конца записи'
-        b.style.cursor = 'pointer'
-        b.addEventListener('pointerdown', (e) => {
-            e.preventDefault()
-            b.setPointerCapture(e.pointerId)
-        })
-        b.addEventListener('pointerup', (e) => {
-            e.preventDefault()
-            // Проверяем что pointer был на кнопке при отпускании
-            const rect = b.getBoundingClientRect()
-            const inside = e.clientX >= rect.left && e.clientX <= rect.right
-                        && e.clientY >= rect.top  && e.clientY <= rect.bottom
-            if (!inside) return
-            if (!voiceTapActive) {
-                voiceTapActive = true
-                startVoiceRecord(null)
+    let holdTimer = null
+    let holdFired = false
+
+    b.addEventListener('pointerdown', (e) => {
+        e.preventDefault()
+        b.setPointerCapture(e.pointerId)
+        holdFired = false
+        holdTimer = setTimeout(() => {
+            holdFired = true
+            if (mediaRecordMode === 'video') {
+                openVideoRecorder()
             } else {
-                voiceTapActive = false
-                commitVoice()
+                startVoiceRecord(e)
             }
-        })
-    }
+        }, 300)
+    })
+
+    b.addEventListener('pointerup', (e) => {
+        e.preventDefault()
+        clearTimeout(holdTimer)
+        if (!holdFired) {
+            // Короткое нажатие — смена режима
+            switchMediaRecordMode()
+        } else {
+            // Конец зажатия — стоп запись
+            if (mediaRecordMode === 'voice') {
+                stopVoiceRecord(e)
+            }
+            // видео управляется своим модалом
+        }
+    })
+
+    b.addEventListener('pointercancel', () => {
+        clearTimeout(holdTimer)
+        if (holdFired && mediaRecordMode === 'voice') cancelVoiceRecord()
+    })
+
+    updateVoiceBtnIcon()
 }
+
+function saveVoiceMode() {} // оставляем пустой для совместимости
+function loadVoiceModeSetting() { updateVoiceBtnBehavior() }
 
 // ── Голосовая запись ──────────────────────────────────────────────────
 let voiceAnalyser = null
@@ -2089,7 +2065,6 @@ function hideRecordArea() {
 async function startVoiceRecord(e) {
     if (e) e.preventDefault()
     if (!currentChat) { showToast('Выберите чат'); return }
-    if (voiceBannedChats.has(currentChat)) { showToast('Голосовые сообщения запрещены в этом чате'); return }
     if (mediaRecorder && mediaRecorder.state !== 'inactive') return
 
     try {
@@ -2115,11 +2090,11 @@ async function startVoiceRecord(e) {
         mediaRecorder.onstop = () => {
             if (voiceStream) { voiceStream.getTracks().forEach(t => t.stop()); voiceStream = null }
             stopWaveAnimation()
-            voiceTapActive = false
+            
             const vBtn = document.getElementById('voiceBtn')
             if (vBtn) {
                 vBtn.classList.remove('recording')
-                vBtn.querySelector('i').className = 'fas fa-microphone'
+                updateVoiceBtnIcon()
             }
             if (!voiceCancelled) sendVoiceMessage()
         }
@@ -2138,13 +2113,11 @@ async function startVoiceRecord(e) {
 
         voiceStartTime = Date.now()
         showRecordArea()
-        // Меняем иконку микрофона на стоп в tap-режиме
+        // Меняем иконку на стоп во время записи
         const vBtn = document.getElementById('voiceBtn')
         if (vBtn) {
             vBtn.classList.add('recording')
-            vBtn.querySelector('i').className = voiceMode === 'tap'
-                ? 'fas fa-stop'
-                : 'fas fa-microphone'
+            vBtn.querySelector('i').className = 'fas fa-stop'
         }
         if (navigator.vibrate) navigator.vibrate(40)
         startWaveAnimation()
@@ -2188,7 +2161,7 @@ function commitVoice() {
 
 function cancelVoiceRecord() {
     voiceCancelled = true
-    voiceTapActive = false
+    
     clearInterval(voiceTimer)
     if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop()
     else {
@@ -2201,7 +2174,7 @@ function cancelVoiceRecord() {
     const vBtn = document.getElementById('voiceBtn')
     if (vBtn) {
         vBtn.classList.remove('recording')
-        vBtn.querySelector('i').className = 'fas fa-microphone'
+        updateVoiceBtnIcon()
     }
     if (navigator.vibrate) navigator.vibrate([20, 20])
 }
@@ -2550,222 +2523,68 @@ function showReactionsPanel(event, messageId) {
 }
 
 // Добавить реакцию
-let pendingReplyToReaction = null  // реакция на которую отвечаем
-const reactionCache = {}  // messageId → reactions[]
-
-function addReaction(reaction) {
+async function addReaction(reaction) {
     const msgId = currentMessageId || selectedMessageId
     if (!msgId || !currentUser) return
     hideContextMenus()
-
-    const replyTo = pendingReplyToReaction || null
-    pendingReplyToReaction = null
-    document.getElementById('reactionsPanel').style.display = 'none'
-
-    // Строим оптимистичное состояние из кеша
-    const prev = (reactionCache[msgId] || []).map(r => ({ ...r, users: [...(r.users || [])] }))
-
-    // Убираем предыдущую реакцию этого пользователя
-    let userPrev = null
-    const next = prev.map(r => {
-        const idx = (r.users || []).findIndex(u => u.phone === currentUser)
-        if (idx !== -1) {
-            userPrev = r.reaction
-            const users = r.users.filter(u => u.phone !== currentUser)
-            return { ...r, users, count: users.length }
+    
+    try {
+        const res = await fetch('/reaction/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                message_id: msgId,
+                user: currentUser,
+                reaction: reaction
+            })
+        })
+        
+        const data = await res.json()
+        
+        if (data.error) {
+            showToast(data.error)
+            return
         }
-        return r
-    }).filter(r => r.count > 0)
-
-    // Удаляем осиротевшие reply если убрали основную
-    const filtered = next.filter(r => {
-        if (!r.reply_to_reaction) return true
-        return next.some(m => m.reaction === r.reply_to_reaction && !m.reply_to_reaction)
-    })
-
-    const isSameToggle = userPrev === reaction && !replyTo
-
-    if (!isSameToggle) {
-        const existing = filtered.find(r => r.reaction === reaction && r.reply_to_reaction === replyTo)
-        const me = { phone: currentUser, name: currentUser }
-        if (existing) {
-            existing.users.push(me)
-            existing.count++
-        } else {
-            filtered.push({ reaction, reply_to_reaction: replyTo, count: 1, users: [me] })
-        }
+        
+        updateMessageReactions(msgId, data.reactions)
+        
+    } catch (error) {
+        console.error('Error adding reaction:', error)
+        showToast('Ошибка при добавлении реакции')
     }
-
-    reactionCache[msgId] = filtered
-    renderReactions(msgId, filtered)
-
-    // Fire-and-forget — сервер в фоне
-    fetch('/reaction/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message_id: msgId, user: currentUser, reaction, reply_to_reaction: replyTo })
-    }).then(r => r.json()).then(data => {
-        if (data.reactions) {
-            reactionCache[msgId] = data.reactions
-            renderReactions(msgId, data.reactions)
-        }
-    }).catch(() => {})
+    
+    // Скрываем панель
+    document.getElementById('reactionsPanel').style.display = 'none'
 }
 
-// Обновить отображение реакций — с диффом и анимацией
+// Обновить отображение реакций на сообщении
 function updateMessageReactions(messageId, reactions) {
-    reactionCache[messageId] = reactions
-    renderReactions(messageId, reactions)
-}
-
-function renderReactions(messageId, reactions) {
     const messageElement = document.querySelector(`[data-message-id="${messageId}"]`)
     if (!messageElement) return
-
-    let container = messageElement.querySelector('.message-reactions')
-
-    if (!reactions || reactions.length === 0) {
-        if (container) {
-            container.style.opacity = '0'
-            setTimeout(() => container?.remove(), 150)
+    
+    // Удаляем старые реакции
+    const oldReactions = messageElement.querySelector('.message-reactions')
+    if (oldReactions) oldReactions.remove()
+    
+    if (reactions.length === 0) return
+    
+    // Создаем контейнер для реакций
+    const reactionsDiv = document.createElement('div')
+    reactionsDiv.className = 'message-reactions'
+    
+    reactions.forEach(r => {
+        const badge = document.createElement('span')
+        badge.className = 'reaction-badge'
+        badge.onclick = (e) => {
+            e.stopPropagation()
+            // При клике на бейдж - добавляем/убираем реакцию
+            addReaction(r.reaction)
         }
-        return
-    }
-
-    if (!container) {
-        container = document.createElement('div')
-        container.className = 'message-reactions'
-        container.style.opacity = '0'
-        messageElement.appendChild(container)
-        requestAnimationFrame(() => { container.style.transition = 'opacity .15s'; container.style.opacity = '1' })
-    }
-
-    // Сначала основные реакции (без reply_to_reaction), потом ответные
-    const main = reactions.filter(r => !r.reply_to_reaction)
-    const replies = reactions.filter(r => r.reply_to_reaction)
-
-    const replyMap = {}
-    replies.forEach(r => {
-        if (!replyMap[r.reply_to_reaction]) replyMap[r.reply_to_reaction] = []
-        replyMap[r.reply_to_reaction].push(r)
+        badge.innerHTML = `${r.reaction} <span class="count">${r.count}</span>`
+        reactionsDiv.appendChild(badge)
     })
-
-    // Диффим по ключу — не перерисовываем то что не изменилось
-    const newKeys = new Set()
-    main.forEach(r => {
-        const reps = replyMap[r.reaction] || []
-        const key = r.reaction + '|' + reps.map(x => x.reaction).join(',')
-        newKeys.add(key)
-
-        let wrap = container.querySelector(`[data-rkey="${CSS.escape(key)}"]`)
-        if (!wrap) {
-            wrap = document.createElement('div')
-            wrap.className = 'reaction-badge-wrap'
-            wrap.dataset.rkey = key
-            wrap.style.opacity = '0'
-            wrap.style.transform = 'scale(0.7)'
-            container.appendChild(wrap)
-            requestAnimationFrame(() => {
-                wrap.style.transition = 'opacity .18s, transform .18s'
-                wrap.style.opacity = '1'
-                wrap.style.transform = 'scale(1)'
-            })
-        } else {
-            wrap.innerHTML = ''
-        }
-
-        wrap.appendChild(makeBadge(r, messageId, null))
-        reps.forEach((rep, i) => {
-            const repBadge = makeBadge(rep, messageId, r.reaction)
-            repBadge.style.marginLeft = '-40px'
-            repBadge.style.zIndex = String(10 + i + 1)
-            wrap.appendChild(repBadge)
-        })
-    })
-
-    // Удаляем исчезнувшие с анимацией
-    container.querySelectorAll('[data-rkey]').forEach(wrap => {
-        if (!newKeys.has(wrap.dataset.rkey)) {
-            wrap.style.transition = 'opacity .15s, transform .15s'
-            wrap.style.opacity = '0'
-            wrap.style.transform = 'scale(0.7)'
-            setTimeout(() => wrap.remove(), 150)
-        }
-    })
-}
-
-function makeBadge(r, messageId, replyingTo) {
-    const badge = document.createElement('span')
-    badge.className = 'reaction-badge'
-    if (replyingTo) badge.classList.add('reaction-badge-reply')
-
-    // Emoji
-    const emojiEl = document.createElement('span')
-    emojiEl.className = 'rb-emoji'
-    emojiEl.textContent = r.reaction
-    badge.appendChild(emojiEl)
-
-    // Аватарки
-    const avatarsDiv = document.createElement('div')
-    avatarsDiv.className = 'rb-avatars'
-    const usersToShow = (r.users || []).slice(0, 3)
-    if (usersToShow.length > 0) {
-        usersToShow.forEach(u => {
-            const av = document.createElement('div')
-            av.className = 'rb-avatar'
-            const avatarUrl = u.avatar ? getAvatarUrl(u.avatar) : null
-            if (avatarUrl) {
-                av.innerHTML = `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover" onerror="this.onerror=null;this.textContent='${(u.name||u.phone||'?')[0].toUpperCase()}'"/>`
-            } else {
-                av.textContent = (u.name || u.phone || '?')[0].toUpperCase()
-            }
-            avatarsDiv.appendChild(av)
-        })
-    } else {
-        const av = document.createElement('div')
-        av.className = 'rb-avatar'
-        av.textContent = r.count || 1
-        av.style.fontSize = '9px'
-        avatarsDiv.appendChild(av)
-    }
-    badge.appendChild(avatarsDiv)
-
-    // Клик — toggle реакции
-    badge.addEventListener('click', (e) => {
-        e.stopPropagation()
-        currentMessageId = messageId
-        pendingReplyToReaction = replyingTo || null
-        addReaction(r.reaction)
-    })
-
-    // Longpress / ПКМ — открыть панель реакций (реакция на реакцию)
-    let longPressTimer = null
-    badge.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return
-        longPressTimer = setTimeout(() => {
-            currentMessageId = messageId
-            pendingReplyToReaction = r.reaction
-            showReactionsPanel(e, messageId)
-        }, 500)
-    })
-    badge.addEventListener('mouseup', () => clearTimeout(longPressTimer))
-    badge.addEventListener('mouseleave', () => clearTimeout(longPressTimer))
-    badge.addEventListener('touchstart', (e) => {
-        longPressTimer = setTimeout(() => {
-            currentMessageId = messageId
-            pendingReplyToReaction = r.reaction
-            showReactionsPanel(e.touches[0], messageId)
-        }, 500)
-    }, { passive: true })
-    badge.addEventListener('touchend', () => clearTimeout(longPressTimer))
-    badge.addEventListener('contextmenu', (e) => {
-        e.preventDefault(); e.stopPropagation()
-        currentMessageId = messageId
-        pendingReplyToReaction = r.reaction
-        showReactionsPanel(e, messageId)
-    })
-
-    return badge
+    
+    messageElement.appendChild(reactionsDiv)
 }
 
 // addMessage defined above
@@ -2775,22 +2594,14 @@ async function loadMessageReactions(messageId) {
     try {
         const res = await fetch(`/reactions/${messageId}`)
         const data = await res.json()
-        if (data.reactions) {
-            reactionCache[messageId] = data.reactions
-            renderReactions(messageId, data.reactions)
+        
+        if (data.reactions && data.reactions.length > 0) {
+            updateMessageReactions(messageId, data.reactions)
         }
-    } catch {}
+    } catch (error) {
+        console.error('Error loading reactions:', error)
+    }
 }
-
-async function refreshVisibleReactions() {
-    if (!currentChat) return
-    const ids = [...document.querySelectorAll('#messages [data-message-id]')]
-        .map(el => parseInt(el.dataset.messageId)).filter(Boolean)
-    // Параллельно, не ждём каждый
-    await Promise.allSettled(ids.map(id => loadMessageReactions(id)))
-}
-
-setInterval(refreshVisibleReactions, 3000)
 
 // ============= ФУНКЦИИ ДЛЯ ЧАТОВ =============
 
@@ -3043,7 +2854,6 @@ function openChat(phone, displayName) {
     if (currentChat === phone) return
     
     currentChat = phone
-    updateVoiceBanUI()  // обновляем состояние запрета голосовых
     // Если чата нет в списке — добавляем сразу
     if (!document.getElementById(`chat-${cleanPhone(phone)}`)) {
         createChatElement({ phone, displayName, name: displayName, last: '', unread: 0 })
@@ -3070,7 +2880,7 @@ function openChat(phone, displayName) {
             // Сохраняем last_seen
             userCache[phone] = user  // кешируем для updateChatInList
             if (user.last_seen) lastSeenMap[phone] = user.last_seen
-            
+            document.getElementById('chatUserPhone').innerText = formatPhone(phone)
             
             // Аватар в шапке
             const chatAvatar = document.getElementById('chatAvatarText')
@@ -3088,7 +2898,7 @@ function openChat(phone, displayName) {
         .catch(() => {
             // Если ошибка — показываем без галочки
             document.getElementById('chatUserName').innerHTML = escapeHtml(displayName || phone)
-            
+            document.getElementById('chatUserPhone').innerText = formatPhone(phone)
             document.getElementById('chatAvatarText').innerText = '?'
         })
     
@@ -3510,28 +3320,6 @@ function muteChat() {
     hideContextMenus()
 }
 
-function updateVoiceBanUI() {
-    const banned = currentChat && voiceBannedChats.has(currentChat)
-    const menuItem = document.getElementById('voiceBanMenuItem')
-    if (menuItem) menuItem.innerHTML = `<i class="fas fa-microphone${banned ? '' : '-slash'}"></i> ${banned ? 'Разрешить' : 'Запретить'} голосовые`
-    // Скрываем кнопку микрофона если запрет
-    const voiceBtn = document.getElementById('voiceBtn')
-    if (voiceBtn) voiceBtn.style.opacity = banned ? '0.35' : ''
-}
-
-function toggleVoiceBan() {
-    if (!currentChat) return
-    const banned = voiceBannedChats.has(currentChat)
-    const myName = currentUserProfile?.name || currentUser
-    const sysText = banned
-        ? `[SYSTEM]${myName} разрешил отправку голосовых сообщений[/SYSTEM]`
-        : `[SYSTEM]${myName} запретил отправку голосовых сообщений[/SYSTEM]`
-    ws.send(JSON.stringify({ action: 'send', to: currentChat, text: sysText }))
-    // НЕ вызываем addMessage — придёт обратно через WS как обычное сообщение
-    document.getElementById('chatMenu').style.display = 'none'
-}
-window.toggleVoiceBan = toggleVoiceBan
-
 function clearChat() {
     if (!selectedChatPhone) return
     const phone = selectedChatPhone
@@ -3729,10 +3517,6 @@ function connect() {
                         el.querySelector('.message-meta')?.prepend(mark)
                     }
                 }
-            }
-
-            if (data.action === 'reaction_updated') {
-                updateMessageReactions(data.message_id, data.reactions)
             }
 
             if (data.action === 'message') {
@@ -4280,7 +4064,6 @@ async function openVideoRecorder() {
         videoStream = await navigator.mediaDevices.getUserMedia(getCameraConstraints())
         const preview = document.getElementById('videoPreview')
         preview.srcObject = videoStream
-        preview.style.transform = 'scaleX(-1)'
     } catch (e) {
         let msg = 'Нет доступа к камере'
         if (e.name === 'NotAllowedError')  msg = 'Камера заблокирована. Разрешите доступ в настройках браузера'
@@ -4299,33 +4082,12 @@ function closeVideoRecorder() {
     document.body.style.overflow = ''
     videoBlob = null
     videoChunks = []
-
-    // Сбрасываем playback и UI
-    const playback = document.getElementById('videoPlayback')
-    const preview  = document.getElementById('videoPreview')
-    if (playback) { playback.pause(); playback.src = ''; playback.style.display = 'none' }
-    if (preview)  { preview.style.display = 'block'; preview.style.transform = '' }
-
-    // Убираем кнопку play если осталась
-    const oldBtn = document.querySelector('.video-recorder-circle .preview-play-btn')
-    if (oldBtn) oldBtn.remove()
-
-    // Сбрасываем кнопку записи
-    const btn = document.getElementById('vrRecordBtn')
-    if (btn) { btn.innerHTML = '<i class="fas fa-circle"></i>'; btn.classList.remove('recording') }
-
-    resetVideoRing()
-    document.getElementById('videoTimer')?.style && (document.getElementById('videoTimer').style.display = 'none')
-    document.getElementById('videoSendActions')?.style && (document.getElementById('videoSendActions').style.display = 'none')
-    document.getElementById('videoRecorderActions')?.style && (document.getElementById('videoRecorderActions').style.display = 'flex')
 }
 
 function stopVideoStream() {
     clearInterval(videoTimer)
-    if (videoRecorder) {
-        videoRecorder.onstop = null  // не триггерим onVideoRecordStop при закрытии
-        if (videoRecorder.state !== 'inactive') videoRecorder.stop()
-        videoRecorder = null
+    if (videoRecorder && videoRecorder.state !== 'inactive') {
+        videoRecorder.stop()
     }
     if (videoStream) {
         videoStream.getTracks().forEach(t => t.stop())
@@ -4337,6 +4099,7 @@ function stopVideoStream() {
 }
 
 function toggleVideoRecord() {
+    videoPreview.style.transform = 'scaleX(-1)' /*jopa*/
     const btn = document.getElementById('vrRecordBtn')
     if (!videoRecorder || videoRecorder.state === 'inactive') {
         // Начинаем запись
@@ -4552,17 +4315,7 @@ function onVideoRecordStop() {
 function retakeVideo() {
     videoBlob = null
     videoChunks = []
-
-    // Очищаем playback
-    const playback = document.getElementById('videoPlayback')
-    playback.pause()
-    playback.src = ''
-    playback.style.display = 'none'
-
-    // Убираем кнопку play если осталась
-    const oldBtn = document.querySelector('.video-recorder-circle .preview-play-btn')
-    if (oldBtn) oldBtn.remove()
-
+    document.getElementById('videoPlayback').style.display = 'none'
     document.getElementById('videoPreview').style.display = 'block'
     document.getElementById('videoSendActions').style.display = 'none'
     document.getElementById('videoRecorderActions').style.display = 'flex'
@@ -4578,7 +4331,6 @@ function retakeVideo() {
 
 async function sendVideoMessage() {
     if (!videoBlob || !currentChat) return
-    if (voiceBannedChats.has(currentChat)) { showToast('Голосовые сообщения запрещены в этом чате'); closeVideoRecorder(); return }
     // Сохраняем до closeVideoRecorder который обнуляет эти переменные
     const blobToSend = videoBlob
     const chatTo = currentChat
@@ -4700,7 +4452,6 @@ function createVideoPlayer(url, isMe, knownDuration) {
     function fmt(s) { s = Math.max(0, Math.floor(s)); return `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}` }
 
     function updateRing() {
-        if (scrubbing) return  // не перебиваем визуал во время перемотки
         const dur = (isFinite(video.duration) && video.duration > 0) ? video.duration : (knownDuration || 0)
         if (!dur) return
         const pct = video.currentTime / dur
@@ -4746,83 +4497,79 @@ function createVideoPlayer(url, isMe, knownDuration) {
 
 
 
-    // Перемотка — circular drag по кольцу
-    svg.style.pointerEvents = 'none'
+    // Перемотка drag по SVG кольцу
+    svg.style.pointerEvents = 'auto'
+    svg.style.cursor = 'pointer'
 
-    let scrubbing = false
-    let dragMoved = false
-    let prevAngle = 0
-    let latestPct = null
-
-    function getDur() {
-        const d = video.duration
-        return (Number.isFinite(d) && d > 0) ? d : (knownDuration || 0)
-    }
-
-    function getAngle(e) {
+    function getAnglePct(e) {
         const rect = outer.getBoundingClientRect()
-        const cx = rect.left + rect.width / 2
-        const cy = rect.top + rect.height / 2
+        const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2
         const ex = e.touches ? e.touches[0].clientX : e.clientX
         const ey = e.touches ? e.touches[0].clientY : e.clientY
-        let a = Math.atan2(ex - cx, -(ey - cy)) * 180 / Math.PI
-        if (a < 0) a += 360
-        return a
+        let a = Math.atan2(ex - cx, -(ey - cy))
+        if (a < 0) a += 2 * Math.PI
+        return a / (2 * Math.PI)
     }
 
-    function applyPct(pct) {
-        pct = Math.max(0, Math.min(1, pct))
-        const dur = getDur()
-        if (!dur) return pct
-        fillC.setAttribute('stroke-dashoffset', String(circ * (1 - pct)))
-        timeEl.textContent = fmt(dur * (1 - pct))
-        return pct
-    }
+    let scrubbing = false
+    let dragStartX = 0, dragStartY = 0, dragMoved = false
+    const DRAG_THRESHOLD = 6  // px — меньше этого считается кликом
 
+    svg.style.pointerEvents = 'auto'
     outer.addEventListener('mousedown', (e) => {
         if (e.target === playBtn || e.target.closest('button')) return
-        prevAngle = getAngle(e)
-        latestPct = getDur() ? video.currentTime / getDur() : 0
-        dragMoved = false
+        dragStartX = e.clientX; dragStartY = e.clientY; dragMoved = false
         scrubbing = true
         e.preventDefault()
     })
     outer.addEventListener('touchstart', (e) => {
         if (e.target === playBtn || e.target.closest('button')) return
-        prevAngle = getAngle(e)
-        latestPct = getDur() ? video.currentTime / getDur() : 0
-        dragMoved = false
+        dragStartX = e.touches[0].clientX; dragStartY = e.touches[0].clientY; dragMoved = false
         scrubbing = true
         e.preventDefault()
     }, { passive: false })
-
+    let pendingSeek = null
     const onMove = (e) => {
-        if (!scrubbing) return
-        const curAngle = getAngle(e)
-        let da = curAngle - prevAngle
-        // Нормализуем [-180, 180] — инкрементальная дельта
-        if (da > 180) da -= 360
-        if (da < -180) da += 360
-        if (!dragMoved && Math.abs(da) < 2) return
+        if (!scrubbing || !video.duration) return
+        const mx = e.touches ? e.touches[0].clientX : e.clientX
+        const my = e.touches ? e.touches[0].clientY : e.clientY
+        // Проверяем порог — только тогда считаем drag
         if (!dragMoved) {
+            const dx = mx - dragStartX, dy = my - dragStartY
+            if (Math.sqrt(dx*dx + dy*dy) < DRAG_THRESHOLD) return
             dragMoved = true
-            if (playing) { video.pause(); playing = false; playBtn.innerHTML = '<i class="fas fa-play"></i>'; showPlayBtn() }
+            if (playing) { video.pause(); playing = false; playBtn.innerHTML = '<i class="fas fa-play"></i>' }
         }
         e.preventDefault()
-        prevAngle = curAngle
-        latestPct = applyPct((latestPct || 0) + da / 360)
+        const pct = getAnglePct(e)
+        fillC.setAttribute('stroke-dashoffset', String(circ * (1 - pct)))
+        timeEl.textContent = fmt(Math.max(0, video.duration * (1 - pct)))
+        if (pendingSeek !== null) return
+        pendingSeek = pct
+        const _capturedPct = pct  // захватываем до таймаута, pendingSeek может стать null
+        setTimeout(() => {
+            const dur = video.duration
+            if (pendingSeek !== null && Number.isFinite(dur) && dur > 0) {
+                const t = _capturedPct * dur
+                if (Number.isFinite(t) && t >= 0) {
+                    if (video.fastSeek) video.fastSeek(t)
+                    else video.currentTime = t
+                }
+            }
+            pendingSeek = null
+        }, 80)
     }
-
     const onUp = () => {
         if (!scrubbing) return
         scrubbing = false
         if (!dragMoved) {
-            if (playing) { video.pause(); playing = false; playBtn.innerHTML = '<i class="fas fa-play"></i>' }
+            // Клик на кружок — пауза если играло, показываем кнопку
+            if (playing) {
+                video.pause()
+                playing = false
+                playBtn.innerHTML = '<i class="fas fa-play"></i>'
+            }
             showPlayBtn()
-        } else if (latestPct !== null) {
-            const dur = getDur()
-            if (dur) video.currentTime = latestPct * dur
-            latestPct = null
         }
     }
     document.addEventListener('mousemove', onMove)
@@ -4905,23 +4652,6 @@ function blockFromProfile() {
 window.toggleProfileMenu = toggleProfileMenu
 window.openChatThemeFromProfile = openChatThemeFromProfile
 window.blockFromProfile = blockFromProfile
-
-function toggleChatMenu() {
-    const menu = document.getElementById('chatMenu')
-    if (!menu) return
-    const isOpen = menu.style.display !== 'none'
-    menu.style.display = isOpen ? 'none' : 'block'
-    if (!isOpen) {
-        const close = (e) => {
-            if (!menu.contains(e.target)) {
-                menu.style.display = 'none'
-                document.removeEventListener('click', close, true)
-            }
-        }
-        setTimeout(() => document.addEventListener('click', close, true), 0)
-    }
-}
-window.toggleChatMenu = toggleChatMenu
 
 window.openChatProfile = openChatProfile
 window.openMyProfile = openMyProfile
