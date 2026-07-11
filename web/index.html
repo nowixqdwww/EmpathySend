@@ -135,46 +135,36 @@
         <!-- Активный чат -->
         <div id="chatBlock" class="chat-block">
             <!-- Шапка чата с профилем собеседника -->
-            <div class="chat-header" id="chatHeader">
-                <!-- Левая плашка: кнопка назад -->
-                <button class="ch-pill ch-back" onclick="closeChat(event)" title="Назад">
+            <div class="chat-header" id="chatHeader" onclick="openChatProfile()">
+                <button class="back-btn" onclick="closeChat(event)">
                     <i class="fas fa-arrow-left"></i>
                 </button>
-
-                <!-- Центральная плашка: аватар + имя + статус + звонок -->
-                <div class="ch-pill ch-center">
-                    <div class="chat-user-avatar" id="chatAvatar" onclick="openChatProfile()">
+                <div class="chat-user-info">
+                    <div class="chat-user-avatar" id="chatAvatar">
                         <span id="chatAvatarText"><i class="fas fa-user"></i></span>
                     </div>
-                    <div class="chat-user-details" onclick="openChatProfile()">
+                    <div class="chat-user-details">
                         <span class="chat-user-name" id="chatUserName">Загрузка...</span>
+                        <span class="chat-user-phone" id="chatUserPhone"></span>
                         <span class="chat-user-status" id="chatUserStatus">offline</span>
                     </div>
-                    <button class="ch-icon-btn ch-call-btn" onclick="event.stopPropagation();startCall('audio')" title="Аудио звонок" id="callAudioBtn">
+                </div>
+                <div class="chat-actions">
+                    <button class="action-btn" onclick="event.stopPropagation();startCall('audio')" title="Аудио звонок" id="callAudioBtn">
                         <i class="fas fa-phone"></i>
                     </button>
                 </div>
 
-                <!-- Правая плашка: три точки -->
-                <div class="ch-pill ch-right" style="position:relative;z-index:300;">
-                    <button class="ch-icon-btn" onclick="event.stopPropagation();toggleChatMenu()" title="Ещё">
-                        <i class="fas fa-ellipsis-v"></i>
-                    </button>
-
-                    <!-- Выпадающее меню чата -->
-                    <div id="chatMenu" class="chat-dropdown-menu" style="display:none;" onclick="event.stopPropagation()">
-                        <div class="chat-menu-item" id="voiceBanMenuItem" onclick="toggleVoiceBan()">
-                            <i class="fas fa-microphone-slash"></i> Запретить голосовые
-                        </div>
-                        <div class="chat-menu-item" onclick="openChatThemeModal()">
-                            <i class="fas fa-palette"></i> Тема чата
-                        </div>
-                        <div class="chat-menu-item" onclick="openChatProfile()">
-                            <i class="fas fa-user"></i> Профиль
-                        </div>
-                        <div class="chat-menu-item danger" onclick="clearChat()">
-                            <i class="fas fa-eraser"></i> Очистить историю
-                        </div>
+                <!-- Выпадающее меню чата -->
+                <div id="chatMenu" class="chat-dropdown-menu" style="display:none;" onclick="event.stopPropagation()">
+                    <div class="chat-menu-item" onclick="openChatThemeModal()">
+                        <i class="fas fa-palette"></i> Тема чата
+                    </div>
+                    <div class="chat-menu-item" onclick="openChatProfile()">
+                        <i class="fas fa-user"></i> Профиль
+                    </div>
+                    <div class="chat-menu-item danger" onclick="clearChat()">
+                        <i class="fas fa-eraser"></i> Очистить историю
                     </div>
                 </div>
             </div>
@@ -215,11 +205,8 @@
                         <i class="fas fa-face-smile"></i>
                     </button>
                     <input id="text" placeholder="Напишите сообщение..." class="message-input">
-                    <button class="voice-btn input-btn-animated btn-visible" id="voiceBtn">
+                    <button class="voice-btn input-btn-animated btn-visible" id="voiceBtn" title="Зажать — запись • Нажать — сменить режим">
                         <i class="fas fa-microphone"></i>
-                    </button>
-                    <button class="video-msg-btn input-btn-animated btn-visible" id="videomsgBtn" title="Видео сообщение" onclick="openVideoRecorder()">
-                        <i class="fas fa-video"></i>
                     </button>
                     <button onclick="send()" class="send-btn input-btn-animated btn-hidden" id="sendBtn">
                         <i class="fas fa-paper-plane"></i>
@@ -554,21 +541,6 @@
                     <button class="settings-button" onclick="openSessions()">
                         <i class="fas fa-mobile-alt"></i> Управление
                     </button>
-                </div>
-            </div>
-
-            <div class="settings-section">
-                <h3><i class="fas fa-microphone"></i> Голосовые сообщения</h3>
-
-                <div class="settings-item">
-                    <div class="settings-item-info">
-                        <div class="settings-item-title">Режим записи</div>
-                        <div class="settings-item-description">Как активировать запись голосового</div>
-                    </div>
-                    <select id="voiceMode" class="settings-select" onchange="saveVoiceMode()">
-                        <option value="hold">Зажать кнопку</option>
-                        <option value="tap">Нажать — начало / снова — конец</option>
-                    </select>
                 </div>
             </div>
 
