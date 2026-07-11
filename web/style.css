@@ -5941,12 +5941,16 @@ img[loading="lazy"].loaded { opacity: 1; }
 .ch-center {
     flex: 1;
     min-width: 0;
-    padding: 6px 6px 6px 8px;
-    gap: 10px;
+    padding: 4px 4px 4px 6px;
+    gap: 8px;
+    height: 40px;
 }
 .ch-center .chat-user-details {
     cursor: pointer;
     flex: 1;
+    min-width: 0;
+    align-items: flex-start;
+    justify-content: center;
 }
 .ch-call-btn {
     margin-left: auto;
@@ -5955,9 +5959,10 @@ img[loading="lazy"].loaded { opacity: 1; }
 
 /* Правая — три точки */
 .ch-right {
-    padding: 8px 1px;
+    padding: 4px 2px;
     gap: 2px;
     flex-shrink: 0;
+    height: 40px;
 }
 
 .ch-icon-btn {
@@ -5991,10 +5996,12 @@ img[loading="lazy"].loaded { opacity: 1; }
 .chat-user-details {
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
     min-width: 0;
 }
 .chat-user-name {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
     color: white;
     white-space: nowrap;
