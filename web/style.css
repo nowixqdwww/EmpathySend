@@ -905,6 +905,7 @@ body {
 .chat-user-details {
     display: flex;
     flex-direction: column;
+    justify-content: center;
     min-width: 0;
 }
 
@@ -5944,6 +5945,7 @@ img[loading="lazy"].loaded { opacity: 1; }
     padding: 4px 4px 4px 6px;
     gap: 8px;
     align-items: center;
+    display: flex;
 }
 .ch-center .chat-user-details {
     cursor: pointer;
