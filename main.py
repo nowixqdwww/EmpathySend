@@ -100,7 +100,7 @@ async def get_current_user(
 # ── Rate limiting (in-memory) ─────────────────────────────────────────────
 _rate_store: dict = {}  # ip -> [timestamps]
 
-def rate_limit(request: Request, max_calls: int = 10, window: int = 60):
+def rate_limit(request: Request, max_calls: int = 120, window: int = 60):
     ip = request.client.host if request.client else "unknown"
     now = time.time()
     calls = [t for t in _rate_store.get(ip, []) if now - t < window]
@@ -1639,7 +1639,8 @@ async def add_reaction(data: dict):
 
 # Получить реакции для сообщения
 @app.get("/reactions/{message_id}")
-async def get_reactions(message_id: int):
+async def get_reactions(message_id: int, request: Request):
+    rate_limit(request, max_calls=120, window=60)  # реакции опрашиваются часто
     try:
         reactions = await get_message_reactions(message_id)
         return {"reactions": reactions}
