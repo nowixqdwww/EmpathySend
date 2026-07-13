@@ -3074,6 +3074,10 @@ async function send() {
 
     if (!ws || ws.readyState !== WebSocket.OPEN) { showToast('Нет соединения с сервером'); return }
 
+    // Оптимистично добавляем сообщение сразу
+    const tempId = 'local_' + Date.now()
+    addMessage(currentUser, text, tempId, null, replyState ? { id: replyState.id, text: replyState.text, sender: replyState.sender } : null)
+
     ws.send(JSON.stringify({ action: 'send', to: currentChat, text, reply_to: replyState?.id || null }))
     cancelReply()
     const _ti = document.getElementById('text')
@@ -3548,11 +3552,16 @@ function connect() {
 
             if (data.action === 'message_sent') {
                 const _md = parseMediaToken(data.text)
+                // Ищем временное сообщение
+                const tempEl = document.querySelector('[data-message-id^="local_"]')
                 if (_md) {
                     const _loc = [...document.querySelectorAll('[data-message-id^="local_"]')]
                         .find(el => el.querySelector('img,video'))
                     if (_loc) { _loc.dataset.messageId = data.id }
                     else { addMessage(currentUser, data.text, data.id, null, data.reply || null) }
+                } else if (tempEl) {
+                    // Заменяем tempId на настоящий id
+                    tempEl.dataset.messageId = data.id
                 } else {
                     addMessage(currentUser, data.text, data.id, null, data.reply || null)
                 }
@@ -3560,7 +3569,6 @@ function connect() {
                     const el = document.querySelector(`[data-message-id="${data.id}"] .msg-ticks .tick-second`)
                     if (el) el.style.display = ''
                 }
-                // Обновляем last message в списке чатов
                 if (currentChat) updateChatInList(currentChat, data.text, false)
             }
 
