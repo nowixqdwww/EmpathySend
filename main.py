@@ -1662,7 +1662,7 @@ async def get_message_reactions(message_id: int):
         # Группируем по reaction
         grouped = {}
         for row in rows:
-            key = row['reaction']
+            key = (row["reaction"], row["reply_to_reaction"])
             if key not in grouped:
                 grouped[key] = {
                     "reaction": key,
