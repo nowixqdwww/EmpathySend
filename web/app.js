@@ -3713,11 +3713,18 @@ function displaySearchResults(users) {
             </div>
         `
         
-        div.onclick = () => {
-            document.getElementById('searchUser').value = user.username || user.name || ''
+        let _touching = false
+        div.addEventListener('touchstart', () => { _touching = true }, { passive: true })
+        const handleSelect = (e) => {
+            if (e.type === 'click' && _touching) { _touching = false; return }
+            e.preventDefault()
+            e.stopPropagation()
             hideSearchResults()
+            document.getElementById('searchUser').value = ''
             openChat(user.phone, user.displayName)
         }
+        div.addEventListener('touchend', handleSelect)
+        div.addEventListener('click', handleSelect)
         
         resultsDiv.appendChild(div)
     })
@@ -3943,7 +3950,12 @@ document.getElementById('text')?.addEventListener('keypress', (e) => {
     }
 })
 
+let _searchTouching = false
+document.getElementById('searchResults')?.addEventListener('touchstart', () => { _searchTouching = true }, { passive: true })
+document.getElementById('searchResults')?.addEventListener('touchend', () => { setTimeout(() => { _searchTouching = false }, 300) })
+
 document.getElementById('searchUser')?.addEventListener('input', (e) => {
+    if (_searchTouching) return  // не трогаем пока идёт тач на результатах
     const query = e.target.value.trim()
     
     if (searchTimeout) clearTimeout(searchTimeout)
