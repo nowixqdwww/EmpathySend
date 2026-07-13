@@ -529,13 +529,12 @@ async def startup():
     for _d in [AVATAR_DIR, STICKER_DIR]:
         try: os.makedirs(_d, exist_ok=True)
         except Exception: pass
-    async def safe_init():
-        try:
-            await init_db()
-            logger.info("Database initialized")
-        except Exception as e:
-            logger.error(f"Database init failed: {e}")
-    asyncio.create_task(safe_init())
+    # Ждём инициализацию БД до того как принимаем запросы
+    try:
+        await init_db()
+        logger.info("Database initialized")
+    except Exception as e:
+        logger.error(f"Database init failed: {e}")
     asyncio.create_task(bot_polling())
     asyncio.create_task(_cleanup_pending())
 
@@ -748,7 +747,7 @@ async def get_user(phone: str):
             }
         
     except Exception as e:
-            logger.error(f"Error getting user: {e}")
+            logger.error(f"Error getting user {phone}: {e}", exc_info=True)
             return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.put("/user/{phone}")
@@ -1572,7 +1571,7 @@ async def get_users(me: str):
             result.sort(key=lambda x: x['last_ts'] or '', reverse=True)
             return result
     except Exception as e:
-        logger.error(f"Error getting users for {me}: {e}")
+        logger.error(f"Error getting users for {me}: {e}", exc_info=True)
         return JSONResponse(status_code=500, content={"error": str(e)})
 
 # Добавить реакцию
