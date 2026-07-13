@@ -2591,6 +2591,7 @@ function updateMessageReactions(messageId, reactions) {
 
 // Загрузить реакции для сообщения
 async function loadMessageReactions(messageId) {
+    if (String(messageId).startsWith('local_')) return  // пропускаем временные сообщения
     try {
         const res = await fetch(`/reactions/${messageId}`)
         const data = await res.json()
