@@ -2546,7 +2546,6 @@ async function addReaction(reaction) {
             return
         }
         
-        updateMessageReactions(msgId, data.reactions)
         
     } catch (error) {
         console.error('Error adding reaction:', error)
@@ -2559,32 +2558,81 @@ async function addReaction(reaction) {
 
 // Обновить отображение реакций на сообщении
 function updateMessageReactions(messageId, reactions) {
-    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`)
-    if (!messageElement) return
-    
-    // Удаляем старые реакции
-    const oldReactions = messageElement.querySelector('.message-reactions')
-    if (oldReactions) oldReactions.remove()
-    
-    if (reactions.length === 0) return
-    
-    // Создаем контейнер для реакций
-    const reactionsDiv = document.createElement('div')
-    reactionsDiv.className = 'message-reactions'
-    
+
+    const message = document.querySelector(
+        `[data-message-id="${messageId}"]`
+    )
+
+    if (!message) return
+
+    message.querySelector(".message-reactions")?.remove()
+
+    if (!reactions?.length) return
+
+    const wrap = document.createElement("div")
+    wrap.className = "message-reactions"
+
     reactions.forEach(r => {
-        const badge = document.createElement('span')
-        badge.className = 'reaction-badge'
-        badge.onclick = (e) => {
+
+        const badge = document.createElement("div")
+        badge.className = "reaction-badge"
+
+        badge.dataset.reaction = r.reaction
+
+        badge.onclick = e => {
             e.stopPropagation()
-            // При клике на бейдж - добавляем/убираем реакцию
             addReaction(r.reaction)
         }
-        badge.innerHTML = `${r.reaction} <span class="count">${r.count}</span>`
-        reactionsDiv.appendChild(badge)
+
+        // вернуть реакцию на реакцию
+        badge.oncontextmenu = e => {
+            e.preventDefault()
+            e.stopPropagation()
+
+            showReactionReplies(
+                messageId,
+                r.reaction
+            )
+        }
+
+        let avatars = ""
+
+        if (r.users) {
+
+            avatars = `<div class="rb-avatars">`
+
+            r.users.slice(0,3).forEach(user=>{
+
+                if(user.avatar){
+
+                    avatars +=
+                    `<img class="rb-avatar"
+                          src="${_getAvatarUrl(user.avatar)}">`
+
+                }else{
+
+                    avatars +=
+                    `<div class="rb-avatar">
+                        ${(user.name || "?")[0]}
+                     </div>`
+
+                }
+
+            })
+
+            avatars += "</div>"
+
+        }
+
+        badge.innerHTML =
+        `<span class="rb-emoji">${r.reaction}</span>${avatars}`
+
+        wrap.appendChild(badge)
+
     })
-    
-    messageElement.appendChild(reactionsDiv)
+
+    message.appendChild(wrap)
+
 }
 
 // addMessage defined above
@@ -5746,6 +5794,14 @@ function onCallConnected() {
 // ── Обработка входящих сигналов (в WS onmessage) ─────────
 async function handleCallSignal(data) {
     switch (data.action) {
+
+        case "reaction_updated":
+            updateMessageReactions(
+                data.message_id,
+                data.reactions
+            );
+            break;
+            
         case 'call_offer':
             if (peerConnection) {
                 sendCallSignal('call_busy', data.from)
