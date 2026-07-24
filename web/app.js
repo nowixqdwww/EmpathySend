@@ -2523,133 +2523,223 @@ function showReactionsPanel(event, messageId) {
 }
 
 // Добавить реакцию
-async function addReaction(reaction) {
+const reactionCache = {}  // messageId → reactions[]
+let pendingReplyToReaction = null
+
+function addReaction(reaction) {
     const msgId = currentMessageId || selectedMessageId
     if (!msgId || !currentUser) return
     hideContextMenus()
-    
-    try {
-        const res = await fetch('/reaction/add', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                message_id: msgId,
-                user: currentUser,
-                reaction: reaction
-            })
-        })
-        
-        const data = await res.json()
-        
-        if (data.error) {
-            showToast(data.error)
-            return
-        }
-        
-        
-    } catch (error) {
-        console.error('Error adding reaction:', error)
-        showToast('Ошибка при добавлении реакции')
-    }
-    
-    // Скрываем панель
+
+    const replyTo = pendingReplyToReaction || null
+    pendingReplyToReaction = null
     document.getElementById('reactionsPanel').style.display = 'none'
-}
 
-// Обновить отображение реакций на сообщении
-function updateMessageReactions(messageId, reactions) {
-
-    const message = document.querySelector(
-        `[data-message-id="${messageId}"]`
-    )
-
-    if (!message) return
-
-    message.querySelector(".message-reactions")?.remove()
-
-    if (!reactions?.length) return
-
-    const wrap = document.createElement("div")
-    wrap.className = "message-reactions"
-
-    reactions.forEach(r => {
-
-        const badge = document.createElement("div")
-        badge.className = "reaction-badge"
-
-        badge.dataset.reaction = r.reaction
-
-        badge.onclick = e => {
-            e.stopPropagation()
-            addReaction(r.reaction)
+    // Оптимистичное обновление из кеша
+    const prev = (reactionCache[msgId] || []).map(r => ({ ...r, users: [...(r.users || [])] }))
+    let userPrev = null
+    const next = prev.map(r => {
+        const idx = (r.users || []).findIndex(u => u.phone === currentUser)
+        if (idx !== -1) {
+            userPrev = r.reaction
+            const users = r.users.filter(u => u.phone !== currentUser)
+            return { ...r, users, count: users.length }
         }
+        return r
+    }).filter(r => r.count > 0)
 
-        // вернуть реакцию на реакцию
-        badge.oncontextmenu = e => {
-            e.preventDefault()
-            e.stopPropagation()
-
-            showReactionReplies(
-                messageId,
-                r.reaction
-            )
-        }
-
-        let avatars = ""
-
-        if (r.users) {
-
-            avatars = `<div class="rb-avatars">`
-
-            r.users.slice(0,3).forEach(user=>{
-
-                if(user.avatar){
-
-                    avatars +=
-                    `<img class="rb-avatar"
-                          src="${_getAvatarUrl(user.avatar)}">`
-
-                }else{
-
-                    avatars +=
-                    `<div class="rb-avatar">
-                        ${(user.name || "?")[0]}
-                     </div>`
-
-                }
-
-            })
-
-            avatars += "</div>"
-
-        }
-
-        badge.innerHTML =
-        `<span class="rb-emoji">${r.reaction}</span>${avatars}`
-
-        wrap.appendChild(badge)
-
+    const filtered = next.filter(r => {
+        if (!r.reply_to_reaction) return true
+        return next.some(m => m.reaction === r.reply_to_reaction && !m.reply_to_reaction)
     })
 
-    message.appendChild(wrap)
+    const isSameToggle = userPrev === reaction && replyTo === null
 
+    if (!isSameToggle) {
+        const existing = filtered.find(r => r.reaction === reaction && r.reply_to_reaction === replyTo)
+        const me = { phone: currentUser, name: currentUser }
+        if (existing) {
+            existing.users.push(me)
+            existing.count++
+        } else {
+            filtered.push({ reaction, reply_to_reaction: replyTo, count: 1, users: [me] })
+        }
+    }
+
+    reactionCache[msgId] = filtered
+    renderReactions(msgId, filtered)
+
+    // Fire-and-forget
+    fetch('/reaction/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message_id: msgId, user: currentUser, reaction, reply_to_reaction: replyTo })
+    }).then(r => r.json()).then(data => {
+        if (data.reactions) {
+            reactionCache[msgId] = data.reactions
+            renderReactions(msgId, data.reactions)
+        }
+    }).catch(() => {})
 }
 
-// addMessage defined above
+function updateMessageReactions(messageId, reactions) {
+    reactionCache[messageId] = reactions
+    renderReactions(messageId, reactions)
+}
+
+function renderReactions(messageId, reactions) {
+    const messageElement = document.querySelector(`[data-message-id="${messageId}"]`)
+    if (!messageElement) return
+
+    let container = messageElement.querySelector('.message-reactions')
+
+    if (!reactions || reactions.length === 0) {
+        if (container) {
+            container.style.transition = 'opacity .15s'
+            container.style.opacity = '0'
+            setTimeout(() => container?.remove(), 150)
+        }
+        return
+    }
+
+    if (!container) {
+        container = document.createElement('div')
+        container.className = 'message-reactions'
+        container.style.opacity = '0'
+        messageElement.appendChild(container)
+        requestAnimationFrame(() => { container.style.transition = 'opacity .15s'; container.style.opacity = '1' })
+    }
+
+    const main = reactions.filter(r => !r.reply_to_reaction)
+    const replies = reactions.filter(r => r.reply_to_reaction)
+    const replyMap = {}
+    replies.forEach(r => {
+        if (!replyMap[r.reply_to_reaction]) replyMap[r.reply_to_reaction] = []
+        replyMap[r.reply_to_reaction].push(r)
+    })
+
+    const newKeys = new Set()
+    main.forEach(r => {
+        const reps = replyMap[r.reaction] || []
+        const key = r.reaction + '|' + reps.map(x => x.reaction).join(',')
+        newKeys.add(key)
+
+        let wrap = container.querySelector(`[data-rkey="${CSS.escape(key)}"]`)
+        if (!wrap) {
+            wrap = document.createElement('div')
+            wrap.className = 'reaction-badge-wrap'
+            wrap.dataset.rkey = key
+            wrap.style.opacity = '0'
+            wrap.style.transform = 'scale(0.7)'
+            container.appendChild(wrap)
+            requestAnimationFrame(() => {
+                wrap.style.transition = 'opacity .18s, transform .18s'
+                wrap.style.opacity = '1'
+                wrap.style.transform = 'scale(1)'
+            })
+        } else {
+            wrap.innerHTML = ''
+        }
+
+        wrap.appendChild(makeBadge(r, messageId, null))
+        reps.forEach((rep, i) => {
+            const repBadge = makeBadge(rep, messageId, r.reaction)
+            repBadge.style.marginLeft = '-40px'
+            repBadge.style.zIndex = String(10 + i + 1)
+            wrap.appendChild(repBadge)
+        })
+    })
+
+    container.querySelectorAll('[data-rkey]').forEach(wrap => {
+        if (!newKeys.has(wrap.dataset.rkey)) {
+            wrap.style.transition = 'opacity .15s, transform .15s'
+            wrap.style.opacity = '0'
+            wrap.style.transform = 'scale(0.7)'
+            setTimeout(() => wrap.remove(), 150)
+        }
+    })
+}
+
+function makeBadge(r, messageId, replyingTo) {
+    const badge = document.createElement('span')
+    badge.className = 'reaction-badge' + (replyingTo ? ' reaction-badge-reply' : '')
+
+    const emojiEl = document.createElement('span')
+    emojiEl.className = 'rb-emoji'
+    emojiEl.textContent = r.reaction
+    badge.appendChild(emojiEl)
+
+    const avatarsDiv = document.createElement('div')
+    avatarsDiv.className = 'rb-avatars'
+    const usersToShow = (r.users || []).slice(0, 3)
+    if (usersToShow.length > 0) {
+        usersToShow.forEach(u => {
+            const av = document.createElement('div')
+            av.className = 'rb-avatar'
+            const avatarUrl = u.avatar ? (window._getAvatarUrl ? _getAvatarUrl(u.avatar) : u.avatar) : null
+            if (avatarUrl) {
+                av.innerHTML = `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover" onerror="this.onerror=null;this.parentElement.textContent='${(u.name||u.phone||'?')[0].toUpperCase()}'">`
+            } else {
+                av.textContent = (u.name || u.phone || '?')[0].toUpperCase()
+            }
+            avatarsDiv.appendChild(av)
+        })
+    } else {
+        const av = document.createElement('div')
+        av.className = 'rb-avatar'
+        av.textContent = r.count || 1
+        av.style.fontSize = '9px'
+        avatarsDiv.appendChild(av)
+    }
+    badge.appendChild(avatarsDiv)
+
+    badge.addEventListener('click', (e) => {
+        e.stopPropagation()
+        currentMessageId = messageId
+        pendingReplyToReaction = replyingTo || null
+        addReaction(r.reaction)
+    })
+
+    let longPressTimer = null
+    badge.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return
+        longPressTimer = setTimeout(() => {
+            currentMessageId = messageId
+            pendingReplyToReaction = r.reaction
+            showReactionsPanel(e, messageId)
+        }, 500)
+    })
+    badge.addEventListener('mouseup', () => clearTimeout(longPressTimer))
+    badge.addEventListener('mouseleave', () => clearTimeout(longPressTimer))
+    badge.addEventListener('touchstart', (e) => {
+        longPressTimer = setTimeout(() => {
+            currentMessageId = messageId
+            pendingReplyToReaction = r.reaction
+            showReactionsPanel(e.touches[0], messageId)
+        }, 500)
+    }, { passive: true })
+    badge.addEventListener('touchend', () => clearTimeout(longPressTimer))
+    badge.addEventListener('contextmenu', (e) => {
+        e.preventDefault(); e.stopPropagation()
+        currentMessageId = messageId
+        pendingReplyToReaction = r.reaction
+        showReactionsPanel(e, messageId)
+    })
+
+    return badge
+}
 
 // Загрузить реакции для сообщения
 async function loadMessageReactions(messageId) {
-    if (String(messageId).startsWith('local_')) return  // пропускаем временные сообщения
+    if (String(messageId).startsWith('local_')) return
     try {
         const res = await fetch(`/reactions/${messageId}`)
         const data = await res.json()
-        
-        if (data.reactions && data.reactions.length > 0) {
-            updateMessageReactions(messageId, data.reactions)
+        if (data.reactions) {
+            reactionCache[messageId] = data.reactions
+            renderReactions(messageId, data.reactions)
         }
-    } catch (error) {
-        console.error('Error loading reactions:', error)
-    }
+    } catch {}
 }
 
 // ============= ФУНКЦИИ ДЛЯ ЧАТОВ =============
@@ -3570,6 +3660,10 @@ function connect() {
                 }
             }
 
+            if (data.action === 'reaction_updated') {
+                updateMessageReactions(data.message_id, data.reactions)
+            }
+
             if (data.action === 'message') {
                 // Подтверждаем доставку
                 if (ws && ws.readyState === WebSocket.OPEN) {
@@ -4066,6 +4160,12 @@ window.addEventListener('beforeunload', () => {
 })
 
 setInterval(updateOnlineStatus, 5000)
+setInterval(() => {
+    if (!currentChat) return
+    const ids = [...document.querySelectorAll('#messages [data-message-id]')]
+        .map(el => parseInt(el.dataset.messageId)).filter(id => id && !isNaN(id))
+    Promise.allSettled(ids.map(id => loadMessageReactions(id)))
+}, 5000)
 setInterval(() => {
     if (currentChat && window.clients && !window.clients[currentChat]) updateChatStatusText(currentChat, false)
 }, 60000)
@@ -5794,14 +5894,6 @@ function onCallConnected() {
 // ── Обработка входящих сигналов (в WS onmessage) ─────────
 async function handleCallSignal(data) {
     switch (data.action) {
-
-        case "reaction_updated":
-            updateMessageReactions(
-                data.message_id,
-                data.reactions
-            );
-            break;
-            
         case 'call_offer':
             if (peerConnection) {
                 sendCallSignal('call_busy', data.from)
