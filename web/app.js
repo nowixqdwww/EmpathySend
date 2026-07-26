@@ -2523,7 +2523,7 @@ function showReactionsPanel(event, messageId) {
 }
 
 // Добавить реакцию
-const reactionCache = {}  // messageId → reactions[]
+const reactionCache = {}
 let pendingReplyToReaction = null
 
 function addReaction(reaction) {
@@ -2540,45 +2540,29 @@ function addReaction(reaction) {
     let userPrev = null
     const next = prev.map(r => {
         const idx = (r.users || []).findIndex(u => u.phone === currentUser)
-        if (idx !== -1) {
-            userPrev = r.reaction
-            const users = r.users.filter(u => u.phone !== currentUser)
-            return { ...r, users, count: users.length }
-        }
+        if (idx !== -1) { userPrev = r.reaction; const users = r.users.filter(u => u.phone !== currentUser); return { ...r, users, count: users.length } }
         return r
     }).filter(r => r.count > 0)
 
-    const filtered = next.filter(r => {
-        if (!r.reply_to_reaction) return true
-        return next.some(m => m.reaction === r.reply_to_reaction && !m.reply_to_reaction)
-    })
-
+    const filtered = next.filter(r => !r.reply_to_reaction || next.some(m => m.reaction === r.reply_to_reaction && !m.reply_to_reaction))
     const isSameToggle = userPrev === reaction && replyTo === null
 
     if (!isSameToggle) {
         const existing = filtered.find(r => r.reaction === reaction && r.reply_to_reaction === replyTo)
         const me = { phone: currentUser, name: currentUser }
-        if (existing) {
-            existing.users.push(me)
-            existing.count++
-        } else {
-            filtered.push({ reaction, reply_to_reaction: replyTo, count: 1, users: [me] })
-        }
+        if (existing) { existing.users.push(me); existing.count++ }
+        else filtered.push({ reaction, reply_to_reaction: replyTo, count: 1, users: [me] })
     }
 
     reactionCache[msgId] = filtered
     renderReactions(msgId, filtered)
 
-    // Fire-and-forget
     fetch('/reaction/add', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message_id: msgId, user: currentUser, reaction, reply_to_reaction: replyTo })
     }).then(r => r.json()).then(data => {
-        if (data.reactions) {
-            reactionCache[msgId] = data.reactions
-            renderReactions(msgId, data.reactions)
-        }
+        if (data.reactions) { reactionCache[msgId] = data.reactions; renderReactions(msgId, data.reactions) }
     }).catch(() => {})
 }
 
@@ -2594,11 +2578,7 @@ function renderReactions(messageId, reactions) {
     let container = messageElement.querySelector('.message-reactions')
 
     if (!reactions || reactions.length === 0) {
-        if (container) {
-            container.style.transition = 'opacity .15s'
-            container.style.opacity = '0'
-            setTimeout(() => container?.remove(), 150)
-        }
+        if (container) { container.style.transition = 'opacity .15s'; container.style.opacity = '0'; setTimeout(() => container?.remove(), 150) }
         return
     }
 
@@ -2613,10 +2593,7 @@ function renderReactions(messageId, reactions) {
     const main = reactions.filter(r => !r.reply_to_reaction)
     const replies = reactions.filter(r => r.reply_to_reaction)
     const replyMap = {}
-    replies.forEach(r => {
-        if (!replyMap[r.reply_to_reaction]) replyMap[r.reply_to_reaction] = []
-        replyMap[r.reply_to_reaction].push(r)
-    })
+    replies.forEach(r => { if (!replyMap[r.reply_to_reaction]) replyMap[r.reply_to_reaction] = []; replyMap[r.reply_to_reaction].push(r) })
 
     const newKeys = new Set()
     main.forEach(r => {
@@ -2632,14 +2609,8 @@ function renderReactions(messageId, reactions) {
             wrap.style.opacity = '0'
             wrap.style.transform = 'scale(0.7)'
             container.appendChild(wrap)
-            requestAnimationFrame(() => {
-                wrap.style.transition = 'opacity .18s, transform .18s'
-                wrap.style.opacity = '1'
-                wrap.style.transform = 'scale(1)'
-            })
-        } else {
-            wrap.innerHTML = ''
-        }
+            requestAnimationFrame(() => { wrap.style.transition = 'opacity .18s, transform .18s'; wrap.style.opacity = '1'; wrap.style.transform = 'scale(1)' })
+        } else { wrap.innerHTML = '' }
 
         wrap.appendChild(makeBadge(r, messageId, null))
         reps.forEach((rep, i) => {
@@ -2652,9 +2623,7 @@ function renderReactions(messageId, reactions) {
 
     container.querySelectorAll('[data-rkey]').forEach(wrap => {
         if (!newKeys.has(wrap.dataset.rkey)) {
-            wrap.style.transition = 'opacity .15s, transform .15s'
-            wrap.style.opacity = '0'
-            wrap.style.transform = 'scale(0.7)'
+            wrap.style.transition = 'opacity .15s, transform .15s'; wrap.style.opacity = '0'; wrap.style.transform = 'scale(0.7)'
             setTimeout(() => wrap.remove(), 150)
         }
     })
@@ -2679,9 +2648,7 @@ function makeBadge(r, messageId, replyingTo) {
             const avatarUrl = u.avatar ? (window._getAvatarUrl ? _getAvatarUrl(u.avatar) : u.avatar) : null
             if (avatarUrl) {
                 av.innerHTML = `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover" onerror="this.onerror=null;this.parentElement.textContent='${(u.name||u.phone||'?')[0].toUpperCase()}'">`
-            } else {
-                av.textContent = (u.name || u.phone || '?')[0].toUpperCase()
-            }
+            } else { av.textContent = (u.name || u.phone || '?')[0].toUpperCase() }
             avatarsDiv.appendChild(av)
         })
     } else {
@@ -2703,27 +2670,17 @@ function makeBadge(r, messageId, replyingTo) {
     let longPressTimer = null
     badge.addEventListener('mousedown', (e) => {
         if (e.button !== 0) return
-        longPressTimer = setTimeout(() => {
-            currentMessageId = messageId
-            pendingReplyToReaction = r.reaction
-            showReactionsPanel(e, messageId)
-        }, 500)
+        longPressTimer = setTimeout(() => { currentMessageId = messageId; pendingReplyToReaction = r.reaction; showReactionsPanel(e, messageId) }, 500)
     })
     badge.addEventListener('mouseup', () => clearTimeout(longPressTimer))
     badge.addEventListener('mouseleave', () => clearTimeout(longPressTimer))
     badge.addEventListener('touchstart', (e) => {
-        longPressTimer = setTimeout(() => {
-            currentMessageId = messageId
-            pendingReplyToReaction = r.reaction
-            showReactionsPanel(e.touches[0], messageId)
-        }, 500)
+        longPressTimer = setTimeout(() => { currentMessageId = messageId; pendingReplyToReaction = r.reaction; showReactionsPanel(e.touches[0], messageId) }, 500)
     }, { passive: true })
     badge.addEventListener('touchend', () => clearTimeout(longPressTimer))
     badge.addEventListener('contextmenu', (e) => {
         e.preventDefault(); e.stopPropagation()
-        currentMessageId = messageId
-        pendingReplyToReaction = r.reaction
-        showReactionsPanel(e, messageId)
+        currentMessageId = messageId; pendingReplyToReaction = r.reaction; showReactionsPanel(e, messageId)
     })
 
     return badge
@@ -2735,10 +2692,7 @@ async function loadMessageReactions(messageId) {
     try {
         const res = await fetch(`/reactions/${messageId}`)
         const data = await res.json()
-        if (data.reactions) {
-            reactionCache[messageId] = data.reactions
-            renderReactions(messageId, data.reactions)
-        }
+        if (data.reactions) { reactionCache[messageId] = data.reactions; renderReactions(messageId, data.reactions) }
     } catch {}
 }
 
@@ -3775,18 +3729,19 @@ function connect() {
 
         }
 
-        ws.onclose = () => {
+        ws.onclose = (event) => {
             if (window._statusInterval) { clearInterval(window._statusInterval); window._statusInterval = null }
             broadcastOnlineStatus(false)
-            
             if (window.clients) {
-                Object.keys(window.clients).forEach(key => {
-                    window.clients[key] = false
-                })
+                Object.keys(window.clients).forEach(key => { window.clients[key] = false })
             }
-            
             isConnected = false
             if (pingInterval) clearInterval(pingInterval)
+            // 4001 = токен истёк — обновляем и переподключаемся
+            if (event.code === 4001) {
+                refreshAuthToken().then(() => connect()).catch(() => logout())
+                return
+            }
             handleReconnect()
         }
 
@@ -3805,6 +3760,24 @@ function handleReconnect() {
         reconnectAttempts++
         const delay = 1000 * Math.pow(2, reconnectAttempts)
         reconnectTimeout = setTimeout(connect, delay)
+    }
+}
+
+async function refreshAuthToken() {
+    try {
+        const res = await fetch('/auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: authToken })
+        })
+        if (!res.ok) throw new Error('refresh failed')
+        const data = await res.json()
+        if (data.token) {
+            authToken = data.token
+            localStorage.setItem('authToken', authToken)
+        }
+    } catch {
+        throw new Error('refresh failed')
     }
 }
 
