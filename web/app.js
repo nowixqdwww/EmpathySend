@@ -2535,17 +2535,21 @@ function addReaction(reaction) {
     pendingReplyToReaction = null
     document.getElementById('reactionsPanel').style.display = 'none'
 
-    // Оптимистичное обновление из кеша
     const prev = (reactionCache[msgId] || []).map(r => ({ ...r, users: [...(r.users || [])] }))
-    let userPrev = null
+    let userPrev = null, userPrevReply = null
     const next = prev.map(r => {
         const idx = (r.users || []).findIndex(u => u.phone === currentUser)
-        if (idx !== -1) { userPrev = r.reaction; const users = r.users.filter(u => u.phone !== currentUser); return { ...r, users, count: users.length } }
+        if (idx !== -1) {
+            userPrev = r.reaction
+            userPrevReply = r.reply_to_reaction || null
+            const users = r.users.filter(u => u.phone !== currentUser)
+            return { ...r, users, count: users.length }
+        }
         return r
     }).filter(r => r.count > 0)
 
     const filtered = next.filter(r => !r.reply_to_reaction || next.some(m => m.reaction === r.reply_to_reaction && !m.reply_to_reaction))
-    const isSameToggle = userPrev === reaction && replyTo === null
+    const isSameToggle = userPrev === reaction && userPrevReply === replyTo
 
     if (!isSameToggle) {
         const existing = filtered.find(r => r.reaction === reaction && r.reply_to_reaction === replyTo)
@@ -2606,8 +2610,7 @@ function renderReactions(messageId, reactions) {
             wrap = document.createElement('div')
             wrap.className = 'reaction-badge-wrap'
             wrap.dataset.rkey = key
-            wrap.style.opacity = '0'
-            wrap.style.transform = 'scale(0.7)'
+            wrap.style.cssText = 'opacity:0;transform:scale(0.7);display:flex;align-items:flex-start'
             container.appendChild(wrap)
             requestAnimationFrame(() => { wrap.style.transition = 'opacity .18s, transform .18s'; wrap.style.opacity = '1'; wrap.style.transform = 'scale(1)' })
         } else { wrap.innerHTML = '' }
@@ -2632,9 +2635,11 @@ function renderReactions(messageId, reactions) {
 function makeBadge(r, messageId, replyingTo) {
     const badge = document.createElement('span')
     badge.className = 'reaction-badge' + (replyingTo ? ' reaction-badge-reply' : '')
+    badge.style.fontSize = '0'  // убираем пробелы/запятые между инлайн элементами
 
     const emojiEl = document.createElement('span')
     emojiEl.className = 'rb-emoji'
+    emojiEl.style.fontSize = '16px'
     emojiEl.textContent = r.reaction
     badge.appendChild(emojiEl)
 
@@ -2645,6 +2650,7 @@ function makeBadge(r, messageId, replyingTo) {
         usersToShow.forEach(u => {
             const av = document.createElement('div')
             av.className = 'rb-avatar'
+            av.style.fontSize = '9px'
             const avatarUrl = u.avatar ? (window._getAvatarUrl ? _getAvatarUrl(u.avatar) : u.avatar) : null
             if (avatarUrl) {
                 av.innerHTML = `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover" onerror="this.onerror=null;this.parentElement.textContent='${(u.name||u.phone||'?')[0].toUpperCase()}'">`
@@ -2654,8 +2660,8 @@ function makeBadge(r, messageId, replyingTo) {
     } else {
         const av = document.createElement('div')
         av.className = 'rb-avatar'
-        av.textContent = r.count || 1
         av.style.fontSize = '9px'
+        av.textContent = r.count || 1
         avatarsDiv.appendChild(av)
     }
     badge.appendChild(avatarsDiv)
@@ -2668,15 +2674,17 @@ function makeBadge(r, messageId, replyingTo) {
     })
 
     let longPressTimer = null
-    badge.addEventListener('mousedown', (e) => {
-        if (e.button !== 0) return
-        longPressTimer = setTimeout(() => { currentMessageId = messageId; pendingReplyToReaction = r.reaction; showReactionsPanel(e, messageId) }, 500)
-    })
+    const startLong = (clientX, clientY) => {
+        longPressTimer = setTimeout(() => {
+            currentMessageId = messageId
+            pendingReplyToReaction = r.reaction
+            showReactionsPanel({ clientX, clientY }, messageId)
+        }, 500)
+    }
+    badge.addEventListener('mousedown', (e) => { if (e.button !== 0) return; startLong(e.clientX, e.clientY) })
     badge.addEventListener('mouseup', () => clearTimeout(longPressTimer))
     badge.addEventListener('mouseleave', () => clearTimeout(longPressTimer))
-    badge.addEventListener('touchstart', (e) => {
-        longPressTimer = setTimeout(() => { currentMessageId = messageId; pendingReplyToReaction = r.reaction; showReactionsPanel(e.touches[0], messageId) }, 500)
-    }, { passive: true })
+    badge.addEventListener('touchstart', (e) => { startLong(e.touches[0].clientX, e.touches[0].clientY) }, { passive: true })
     badge.addEventListener('touchend', () => clearTimeout(longPressTimer))
     badge.addEventListener('contextmenu', (e) => {
         e.preventDefault(); e.stopPropagation()
@@ -2686,7 +2694,6 @@ function makeBadge(r, messageId, replyingTo) {
     return badge
 }
 
-// Загрузить реакции для сообщения
 async function loadMessageReactions(messageId) {
     if (String(messageId).startsWith('local_')) return
     try {
