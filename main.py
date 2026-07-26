@@ -72,7 +72,7 @@ TG_BOT_USERNAME = ""  # fetched on startup
 # ── JWT ──────────────────────────────────────────────────────────────────
 JWT_SECRET = os.getenv("JWT_SECRET", secrets.token_hex(32))
 JWT_ALGO   = "HS256"
-JWT_TTL    = 60 * 60 * 24 * 30  # 30 days
+JWT_TTL    = 60 * 60 * 24 * 365  # 1 year
 _bearer    = HTTPBearer(auto_error=False)
 
 def create_token(phone: str) -> str:
@@ -690,6 +690,26 @@ async def set_password(data: SetPassword):
     except Exception as e:
             logger.error(f"Error setting password: {e}")
             return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/auth/refresh")
+async def refresh_token(data: dict):
+    token = data.get("token", "")
+    try:
+        # Декодируем без проверки истечения — нам нужен только phone
+        payload = pyjwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO],
+                               options={"verify_exp": False})
+        phone = payload.get("sub")
+    except Exception:
+        return JSONResponse(status_code=401, content={"error": "Invalid token"})
+    if not phone:
+        return JSONResponse(status_code=401, content={"error": "Invalid token"})
+    # Проверяем что юзер существует
+    async with db_conn() as conn:
+        exists = await conn.fetchval("SELECT 1 FROM users WHERE phone=$1", phone)
+    if not exists:
+        return JSONResponse(status_code=401, content={"error": "User not found"})
+    new_token = create_token(phone)
+    return {"token": new_token, "phone": phone}
 
 @app.post("/auth/change-password")
 async def change_password(data: ChangePassword):
@@ -1662,7 +1682,7 @@ async def get_message_reactions(message_id: int):
         # Группируем по reaction
         grouped = {}
         for row in rows:
-            key = (row["reaction"], row["reply_to_reaction"])
+            key = row['reaction']
             if key not in grouped:
                 grouped[key] = {
                     "reaction": key,
