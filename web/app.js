@@ -733,12 +733,16 @@ function addAccount() {
 
 
 async function checkAuthOnLoad() {
+    // Вообще нет сохранённой авторизации
     if (!currentUser || !authToken) {
         localStorage.removeItem('currentUser');
         localStorage.removeItem('authToken');
 
         currentUser = null;
         authToken = null;
+
+        document.getElementById('app').style.display = 'none';
+        document.getElementById('loginScreen').style.display = 'flex';
 
         return;
     }
@@ -749,12 +753,12 @@ async function checkAuthOnLoad() {
             {
                 method: 'GET',
                 headers: {
-                    'Authorization': `Bearer ${authToken}`,
-                    'Content-Type': 'application/json'
+                    'Authorization': `Bearer ${authToken}`
                 }
             }
         );
 
+        // Пользователь не существует или токен недействителен
         if (response.status === 401 || response.status === 404) {
             localStorage.removeItem('currentUser');
             localStorage.removeItem('authToken');
@@ -762,22 +766,32 @@ async function checkAuthOnLoad() {
             currentUser = null;
             authToken = null;
 
+            document.getElementById('app').style.display = 'none';
+            document.getElementById('loginScreen').style.display = 'flex';
+
             return;
         }
 
         if (!response.ok) {
-            throw new Error(`Auth verification failed: ${response.status}`);
+            throw new Error(`Auth check failed: ${response.status}`);
         }
 
-        // Авторизация подтверждена
+        // Пользователь реально существует
         completeLogin();
 
     } catch (error) {
-        console.warn('Auth verification failed, using offline mode', error);
+        console.error('Auth verification failed:', error);
 
-        // Если сервер временно недоступен —
-        // оставляем локальную сессию
-        completeLogin();
+        // Не разрешаем вход в приложение,
+        // если не удалось подтвердить аккаунт
+        localStorage.removeItem('currentUser');
+        localStorage.removeItem('authToken');
+
+        currentUser = null;
+        authToken = null;
+
+        document.getElementById('app').style.display = 'none';
+        document.getElementById('loginScreen').style.display = 'flex';
     }
 }
 
