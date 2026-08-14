@@ -745,10 +745,12 @@ async function checkAuthOnLoad() {
 
     try {
         const response = await fetch(
-            `${DATABASE_URL}/users/${encodeURIComponent(currentUser)}`,
+            `/user/${encodeURIComponent(currentUser)}`,
             {
+                method: 'GET',
                 headers: {
-                    Authorization: `Bearer ${authToken}`
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json'
                 }
             }
         );
@@ -763,12 +765,18 @@ async function checkAuthOnLoad() {
             return;
         }
 
+        if (!response.ok) {
+            throw new Error(`Auth verification failed: ${response.status}`);
+        }
+
+        // Авторизация подтверждена
         completeLogin();
 
     } catch (error) {
         console.warn('Auth verification failed, using offline mode', error);
 
-        // Нет сети — разрешаем вход
+        // Если сервер временно недоступен —
+        // оставляем локальную сессию
         completeLogin();
     }
 }
