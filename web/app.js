@@ -745,7 +745,7 @@ async function checkAuthOnLoad() {
 
     try {
         const response = await fetch(
-            `${API_BASE_URL}/users/${encodeURIComponent(currentUser)}`,
+            `${DATABASE_URL}/users/${encodeURIComponent(currentUser)}`,
             {
                 headers: {
                     Authorization: `Bearer ${authToken}`
