@@ -689,29 +689,65 @@ function renderAccountsList() {
     `).join('')
 }
 async function switchAccount(phone) {
-    const acc = getAllAccounts().find(a => a.phone === phone)
+    const accounts = getAllAccounts()
+    const acc = accounts.find(a => a.phone === phone)
+
     if (!acc) return
-    if (acc.token) {
+
+    if (!acc.token) {
+        removeAccount(phone)
+        renderAccountsList()
+        showToast('Сохранённый аккаунт удалён')
+        return
+    }
+
+    try {
         const res = await fetch(`/user/${encodeURIComponent(phone)}`, {
-            headers: { 'Authorization': `Bearer ${acc.token}` }
-        }).catch(() => null)
-        if (res && res.ok) {
-            if (ws) try { ws.close() } catch(e) {}
-            currentUser = phone; authToken = acc.token
-            localStorage.setItem('currentUser', phone)
-            localStorage.setItem('authToken', acc.token)
-            closeAccountSwitcher()
-            completeLogin()
-            showToast('\u0412\u0445\u043e\u0434: ' + formatPhone(phone))
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${acc.token}`
+            }
+        })
+
+        // Аккаунт больше не существует / токен недействителен
+        if (res.status === 401 || res.status === 404) {
+            removeAccount(phone)
+            renderAccountsList()
+
+            showToast('Этот аккаунт больше недоступен')
             return
         }
+
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`)
+        }
+
+        // Аккаунт существует
+        if (ws) {
+            try {
+                ws.close()
+            } catch (e) {}
+        }
+
+        currentUser = phone
+        authToken = acc.token
+
+        localStorage.setItem('currentUser', currentUser)
+        localStorage.setItem('authToken', authToken)
+
+        closeAccountSwitcher()
+
+        completeLogin()
+
+        showToast('Вход: ' + formatPhone(phone))
+
+    } catch (error) {
+        console.error('Ошибка переключения аккаунта:', error)
+
+        // При реальной ошибке сервера НЕ удаляем аккаунт.
+        // Он может быть рабочим, просто сервер временно недоступен.
+        showToast('Не удалось проверить аккаунт')
     }
-    closeAccountSwitcher()
-    document.getElementById('app').style.display = 'none'
-    document.getElementById('loginScreen').style.display = 'flex'
-    const pi = document.getElementById('loginPhone')
-    if (pi) { pi.value = phone; pi.focus() }
-    showToast('\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043f\u0430\u0440\u043e\u043b\u044c')
 }
 function deleteAccount(phone) {
     removeAccount(phone)
