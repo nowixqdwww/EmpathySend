@@ -2081,7 +2081,8 @@ async def websocket_endpoint(ws: WebSocket, user: str, token: str = ""):
                 continue
 
     finally:
-        clients.pop(user, None)
+        if clients.get(user) is ws:
+            clients.pop(user, None)
         logger.info(f"User {user} disconnected. Total: {len(clients)}")
         # Уведомляем всех онлайн что юзер ушёл
         for uid, ws2 in list(clients.items()):
