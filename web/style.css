@@ -6512,8 +6512,7 @@ img[loading="lazy"].loaded { opacity: 1; }
     --profile-modal-bg: rgba(255, 255, 255, .10);
 }
 
-#profileModal .modal-content,
-.profile-modal-content {
+#profileModal .profile-modal-content {
     background: var(--profile-modal-bg) !important;
 }
 /*21:17*/
