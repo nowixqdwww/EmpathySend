@@ -293,34 +293,73 @@ function broadcastOnlineStatus(isOnline) {
 
 async function refreshOnlineStatuses() {
     const phones = [...document.querySelectorAll('.chatItem')]
-        .map(el => el.id.replace('chat-', '')).filter(Boolean)
+        .map(el => el.id.replace('chat-', ''))
+        .filter(Boolean)
+
+    // Если текущий чат отсутствует в списке чатов,
+    // всё равно проверяем его
+    if (currentChat && !phones.includes(currentChat)) {
+        phones.push(currentChat)
+    }
+
     if (!phones.length) return
+
     try {
         const res = await fetch('/api/online-status', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json'
+            },
             body: JSON.stringify({ phones })
         })
+
+        if (!res.ok) {
+            throw new Error(`Status request failed: ${res.status}`)
+        }
+
         const statuses = await res.json()
+
+        if (!window.clients) {
+            window.clients = {}
+        }
+
         phones.forEach(phone => {
             const isOnline = statuses[phone] === true
-            if (!window.clients) window.clients = {}
+
+            // Сохраняем реальное состояние
             window.clients[phone] = isOnline
-            // Store last_seen if provided
+
+            // last_seen используем только если человек НЕ онлайн
             const ls = statuses[phone + '__last_seen']
-            if (ls) lastSeenMap[phone] = ls
-            // Обновляем точку статуса
-            const el = document.getElementById(`chat-${cleanPhone(phone)}`)
+
+            if (!isOnline && ls) {
+                lastSeenMap[phone] = ls
+            }
+
+            // Обновляем точку в списке чатов
+            const el = document.getElementById(
+                `chat-${cleanPhone(phone)}`
+            )
+
             if (el) {
                 const dot = el.querySelector('.chat-status')
-                if (dot) dot.className = `chat-status ${isOnline ? '' : 'offline'}`
-            }
-            // Обновляем хедер если открытый чат
-            if (currentChat === phone) updateChatStatusText(phone, isOnline)
-        })
-    } catch(e) {}
-}
 
+                if (dot) {
+                    dot.className =
+                        `chat-status ${isOnline ? '' : 'offline'}`
+                }
+            }
+
+            // Обновляем статус открытого чата
+            if (currentChat === phone) {
+                updateChatStatusText(phone, isOnline)
+            }
+        })
+
+    } catch (e) {
+        console.warn('refreshOnlineStatuses error:', e)
+    }
+}
 // ============= ФУНКЦИИ ДЛЯ ПРОВЕРКИ ПАРОЛЯ =============
 
 function checkPasswordStrength(password) {
@@ -3048,9 +3087,16 @@ function openChat(phone, displayName) {
             }
             
             // Статус онлайн
+            if (user.last_seen) {
+                lastSeenMap[phone] = user.last_seen
+            }
+            
+            // Сначала показываем текущий известный статус
             const isOnline = window.clients && window.clients[phone] === true
-            if (user.last_seen) lastSeenMap[phone] = user.last_seen
             updateChatStatusText(phone, isOnline)
+            
+            // И сразу запрашиваем актуальный статус с сервера
+            refreshOnlineStatuses()
         })
         .catch(() => {
             // Если ошибка — показываем без галочки
