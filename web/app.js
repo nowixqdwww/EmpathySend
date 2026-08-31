@@ -5225,9 +5225,132 @@ function applyWallpaper(wp) {
         target.style.backgroundSize = ''
         target.style.backgroundPosition = ''
         target.style.backgroundRepeat = ''
+
+    updateDateSeparatorTheme(wp)
     }
 }
 
+/* =========================================================
+   DATE SEPARATOR — КОНТРАСТ С ОБОЯМИ
+   ========================================================= */
+
+function getColorLuminance(color) {
+    if (!color) return null
+
+    color = color.trim().toLowerCase()
+
+    let r, g, b
+
+    // #RGB
+    if (/^#[0-9a-f]{3}$/.test(color)) {
+        r = parseInt(color[1] + color[1], 16)
+        g = parseInt(color[2] + color[2], 16)
+        b = parseInt(color[3] + color[3], 16)
+    }
+
+    // #RRGGBB
+    else if (/^#[0-9a-f]{6}$/.test(color)) {
+        r = parseInt(color.slice(1, 3), 16)
+        g = parseInt(color.slice(3, 5), 16)
+        b = parseInt(color.slice(5, 7), 16)
+    }
+
+    // rgb / rgba
+    else {
+        const match = color.match(
+            /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/
+        )
+
+        if (!match) return null
+
+        r = Number(match[1])
+        g = Number(match[2])
+        b = Number(match[3])
+    }
+
+    return (
+        0.299 * r +
+        0.587 * g +
+        0.114 * b
+    ) / 255
+}
+
+
+function getWallpaperLuminance(wp) {
+    if (!wp) return 0.5
+
+    /*
+     * Обычный цвет
+     */
+    if (wp.type === 'color') {
+        return getColorLuminance(wp.value) ?? 0.5
+    }
+
+    /*
+     * Градиент.
+     * Берём все цвета из строки и считаем среднее.
+     */
+    if (wp.type === 'gradient') {
+        const colors = wp.value?.match(
+            /#[0-9a-f]{3,8}|rgba?\([^)]+\)/gi
+        ) || []
+
+        const values = colors
+            .map(getColorLuminance)
+            .filter(v => v !== null)
+
+        if (values.length) {
+            return values.reduce((a, b) => a + b, 0) / values.length
+        }
+
+        return 0.5
+    }
+
+    /*
+     * Паттерны
+     */
+    if (wp.type === 'pattern') {
+        if (wp.value === 'dots' || wp.value === 'grid') {
+            return 0.9
+        }
+
+        return 0.5
+    }
+
+    /*
+     * Картинка.
+     * Для изображения безопаснее использовать средний
+     * нейтральный режим, пока изображение не проанализировано.
+     */
+    if (wp.type === 'image') {
+        return 0.5
+    }
+
+    return 0.5
+}
+
+
+function updateDateSeparatorTheme(wp) {
+    const chatBlock = document.getElementById('chatBlock')
+    if (!chatBlock) return
+
+    const luminance = getWallpaperLuminance(wp)
+
+    chatBlock.classList.remove(
+        'wallpaper-dark',
+        'wallpaper-light'
+    )
+
+    /*
+     * < 0.5 = тёмные
+     * >= 0.5 = светлые
+     */
+    if (luminance < 0.5) {
+        chatBlock.classList.add('wallpaper-dark')
+    } else {
+        chatBlock.classList.add('wallpaper-light')
+    }
+}
 // ── Открытие модалки тем ─────────────────────────────────────
 function openThemeModal() {
     const modal = document.getElementById('themeModal')
