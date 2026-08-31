@@ -5163,34 +5163,68 @@ function applyTheme(theme) {
 }
 
 function applyWallpaper(wp) {
+    const chatBlock = document.getElementById('chatBlock')
     const messagesEl = document.getElementById('messages')
-    if (!messagesEl) return
+
+    if (!chatBlock) return
+
+    const target = chatBlock
+
     if (!wp || wp.type === 'color') {
-        messagesEl.style.removeProperty('--messages-bg')
-        messagesEl.style.background = wp?.value || ''
-        messagesEl.style.backgroundImage = ''
+
+        target.style.background = wp?.value || ''
+        target.style.backgroundImage = ''
+        target.style.backgroundSize = ''
+        target.style.backgroundPosition = ''
+        target.style.backgroundRepeat = ''
+
     } else if (wp.type === 'gradient') {
-        messagesEl.style.removeProperty('--messages-bg')
-        messagesEl.style.background = wp.value
-        messagesEl.style.backgroundImage = ''
+
+        target.style.background = wp.value
+        target.style.backgroundImage = ''
+        target.style.backgroundSize = ''
+        target.style.backgroundPosition = ''
+        target.style.backgroundRepeat = ''
+
     } else if (wp.type === 'pattern') {
+
         const patterns = {
-            dots:  { bg: '#f8f8f8', img: 'radial-gradient(circle,#00000015 1px,transparent 1px)', size: '20px 20px' },
-            grid:  { bg: '#f8f8f8', img: 'linear-gradient(#0000000a 1px,transparent 1px),linear-gradient(90deg,#0000000a 1px,transparent 1px)', size: '24px 24px' },
-            waves: { bg: '#e8f4f8', img: 'repeating-linear-gradient(45deg,#00000008 0,#00000008 1px,transparent 0,transparent 50%)', size: '10px 10px' },
+            dots: {
+                bg: '#f8f8f8',
+                img: 'radial-gradient(circle,#00000015 1px,transparent 1px)',
+                size: '20px 20px'
+            },
+
+            grid: {
+                bg: '#f8f8f8',
+                img: 'linear-gradient(#0000000a 1px,transparent 1px),linear-gradient(90deg,#0000000a 1px,transparent 1px)',
+                size: '20px 20px'
+            }
         }
+
         const p = patterns[wp.value] || patterns.dots
-        messagesEl.style.background = p.bg
-        messagesEl.style.backgroundImage = p.img
-        messagesEl.style.backgroundSize = p.size
+
+        target.style.background = p.bg
+        target.style.backgroundImage = p.img
+        target.style.backgroundSize = p.size
+        target.style.backgroundPosition = '0 0'
+        target.style.backgroundRepeat = 'repeat'
+
     } else if (wp.type === 'image') {
-        // Override the CSS variable so dark theme doesn't paint over the photo
-        messagesEl.style.setProperty('--messages-bg', 'transparent')
-        messagesEl.style.background = ''
-        messagesEl.style.backgroundImage = `url(${wp.value})`
-        messagesEl.style.backgroundSize = 'cover'
-        messagesEl.style.backgroundPosition = 'center'
-        messagesEl.style.backgroundRepeat = 'no-repeat'
+
+        target.style.background = ''
+        target.style.backgroundImage = `url("${wp.value}")`
+        target.style.backgroundSize = 'cover'
+        target.style.backgroundPosition = 'center'
+        target.style.backgroundRepeat = 'no-repeat'
+
+    } else {
+
+        target.style.background = ''
+        target.style.backgroundImage = ''
+        target.style.backgroundSize = ''
+        target.style.backgroundPosition = ''
+        target.style.backgroundRepeat = ''
     }
 }
 
