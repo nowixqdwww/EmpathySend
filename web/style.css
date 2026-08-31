@@ -6031,7 +6031,6 @@ img[loading="lazy"].loaded { opacity: 1; }
     .chat-header {
         margin: 0;
         padding: 0 12px;
-        height: 56px;
         background: var(--glass-bg);
         border-bottom: 1px solid var(--glass-border);
         backdrop-filter: blur(24px);
