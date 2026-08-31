@@ -1250,6 +1250,7 @@ body {
 }
 
 .sticker-modal-body {
+    background: #ffffff;
     padding: 12px;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
