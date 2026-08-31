@@ -3781,7 +3781,6 @@ function connect() {
                 )
             
                 const _md = parseMediaToken(data.text)
-                const _md = parseMediaToken(data.text)
                 // Ищем временное сообщение
                 const tempEl = document.querySelector('[data-message-id^="local_"]')
                 if (_md) {
