@@ -5907,7 +5907,7 @@ img[loading="lazy"].loaded { opacity: 1; }
     position: relative;
 }
 
-/* Общая плашка жидкого стекла 
+/* Общая плашка жидкого стекла  */
 .ch-pill {
     display: flex;
     align-items: center;
@@ -5918,7 +5918,7 @@ img[loading="lazy"].loaded { opacity: 1; }
     box-shadow: var(--glass-shadow);
     border-radius: 999px;
     transition: .2s;
-}*/
+}
 
 /* Левая — кнопка назад */
 .ch-back {
@@ -6026,7 +6026,7 @@ img[loading="lazy"].loaded { opacity: 1; }
     z-index: 400;
 }
 
-/* ── Десктоп: шапка на всю ширину ── 
+/* ── Десктоп: шапка на всю ширину ── */
 @media (min-width: 768px) {
     .chat-header {
         margin: 0;
@@ -6065,7 +6065,7 @@ img[loading="lazy"].loaded { opacity: 1; }
         border-radius: 0;
     }
     .chat-user-name { font-size: 15px; }
-}*/
+}
 
 /* =========================
    MESSAGES AREA
