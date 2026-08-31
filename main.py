@@ -1905,10 +1905,14 @@ async def websocket_endpoint(ws: WebSocket, user: str, token: str = ""):
 
                     async with db_conn() as conn:
                         reply_to = data.get("reply_to")
-                        message_id = await conn.fetchval("""
+                        message_row = await conn.fetchrow("""
                             INSERT INTO messages (sender, receiver, text, reply_to) 
-                            VALUES ($1, $2, $3, $4) RETURNING id
+                            VALUES ($1, $2, $3, $4)
+                            RETURNING id, timestamp
                         """, user, to, text, reply_to)
+                        
+                        message_id = message_row["id"]
+                        message_timestamp = message_row["timestamp"]
 
                     # Fetch reply preview if any
                     reply_preview = None
@@ -1925,7 +1929,8 @@ async def websocket_endpoint(ws: WebSocket, user: str, token: str = ""):
                                 "id": message_id,
                                 "from": user,
                                 "text": text,
-                                "reply": reply_preview
+                                "reply": reply_preview,
+                                "timestamp": message_timestamp.isoformat()
                             })
                         except:
                             clients.pop(to, None)
@@ -1935,7 +1940,8 @@ async def websocket_endpoint(ws: WebSocket, user: str, token: str = ""):
                         "id": message_id,
                         "to": to,
                         "text": text,
-                        "reply": reply_preview
+                        "reply": reply_preview,
+                        "timestamp": message_timestamp.isoformat()
                     })
 
                 elif action == "delivered":
