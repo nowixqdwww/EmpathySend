@@ -4412,7 +4412,7 @@ button:active:not(:disabled) {
 
 /* ── Фоны ── */
 body { background: var(--bg-primary); }
-#messages, .empty-chat { background: var(--messages-bg); }
+/*#messages, .empty-chat { background: var(--messages-bg); }*/
 .input-area   { background: var(--input-area-bg)  !important; border-color: var(--border) !important; }
 
 /* ── Модалки ── */
