@@ -7103,3 +7103,68 @@ img[loading="lazy"].loaded { opacity: 1; }
         font-size: 16px;
     }
 }
+
+/* =========================================================
+   CHAT WALLPAPER — ОБОИ ПОДО ВСЕМИ ЭЛЕМЕНТАМИ
+   ========================================================= */
+
+#chatBlock {
+    position: relative;
+    isolation: isolate;
+
+    background-color: transparent !important;
+}
+
+
+/* Область сообщений не должна перекрывать обои */
+
+#messages {
+    background: transparent !important;
+    background-image: none !important;
+}
+
+
+/* Шапка прозрачная — видны обои под glass */
+
+#chatHeader,
+.chat-header {
+    background: transparent !important;
+}
+
+
+/* Центральная таблетка остаётся стеклянной */
+
+#chatHeader .ch-pill {
+    background: rgba(255,255,255,.16) !important;
+}
+
+
+/* Нижняя строка тоже стеклянная */
+
+#inputArea {
+    background: rgba(255,255,255,.55) !important;
+}
+
+
+/* Само поле полностью прозрачно */
+
+#text,
+#messageInput,
+.message-input {
+    background: transparent !important;
+}
+
+/*ширина инпута по шапке*/
+
+@media (min-width: 769px) {
+
+    #inputArea.input-area {
+        width: auto !important;
+
+        margin-left: 72px !important;
+        margin-right: 64px !important;
+
+        box-sizing: border-box;
+    }
+
+}
