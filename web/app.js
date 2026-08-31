@@ -14,6 +14,7 @@ let selectedMessageId = null
 let selectedMessageElement = null
 let selectedChatPhone = null
 let selectedChatElement = null
+let currentChatLastMessageDate = null
 
 // Для долгого нажатия
 let longPressTimer = null
@@ -3737,7 +3738,22 @@ function connect() {
 
                 // Добавляем в DOM только если это открытый чат
                 if (currentChat === data.from) {
-                    addMessage(data.from, data.text, data.id, false, data.reply || null)
+
+                    ensureDateSeparator(data.timestamp)
+                
+                    addMessage(
+                        data.from,
+                        data.text,
+                        data.id,
+                        false,
+                        data.reply || null
+                    )
+                
+                    ws.send(JSON.stringify({
+                        action: 'read',
+                        from: data.from,
+                        id: data.id
+                    }))
                     // Отмечаем прочитанным и скрываем badge
                     ws.send(JSON.stringify({ action: 'read', from: data.from, id: data.id }))
                     const incomingChatEl = document.getElementById(`chat-${cleanPhone(data.from)}`)
@@ -3759,6 +3775,12 @@ function connect() {
             }
 
             if (data.action === 'message_sent') {
+
+                ensureDateSeparator(
+                    data.timestamp || new Date().toISOString()
+                )
+            
+                const _md = parseMediaToken(data.text)
                 const _md = parseMediaToken(data.text)
                 // Ищем временное сообщение
                 const tempEl = document.querySelector('[data-message-id^="local_"]')
@@ -3781,9 +3803,69 @@ function connect() {
             }
 
             if (data.action === 'history') {
+
                 const _mc = document.getElementById('messages')
+            
                 _mc.innerHTML = ''
-                let _lastDate = null
+            
+                currentChatLastMessageDate = null
+            
+                data.messages.forEach(m => {
+            
+                    ensureDateSeparator(m.timestamp)
+            
+                    if (m.type === 'call') {
+            
+                        const isMe = m.caller === currentUser
+            
+                        let callStatus
+            
+                        if (m.status === 'completed') {
+                            callStatus = isMe ? 'outgoing' : 'incoming'
+                        } else {
+                            callStatus = isMe ? 'rejected' : 'missed'
+                        }
+            
+                        addCallMessage(
+                            isMe ? m.callee : m.caller,
+                            callStatus,
+                            m.duration,
+                            m.call_type,
+                            true
+                        )
+            
+                    } else {
+            
+                        addMessage(
+                            m.sender,
+                            m.text,
+                            m.id,
+                            m.is_read === 1,
+                            m.reply || null
+                        )
+            
+                        if (m.edited) {
+            
+                            const el = document.querySelector(
+                                `[data-message-id="${m.id}"]`
+                            )
+            
+                            if (el && !el.querySelector('.msg-edited')) {
+            
+                                const mark = document.createElement('span')
+            
+                                mark.className = 'msg-edited'
+                                mark.textContent = 'изм.'
+            
+                                el.querySelector('.message-meta')
+                                    ?.prepend(mark)
+                            }
+                        }
+                    }
+                })
+            
+                _mc.scrollTop = _mc.scrollHeight
+            }
                 data.messages.forEach(m => {
                     const _dl = formatMessageDate(m.timestamp)
                     if (_dl && _dl !== _lastDate) { insertDateSeparator(_mc, _dl); _lastDate = _dl }
@@ -6195,6 +6277,49 @@ async function handleCallSignal(data) {
             cleanupCall()
             break
     }
+}
+
+// время на сепаратор сообщений
+
+function getMessageDateKey(isoStr) {
+    if (!isoStr) return null
+
+    const fixed = /[Z+]/.test(isoStr)
+        ? isoStr
+        : isoStr + 'Z'
+
+    const d = new Date(fixed)
+
+    if (isNaN(d)) return null
+
+    return [
+        d.getFullYear(),
+        String(d.getMonth() + 1).padStart(2, '0'),
+        String(d.getDate()).padStart(2, '0')
+    ].join('-')
+}
+
+
+function ensureDateSeparator(timestamp) {
+    const messagesDiv = document.getElementById('messages')
+
+    if (!messagesDiv || !timestamp) return
+
+    const dateKey = getMessageDateKey(timestamp)
+
+    if (!dateKey) return
+
+    if (dateKey === currentChatLastMessageDate) {
+        return
+    }
+
+    const dateLabel = formatMessageDate(timestamp)
+
+    if (!dateLabel) return
+
+    insertDateSeparator(messagesDiv, dateLabel)
+
+    currentChatLastMessageDate = dateKey
 }
 
 // ── Управление во время звонка ────────────────────────────
