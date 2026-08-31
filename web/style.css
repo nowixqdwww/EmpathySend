@@ -6624,13 +6624,19 @@ img[loading="lazy"].loaded { opacity: 1; }
 }
 
 /* =========================================================
-   CHAT UI — FIGMA
-   FINAL OVERRIDE
+   CHAT UI — FINAL
    ========================================================= */
 
-/* =========================================================
-   CHAT HEADER
-   ========================================================= */
+.chat-block {
+    display: none;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+/* ================= HEADER ================= */
 
 .chat-header {
     position: relative;
@@ -6640,26 +6646,28 @@ img[loading="lazy"].loaded { opacity: 1; }
     align-items: center;
 
     width: 100%;
-    box-sizing: border-box;
+    height: 48px;
+    min-height: 48px;
 
     margin: 12px 0 0;
     padding: 0 16px;
 
     gap: 8px;
 
-    height: 56px;
+    box-sizing: border-box;
 
     background: transparent;
     border: none;
 }
 
 
-/* ---------- ВСЕ ПЛАШКИ ---------- */
+/* Общая таблетка */
 
 .ch-pill {
     box-sizing: border-box;
 
     background: rgba(255,255,255,.16);
+
     border: 1px solid rgba(255,255,255,.28);
 
     box-shadow: none;
@@ -6671,17 +6679,19 @@ img[loading="lazy"].loaded { opacity: 1; }
 }
 
 
-/* ---------- НАЗАД ---------- */
+/* Назад */
 
 .ch-back {
-    width: 56px;
-    height: 56px;
+    width: 48px;
+    height: 48px;
 
-    min-width: 56px;
-    min-height: 56px;
+    min-width: 48px;
+    min-height: 48px;
 
     padding: 0;
     margin: 0;
+
+    flex-shrink: 0;
 
     display: flex;
     align-items: center;
@@ -6690,46 +6700,43 @@ img[loading="lazy"].loaded { opacity: 1; }
     border-radius: 50%;
 
     color: #000;
-    font-size: 24px;
-
-    flex-shrink: 0;
+    font-size: 21px;
 }
 
 
-/* ---------- ЦЕНТРАЛЬНАЯ ТАБЛЕТКА ---------- */
+/* Центральная таблетка */
 
 .ch-center {
     flex: 1;
 
     width: auto;
-
-    height: 56px;
+    height: 48px;
 
     min-width: 0;
-    min-height: 56px;
+    min-height: 48px;
 
-    padding: 0 8px;
+    padding: 0 6px;
 
     display: flex;
     align-items: center;
 
-    gap: 9px;
+    gap: 8px;
 
     border-radius: 999px;
 }
 
 
-/* ---------- АВАТАР ---------- */
+/* Аватар */
 
-.chat-user-avatar {
-    width: 44px;
-    height: 44px;
+.ch-center .chat-user-avatar {
+    width: 36px;
+    height: 36px;
 
-    min-width: 44px;
-    min-height: 44px;
+    min-width: 36px;
+    min-height: 36px;
 
-    max-width: 44px;
-    max-height: 44px;
+    max-width: 36px;
+    max-height: 36px;
 
     margin: 0;
 
@@ -6738,21 +6745,17 @@ img[loading="lazy"].loaded { opacity: 1; }
     border-radius: 50%;
 
     overflow: hidden;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
 
-/* ---------- ИНФОРМАЦИЯ ---------- */
+/* Имя / статус */
 
 .ch-center .chat-user-details {
     flex: 1;
 
     min-width: 0;
 
-    height: auto;
+    height: 100%;
 
     display: flex;
     flex-direction: column;
@@ -6762,17 +6765,16 @@ img[loading="lazy"].loaded { opacity: 1; }
     overflow: hidden;
 }
 
-
-.chat-user-name {
-    width: 100%;
-
+.ch-center .chat-user-name {
     display: flex;
     align-items: center;
 
-    font-size: 18px;
-    line-height: 20px;
+    width: 100%;
 
-    font-weight: 500;
+    font-size: 16px;
+    line-height: 18px;
+
+    font-weight: 600;
 
     color: #000;
 
@@ -6781,76 +6783,70 @@ img[loading="lazy"].loaded { opacity: 1; }
     text-overflow: ellipsis;
 }
 
+.ch-center .chat-user-status {
+    font-size: 11px;
+    line-height: 13px;
 
-.chat-user-status {
-    font-size: 13px;
-    line-height: 15px;
-
-    color: rgba(0,0,0,.65);
+    color: #0A84FF;
 }
 
 
-/* ---------- ЗВОНОК ---------- */
+/* Звонок */
 
-.ch-call-btn {
-    width: 42px;
-    height: 42px;
+.ch-center .ch-call-btn {
+    width: 36px;
+    height: 36px;
 
-    min-width: 42px;
-    min-height: 42px;
+    min-width: 36px;
+    min-height: 36px;
 
     margin: 0;
-
     padding: 0;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    flex-shrink: 0;
-
-    color: #000;
-
-    font-size: 20px;
-}
-
-
-/* ---------- ТРИ ТОЧКИ ---------- */
-
-.ch-right {
-    width: 56px;
-    height: 56px;
-
-    min-width: 56px;
-    min-height: 56px;
-
-    padding: 0;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
 
     flex-shrink: 0;
 
     border-radius: 50%;
+
+    color: #000;
+
+    font-size: 18px;
 }
 
 
+/* Три точки */
+
+.ch-right {
+    width: 48px;
+    height: 48px;
+
+    min-width: 48px;
+    min-height: 48px;
+
+    padding: 0;
+    margin: 0;
+
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+}
+
 .ch-right .ch-icon-btn {
-    width: 42px;
-    height: 42px;
+    width: 48px;
+    height: 48px;
 
     padding: 0;
 
-    font-size: 20px;
-
     color: #000;
+
+    font-size: 19px;
 }
 
 
-/* =========================================================
-   MESSAGES
-   ========================================================= */
+/* ================= MESSAGES ================= */
 
 .messages {
     flex: 1;
@@ -6861,31 +6857,20 @@ img[loading="lazy"].loaded { opacity: 1; }
 
     overflow-y: auto;
     overflow-x: hidden;
-}
-
-
-/* =========================================================
-   INPUT
-   ========================================================= */
-
-.input-wrap {
-    flex-shrink: 0;
-
-    width: 100%;
 
     box-sizing: border-box;
-
-    padding: 0 28px 16px;
 }
 
 
+/* ================= INPUT ================= */
+
 .input-area {
-    width: 100%;
+    width: calc(100% - 56px);
 
     height: 62px;
     min-height: 62px;
 
-    margin: 0;
+    margin: 0 28px 16px;
 
     padding: 6px 8px;
 
@@ -6909,14 +6894,16 @@ img[loading="lazy"].loaded { opacity: 1; }
 }
 
 
-/* ---------- INPUT ---------- */
+/* Сам input */
 
+#text.message-input,
 .message-input {
     flex: 1;
 
     min-width: 0;
 
     height: 48px;
+    min-height: 48px;
 
     padding: 0 8px;
 
@@ -6931,15 +6918,40 @@ img[loading="lazy"].loaded { opacity: 1; }
     font-size: 17px;
 }
 
-
+#text.message-input::placeholder,
 .message-input::placeholder {
     color: rgba(0,0,0,.45);
 }
 
 
-/* ---------- EMOJI / VOICE / SEND ---------- */
+/* Emoji */
 
-.sticker-btn,
+.sticker-btn {
+    width: 48px;
+    height: 48px;
+
+    min-width: 48px;
+    min-height: 48px;
+
+    padding: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    border-radius: 50%;
+
+    background: #000;
+
+    color: #fff;
+
+    font-size: 21px;
+}
+
+
+/* Микрофон / отправка */
+
 .voice-btn,
 .send-btn {
     width: 48px;
@@ -6950,20 +6962,21 @@ img[loading="lazy"].loaded { opacity: 1; }
 
     padding: 0;
 
-    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 
-    flex-shrink: 0;
+    border-radius: 50%;
 }
 
 
-/* =========================================================
-   MOBILE
-   ========================================================= */
+/* ================= MOBILE ================= */
 
 @media (max-width: 768px) {
 
     .chat-header {
         height: 34px;
+        min-height: 34px;
 
         margin: 8px 10px 0;
         padding: 0;
@@ -6971,8 +6984,6 @@ img[loading="lazy"].loaded { opacity: 1; }
         gap: 8px;
     }
 
-
-    /* Назад */
 
     .ch-back {
         width: 34px;
@@ -6985,13 +6996,8 @@ img[loading="lazy"].loaded { opacity: 1; }
     }
 
 
-    /* Центральная таблетка */
-
     .ch-center {
-        flex: 1;
-
         height: 34px;
-
         min-height: 34px;
 
         padding: 0 4px;
@@ -7000,9 +7006,7 @@ img[loading="lazy"].loaded { opacity: 1; }
     }
 
 
-    /* Аватар */
-
-    .chat-user-avatar {
+    .ch-center .chat-user-avatar {
         width: 26px;
         height: 26px;
 
@@ -7014,25 +7018,19 @@ img[loading="lazy"].loaded { opacity: 1; }
     }
 
 
-    /* Имя */
-
-    .chat-user-name {
+    .ch-center .chat-user-name {
         font-size: 14px;
         line-height: 15px;
     }
 
 
-    /* Статус */
-
-    .chat-user-status {
+    .ch-center .chat-user-status {
         font-size: 8px;
         line-height: 9px;
     }
 
 
-    /* Звонок */
-
-    .ch-call-btn {
+    .ch-center .ch-call-btn {
         width: 28px;
         height: 28px;
 
@@ -7042,8 +7040,6 @@ img[loading="lazy"].loaded { opacity: 1; }
         font-size: 14px;
     }
 
-
-    /* Три точки */
 
     .ch-right {
         width: 34px;
@@ -7055,23 +7051,25 @@ img[loading="lazy"].loaded { opacity: 1; }
 
 
     .ch-right .ch-icon-btn {
-        width: 30px;
-        height: 30px;
+        width: 34px;
+        height: 34px;
 
         font-size: 15px;
     }
 
 
-    /* ---------- INPUT ---------- */
-
-    .input-wrap {
-        padding: 0 16px 10px;
+    .messages {
+        padding: 12px 16px;
     }
 
 
     .input-area {
+        width: calc(100% - 32px);
+
         height: 42px;
         min-height: 42px;
+
+        margin: 0 16px 10px;
 
         padding: 3px 5px;
 
@@ -7079,8 +7077,10 @@ img[loading="lazy"].loaded { opacity: 1; }
     }
 
 
+    #text.message-input,
     .message-input {
         height: 34px;
+        min-height: 34px;
 
         font-size: 14px;
 
@@ -7096,5 +7096,10 @@ img[loading="lazy"].loaded { opacity: 1; }
 
         min-width: 34px;
         min-height: 34px;
+    }
+
+
+    .sticker-btn {
+        font-size: 16px;
     }
 }
