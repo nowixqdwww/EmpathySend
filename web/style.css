@@ -5908,7 +5908,7 @@ img[loading="lazy"].loaded { opacity: 1; }
 }
 
 /* Общая плашка жидкого стекла */
-/*.ch-pill {
+.ch-pill {
     display: flex;
     align-items: center;
     background: var(--glass-bg);
@@ -5920,7 +5920,7 @@ img[loading="lazy"].loaded { opacity: 1; }
     transition: .2s;
 }
 
-/* Левая — кнопка назад *
+/* Левая — кнопка назад */
 .ch-back {
     width: 44px;
     height: 44px;
@@ -5933,7 +5933,7 @@ img[loading="lazy"].loaded { opacity: 1; }
 .ch-back:hover {
     background: rgba(255,255,255,.15);
     transform: translateY(-1px);
-}*/
+}
 
 /* Центр — аватар + имя + статус + звонок */
 .ch-center {
@@ -6026,7 +6026,7 @@ img[loading="lazy"].loaded { opacity: 1; }
     z-index: 400;
 }
 
-/* ── Десктоп: шапка на всю ширину ── */
+/* ── Десктоп: шапка на всю ширину ──
 @media (min-width: 768px) {
     .chat-header {
         margin: 0;
@@ -6065,7 +6065,7 @@ img[loading="lazy"].loaded { opacity: 1; }
         border-radius: 0;
     }
     .chat-user-name { font-size: 15px; }
-}
+}*/
 
 /* =========================
    MESSAGES AREA
