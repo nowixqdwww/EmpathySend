@@ -3919,7 +3919,6 @@ function connect() {
                 }
             }
 
-    }
         ws.onclose = (event) => {
             if (window._statusInterval) { clearInterval(window._statusInterval); window._statusInterval = null }
             broadcastOnlineStatus(false)
