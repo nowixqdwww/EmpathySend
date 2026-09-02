@@ -3281,6 +3281,7 @@ async function send() {
 
     // Оптимистично добавляем сообщение сразу
     const tempId = 'local_' + Date.now()
+    ensureDateSeparator(new Date().toISOString())
     addMessage(currentUser, text, tempId, null, replyState ? { id: replyState.id, text: replyState.text, sender: replyState.sender } : null)
 
     ws.send(JSON.stringify({ action: 'send', to: currentChat, text, reply_to: replyState?.id || null }))
