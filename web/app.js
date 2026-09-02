@@ -5375,15 +5375,45 @@ function getWallpaperLuminance(wp) {
     }
 
     /*
-     * Картинка.
-     * Для изображения безопаснее использовать средний
-     * нейтральный режим, пока изображение не проанализировано.
+     * Картинка — анализируем через canvas асинхронно
      */
     if (wp.type === 'image') {
-        return 0.5
+        analyzeImageLuminance(wp.value)
+        return 0.5  // временно, обновится после анализа
     }
 
     return 0.5
+}
+
+function analyzeImageLuminance(url) {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => {
+        try {
+            const canvas = document.createElement('canvas')
+            // Уменьшаем для скорости
+            canvas.width = 50
+            canvas.height = 50
+            const ctx = canvas.getContext('2d')
+            ctx.drawImage(img, 0, 0, 50, 50)
+            const data = ctx.getImageData(0, 0, 50, 50).data
+            let total = 0, count = 0
+            for (let i = 0; i < data.length; i += 4) {
+                // Relative luminance
+                const r = data[i] / 255, g = data[i+1] / 255, b = data[i+2] / 255
+                total += 0.2126 * r + 0.7152 * g + 0.0722 * b
+                count++
+            }
+            const luminance = count ? total / count : 0.5
+            const chatBlock = document.getElementById('chatBlock')
+            if (!chatBlock) return
+            chatBlock.classList.remove('wallpaper-dark', 'wallpaper-light')
+            chatBlock.classList.add(luminance < 0.5 ? 'wallpaper-dark' : 'wallpaper-light')
+        } catch (e) {
+            // CORS или другая ошибка — оставляем нейтральный
+        }
+    }
+    img.src = url
 }
 
 
