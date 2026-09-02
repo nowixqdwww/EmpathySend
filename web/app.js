@@ -669,7 +669,7 @@ function closePasswordSetup() {
 }
 
 function getAllAccounts() {
-    try { return JSON.parse(localStorage.getItem('accounts') || '[]') } catch { return [] }
+    try { return JSON.parse(localStorage.getItem('accounts') || '[]') } catch (e) { return [] }
 }
 function saveAccount(phone, token, name) {
     const accounts = getAllAccounts().filter(a => a.phone !== phone)
@@ -2798,7 +2798,7 @@ async function loadMessageReactions(messageId) {
         const res = await fetch(`/reactions/${messageId}`)
         const data = await res.json()
         if (data.reactions) { reactionCache[messageId] = data.reactions; renderReactions(messageId, data.reactions) }
-    } catch {}
+    } catch (e) {}
 }
 
 // ============= ФУНКЦИИ ДЛЯ ЧАТОВ =============
@@ -3495,7 +3495,7 @@ async function deleteMessage() {
             if (!el.parentElement) document.getElementById('messages')?.appendChild(el)
             const d = await res.json(); showToast(d.error || 'Ошибка при удалении')
         }
-    } catch { showToast('Нет соединения') }
+    } catch (e) { showToast('Нет соединения') }
 }
 
 async function deleteChat() {
@@ -3941,7 +3941,7 @@ async function refreshAuthToken() {
             authToken = data.token
             localStorage.setItem('authToken', authToken)
         }
-    } catch {
+    } catch (e) {
         throw new Error('refresh failed')
     }
 }
@@ -5002,7 +5002,7 @@ async function submitVerifyRequest(btn) {
             showToast(data.error || "Ошибка")
             btn.disabled = false; btn.textContent = "Отправить запрос"
         }
-    } catch { showToast("Ошибка сети"); btn.disabled = false }
+    } catch (e) { showToast("Ошибка сети"); btn.disabled = false }
 }
 
 window.showLoginForm = showLoginForm
