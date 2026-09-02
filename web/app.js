@@ -3865,31 +3865,6 @@ function connect() {
             
                 _mc.scrollTop = _mc.scrollHeight
             }
-                data.messages.forEach(m => {
-                    const _dl = formatMessageDate(m.timestamp)
-                    if (_dl && _dl !== _lastDate) { insertDateSeparator(_mc, _dl); _lastDate = _dl }
-                    if (m.type === 'call') {
-                        const isMe = m.caller === currentUser
-                        let callStatus
-                        if (m.status === 'completed') callStatus = isMe ? 'outgoing' : 'incoming'
-                        else callStatus = isMe ? 'rejected' : 'missed'
-                        addCallMessage(isMe ? m.callee : m.caller, callStatus, m.duration, m.call_type, true)
-                    } else {
-                        addMessage(m.sender, m.text, m.id, m.is_read === 1, m.reply || null)
-                        // Mark as edited if needed
-                        if (m.edited) {
-                            const el = document.querySelector(`[data-message-id="${m.id}"]`)
-                            if (el && !el.querySelector('.msg-edited')) {
-                                const mark = document.createElement('span')
-                                mark.className = 'msg-edited'
-                                mark.textContent = 'изм.'
-                                el.querySelector('.message-meta')?.prepend(mark)
-                            }
-                        }
-                    }
-                })
-                _mc.scrollTop = _mc.scrollHeight
-            }
 
             if (data.action === 'call_record') {
                 const isMe = data.caller === currentUser
