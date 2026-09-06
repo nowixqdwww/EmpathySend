@@ -5875,14 +5875,7 @@ img[loading="lazy"].loaded { opacity: 1; }
 
 .chat-screen,
 .chat-area {
-    background:
-        radial-gradient(circle at top left,
-            rgba(138,108,255,.35),
-            transparent 40%),
-        radial-gradient(circle at bottom right,
-            rgba(83,153,255,.25),
-            transparent 40%),
-        #0f1117;
+    background: transparent;
 }
 
 /* Фон сообщений управляется JS (обои) — не перебиваем */
