@@ -4669,7 +4669,7 @@ button:not(.send-btn):not(.voice-btn) { transition: background 0.15s, transform 
 }
 
 [data-theme="dark"] #messages {
-    background: #1c1c1e;
+    /* background управляется JS через обои */
 }
 
 [data-theme="dark"] .chat-header,
@@ -5874,8 +5874,7 @@ img[loading="lazy"].loaded { opacity: 1; }
 /* Фон */
 
 .chat-screen,
-.chat-area,
-.messages {
+.chat-area {
     background:
         radial-gradient(circle at top left,
             rgba(138,108,255,.35),
@@ -5884,6 +5883,11 @@ img[loading="lazy"].loaded { opacity: 1; }
             rgba(83,153,255,.25),
             transparent 40%),
         #0f1117;
+}
+
+/* Фон сообщений управляется JS (обои) — не перебиваем */
+.messages {
+    background: transparent;
 }
 
 .chat-container {
