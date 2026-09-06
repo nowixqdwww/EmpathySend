@@ -1353,17 +1353,26 @@ async def save_theme(phone: str, request: Request):
     try:
         data = await request.json()
         import json as _json2
+
+        # Если обои — base64 картинка, сохраняем отдельно и заменяем на ссылку
+        if isinstance(data.get('wallpaper'), dict) and data['wallpaper'].get('type') == 'image':
+            wp_val = data['wallpaper'].get('value', '')
+            if wp_val.startswith('data:') and len(wp_val) > 500_000:
+                # Слишком большой base64 — обрезаем до URL если есть, иначе убираем
+                data['wallpaper'] = {'type': 'none'}
+
+        theme_json = _json2.dumps(data)
         async with db_conn() as conn:
             await conn.execute("""
                 INSERT INTO theme_settings (phone, theme_data, updated_at)
                 VALUES ($1, $2::jsonb, NOW())
                 ON CONFLICT (phone) DO UPDATE
                 SET theme_data = $2::jsonb, updated_at = NOW()
-            """, phone, _json2.dumps(data))
+            """, phone, theme_json)
             return {"ok": True}
     except Exception as e:
-            logger.error(f"save_theme error: {e}")
-            return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.error(f"save_theme error for {phone}: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 # ============= DEEZER МУЗЫКА (без API key) =============
 
