@@ -373,10 +373,17 @@ async def init_db():
                 CREATE TABLE IF NOT EXISTS theme_settings (
                     phone TEXT PRIMARY KEY,
                     theme_data JSONB NOT NULL DEFAULT '{}',
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (phone) REFERENCES users(phone) ON DELETE CASCADE
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            # Миграция — убираем FK если он ещё есть
+            try:
+                await conn.execute("""
+                    ALTER TABLE theme_settings
+                    DROP CONSTRAINT IF EXISTS theme_settings_phone_fkey
+                """)
+            except Exception:
+                pass
 
             # Таблица реакций
             await conn.execute("""
