@@ -5163,15 +5163,25 @@ let pendingWallpaper = null
 async function loadTheme() {
     if (!currentUser) return
     try {
-        // Сначала localStorage для быстрого применения
+        // Сначала localStorage — там могут быть base64 обои
         const local = localStorage.getItem('theme_' + currentUser)
-        if (local) applyTheme(JSON.parse(local))
+        if (local) {
+            const parsed = JSON.parse(local)
+            currentTheme = parsed
+            applyTheme(currentTheme)
+        }
 
-        // Потом сервер
+        // Сервер — для синхронизации между устройствами (без base64)
         const res = await fetch(`/api/theme/${encodeURIComponent(currentUser)}`)
         const data = await res.json()
         if (data.theme && Object.keys(data.theme).length) {
-            currentTheme = data.theme
+            const serverTheme = data.theme
+            // Если в localStorage есть обои — не перезаписываем их серверной версией
+            if (currentTheme.wallpaper && serverTheme.wallpaper?.type === 'color' &&
+                currentTheme.wallpaper.type === 'image') {
+                serverTheme.wallpaper = currentTheme.wallpaper
+            }
+            currentTheme = serverTheme
             applyTheme(currentTheme)
             localStorage.setItem('theme_' + currentUser, JSON.stringify(currentTheme))
         }
