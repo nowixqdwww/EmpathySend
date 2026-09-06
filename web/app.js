@@ -5225,18 +5225,23 @@ function applyWallpaper(wp) {
 
     if (!chatBlock) return
 
-    const target = chatBlock
+    const target = messagesEl || chatBlock
 
-    if (!wp || wp.type === 'color') {
+    if (!wp || wp.type === 'none') {
+        target.style.background = ''
+        target.style.backgroundImage = ''
+        target.style.backgroundSize = ''
+        target.style.backgroundPosition = ''
+        target.style.backgroundRepeat = ''
 
-        target.style.background = wp?.value || ''
+    } else if (wp.type === 'color') {
+        target.style.background = wp.value || ''
         target.style.backgroundImage = ''
         target.style.backgroundSize = ''
         target.style.backgroundPosition = ''
         target.style.backgroundRepeat = ''
 
     } else if (wp.type === 'gradient') {
-
         target.style.background = wp.value
         target.style.backgroundImage = ''
         target.style.backgroundSize = ''
@@ -5244,23 +5249,11 @@ function applyWallpaper(wp) {
         target.style.backgroundRepeat = ''
 
     } else if (wp.type === 'pattern') {
-
         const patterns = {
-            dots: {
-                bg: '#f8f8f8',
-                img: 'radial-gradient(circle,#00000015 1px,transparent 1px)',
-                size: '20px 20px'
-            },
-
-            grid: {
-                bg: '#f8f8f8',
-                img: 'linear-gradient(#0000000a 1px,transparent 1px),linear-gradient(90deg,#0000000a 1px,transparent 1px)',
-                size: '20px 20px'
-            }
+            dots: { bg: '#f8f8f8', img: 'radial-gradient(circle,#00000015 1px,transparent 1px)', size: '20px 20px' },
+            grid: { bg: '#f8f8f8', img: 'linear-gradient(#0000000a 1px,transparent 1px),linear-gradient(90deg,#0000000a 1px,transparent 1px)', size: '20px 20px' }
         }
-
         const p = patterns[wp.value] || patterns.dots
-
         target.style.background = p.bg
         target.style.backgroundImage = p.img
         target.style.backgroundSize = p.size
@@ -5268,7 +5261,6 @@ function applyWallpaper(wp) {
         target.style.backgroundRepeat = 'repeat'
 
     } else if (wp.type === 'image') {
-
         target.style.background = ''
         target.style.backgroundImage = `url("${wp.value}")`
         target.style.backgroundSize = 'cover'
@@ -5276,15 +5268,15 @@ function applyWallpaper(wp) {
         target.style.backgroundRepeat = 'no-repeat'
 
     } else {
-
         target.style.background = ''
         target.style.backgroundImage = ''
         target.style.backgroundSize = ''
         target.style.backgroundPosition = ''
         target.style.backgroundRepeat = ''
-
-    updateDateSeparatorTheme(wp)
     }
+
+    // Всегда обновляем контраст разделителей дат
+    updateDateSeparatorTheme(wp)
 }
 
 /* =========================================================
